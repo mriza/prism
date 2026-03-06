@@ -1,9 +1,10 @@
 package modules
 
 import (
-	"fitz-agent/internal/core"
+	"prism-agent/internal/core"
 	"fmt"
 	"os/exec"
+	"strings"
 )
 
 type SystemdModule struct {
@@ -71,13 +72,13 @@ func (m *SystemdModule) GetFacts() (map[string]string, error) {
 	// Get Uptime
 	out, err := m.systemctlCmd("show", m.serviceName, "--property=ActiveEnterTimestamp").Output()
 	if err == nil {
-		facts["uptime_start"] = string(out)
+		facts["uptime_start"] = strings.TrimSpace(strings.TrimPrefix(string(out), "ActiveEnterTimestamp="))
 	}
 
 	// Get Memory Usage (approx)
 	out, err = m.systemctlCmd("show", m.serviceName, "--property=MemoryCurrent").Output()
 	if err == nil {
-		facts["memory_usage"] = string(out)
+		facts["memory_usage"] = strings.TrimSpace(strings.TrimPrefix(string(out), "MemoryCurrent="))
 	}
 
 	return facts, nil

@@ -92,3 +92,18 @@ func Load(mainPath string) (*Config, error) {
 
 	return &cfg, nil
 }
+
+// Save writes the Config struct to a TOML file
+func Save(cfg *Config, path string) error {
+	data, err := toml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	err = os.WriteFile(path, data, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write config file %s: %w", path, err)
+	}
+
+	return nil
+}

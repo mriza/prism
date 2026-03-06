@@ -2,12 +2,12 @@ package protocol
 
 // Message Types
 const (
-	MsgTypeRegister    = "register"
-	MsgTypeWelcome     = "welcome"
-	MsgTypeCommand     = "command"
-	MsgTypeResponse    = "response"
-	MsgTypeEvent       = "event"
-	MsgTypeKeepAlive   = "ping"
+	MsgTypeRegister  = "register"
+	MsgTypeWelcome   = "welcome"
+	MsgTypeCommand   = "command"
+	MsgTypeResponse  = "response"
+	MsgTypeEvent     = "event"
+	MsgTypeKeepAlive = "ping"
 )
 
 // Base Message
@@ -18,10 +18,19 @@ type Message struct {
 
 // Payloads
 
+type ServiceInfo struct {
+	Name   string `json:"name"`
+	Status string `json:"status"` // running, stopped, unknown, error
+}
+
 type RegisterPayload struct {
-	Hostname string   `json:"hostname"`
-	Token    string   `json:"token"`
-	Services []string `json:"services"` // List of managed services
+	Hostname string        `json:"hostname"`
+	Token    string        `json:"token"`
+	Services []ServiceInfo `json:"services"` // List of managed services with their initial status
+}
+
+type KeepAlivePayload struct {
+	Services []ServiceInfo `json:"services"` // Periodic status updates
 }
 
 type WelcomePayload struct {
@@ -36,14 +45,14 @@ type CommandPayload struct {
 }
 
 type ResponsePayload struct {
-	CommandID string `json:"command_id"`
-	Success   bool   `json:"success"`
-	Message   string `json:"message"`
+	CommandID string      `json:"command_id"`
+	Success   bool        `json:"success"`
+	Message   string      `json:"message"`
 	Data      interface{} `json:"data,omitempty"`
 }
 
 type EventPayload struct {
-	Type    string      `json:"type"` // service_status_change
-	Service string      `json:"service"`
-	Status  string      `json:"status"`
+	Type    string `json:"type"` // service_status_change
+	Service string `json:"service"`
+	Status  string `json:"status"`
 }

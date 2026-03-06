@@ -57,7 +57,7 @@ export function Sidebar() {
                     <Zap size={16} color="#fff" />
                 </div>
                 <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.9rem', lineHeight: 1.2 }}>FITZ</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.9rem', lineHeight: 1.2 }}>PRISM</div>
                     <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                         Infra Manager
                     </div>

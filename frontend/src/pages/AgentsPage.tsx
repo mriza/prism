@@ -1,8 +1,13 @@
+import { useState } from 'react';
 import { useAgents } from '../hooks/useAgents';
-import { Server, Cpu, ShieldCheck, Disc, AlertCircle } from 'lucide-react';
+import { Server, Cpu, ShieldCheck, Shield, Disc, AlertCircle } from 'lucide-react';
+import { FirewallModal } from '../components/modals/FirewallModal';
+import { CrowdSecModal } from '../components/modals/CrowdSecModal';
 
 export function AgentsPage() {
     const { agents, loading, error } = useAgents();
+    const [fwAgent, setFwAgent] = useState<string | null>(null);
+    const [csAgent, setCsAgent] = useState<string | null>(null);
 
     return (
         <div className="animate-fade-in">
@@ -46,7 +51,7 @@ export function AgentsPage() {
                     <div style={{ textAlign: 'center' }}>
                         <div style={{ fontWeight: 600, marginBottom: '0.3rem' }}>No agents connected</div>
                         <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-                            Start a FITZ agent on a server to see it here
+                            Start a PRISM agent on a server to see it here
                         </div>
                     </div>
                 </div>
@@ -89,25 +94,76 @@ export function AgentsPage() {
                                 </div>
                                 {agent.services && agent.services.length > 0 ? (
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
-                                        {agent.services.map(svc => (
-                                            <span
-                                                key={svc}
-                                                style={{
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: '0.3rem',
-                                                    padding: '0.25rem 0.6rem',
-                                                    borderRadius: '6px',
-                                                    background: 'var(--color-bg-elevated)',
-                                                    border: '1px solid var(--color-border)',
-                                                    fontSize: '0.75rem',
-                                                    color: 'var(--color-text-secondary)',
-                                                }}
-                                            >
-                                                {svc === 'ufw' ? <ShieldCheck size={11} color="#60a5fa" /> : <Disc size={11} />}
-                                                {svc}
-                                            </span>
-                                        ))}
+                                        {agent.services.map(svc => {
+                                            let dotColor = '#9ca3af'; // unknown (gray)
+                                            if (svc.status === 'running') dotColor = '#22c55e'; // green
+                                            else if (svc.status === 'stopped' || svc.status === 'error') dotColor = '#ef4444'; // red
+
+                                            const isUfw = svc.name === 'ufw';
+                                            const isCrowdSec = svc.name === 'crowdsec';
+                                            const isClickable = isUfw || isCrowdSec;
+
+                                            // Color scheme per special service
+                                            let badgeBg = 'var(--color-bg-elevated)';
+                                            let badgeBorder = '1px solid var(--color-border)';
+                                            let badgeColor = 'var(--color-text-secondary)';
+                                            let hoverBg = '';
+                                            let hoverBorder = '';
+
+                                            if (isUfw) {
+                                                badgeBg = 'rgba(96,165,250,0.1)';
+                                                badgeBorder = '1px solid rgba(96,165,250,0.3)';
+                                                badgeColor = '#93c5fd';
+                                                hoverBg = 'rgba(96,165,250,0.2)';
+                                                hoverBorder = 'rgba(96,165,250,0.5)';
+                                            } else if (isCrowdSec) {
+                                                badgeBg = 'rgba(249,115,22,0.1)';
+                                                badgeBorder = '1px solid rgba(249,115,22,0.3)';
+                                                badgeColor = '#fdba74';
+                                                hoverBg = 'rgba(249,115,22,0.2)';
+                                                hoverBorder = 'rgba(249,115,22,0.5)';
+                                            }
+
+                                            const handleClick = isUfw
+                                                ? () => setFwAgent(agent.id)
+                                                : isCrowdSec
+                                                    ? () => setCsAgent(agent.id)
+                                                    : undefined;
+
+                                            return (
+                                                <span
+                                                    key={svc.name}
+                                                    title={isClickable ? `Click to manage ${svc.name}` : `Status: ${svc.status}`}
+                                                    onClick={handleClick}
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.4rem',
+                                                        padding: '0.25rem 0.6rem',
+                                                        borderRadius: '6px',
+                                                        background: badgeBg,
+                                                        border: badgeBorder,
+                                                        fontSize: '0.75rem',
+                                                        color: badgeColor,
+                                                        cursor: isClickable ? 'pointer' : 'default',
+                                                        transition: 'var(--transition)',
+                                                    }}
+                                                    onMouseEnter={isClickable ? (e => { e.currentTarget.style.background = hoverBg; e.currentTarget.style.borderColor = hoverBorder; }) : undefined}
+                                                    onMouseLeave={isClickable ? (e => { e.currentTarget.style.background = badgeBg; e.currentTarget.style.borderColor = badgeBorder.replace('1px solid ', ''); }) : undefined}
+                                                >
+                                                    <span style={{
+                                                        width: '8px',
+                                                        height: '8px',
+                                                        borderRadius: '50%',
+                                                        backgroundColor: dotColor,
+                                                        boxShadow: `0 0 4px ${dotColor}80`,
+                                                        display: 'inline-block'
+                                                    }} />
+                                                    {isUfw ? <ShieldCheck size={11} color="#60a5fa" /> : isCrowdSec ? <Shield size={11} color="#fb923c" /> : <Disc size={11} />}
+                                                    <span style={{ fontWeight: 500 }}>{svc.name}</span>
+                                                </span>
+                                            );
+                                        })}
                                     </div>
                                 ) : (
                                     <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
@@ -118,6 +174,20 @@ export function AgentsPage() {
                         </div>
                     ))}
                 </div>
+            )}
+            {fwAgent && (
+                <FirewallModal
+                    isOpen={true}
+                    onClose={() => setFwAgent(null)}
+                    agentId={fwAgent}
+                />
+            )}
+            {csAgent && (
+                <CrowdSecModal
+                    isOpen={true}
+                    onClose={() => setCsAgent(null)}
+                    agentId={csAgent}
+                />
             )}
         </div>
     );

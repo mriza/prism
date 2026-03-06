@@ -81,7 +81,10 @@ export interface ServiceAccount {
 
 export interface Agent {
     id: string;
-    services: string[];
+    services: {
+        name: string;
+        status: string;
+    }[];
 }
 
 export const PROJECT_COLORS = [

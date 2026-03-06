@@ -1,0 +1,45 @@
+# Build artifacts
+server/server_bin
+server/prism-server
+agent/agent_bin
+agent/prism-agent
+frontend/dist/
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Dependencies
+node_modules/
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+*.db
+
+# Environment
+.env
+.env.local
+.env.production.local
+
+# Logs
+*.log
+
+# Test
+coverage/
+
+# Temp
+tmp/

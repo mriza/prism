@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -26,7 +27,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
 
     if (!isOpen) return null;
 
-    return (
+    return createPortal(
         <div className="modal-overlay" onClick={onClose}>
             <div
                 className={`w-full ${sizeMap[size]} animate-fade-in`}
@@ -36,6 +37,9 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
                     borderRadius: 'var(--radius-xl)',
                     boxShadow: 'var(--shadow-lg)',
                     overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    maxHeight: '90vh',
                 }}
                 onClick={e => e.stopPropagation()}
             >
@@ -76,10 +80,11 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
                 </div>
 
                 {/* Body */}
-                <div style={{ padding: '1.5rem' }}>
+                <div style={{ padding: '1.5rem', overflowY: 'auto' }}>
                     {children}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

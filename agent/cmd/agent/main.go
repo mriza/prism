@@ -1,17 +1,17 @@
 package main
 
 import (
-	"fitz-agent/internal/config"
-	"fitz-agent/internal/core"
-	"fitz-agent/internal/discovery"
-	"fitz-agent/internal/modules"
-	"fitz-agent/internal/protocol"
 	"flag"
 	"fmt"
 	"log"
 	"net/url"
 	"os"
 	"os/signal"
+	"prism-agent/internal/config"
+	"prism-agent/internal/core"
+	"prism-agent/internal/discovery"
+	"prism-agent/internal/modules"
+	"prism-agent/internal/protocol"
 	"time"
 
 	"sync"
@@ -21,14 +21,41 @@ import (
 
 func main() {
 	// Parse command line flags
-	configPath := flag.String("config", "fitz-agent.conf", "Path to configuration file")
+	configPath := flag.String("config", "prism-agent.conf", "Path to configuration file")
+	generateConfig := flag.Bool("generate-config", false, "Auto-discover services and generate prism-agent.conf")
 	flag.Parse()
+
+	if *generateConfig {
+		log.Println("Starting auto-discovery to generate config...")
+		registry := core.NewRegistry()
+		discovery.Discover(registry)
+
+		services := discovery.ExportConfig(registry)
+		cfg := config.Config{
+			Server: config.ServerConfig{
+				Port: 0,
+			},
+			Hub: config.HubConfig{
+				URL:   "ws://192.168.122.230:65432/agent/connect",
+				Token: "replace_with_actual_token",
+			},
+			Services: services,
+		}
+
+		err := config.Save(&cfg, "prism-agent.conf")
+		if err != nil {
+			log.Fatalf("Failed to generate config: %v", err)
+		}
+
+		log.Println("Successfully generated prism-agent.conf")
+		os.Exit(0)
+	}
 
 	// Load configuration
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		log.Printf("Config not found at %s: %v", *configPath, err)
-		// continue with defaults or exit? For now log and try defaults/env if implemented in config.Load
+		cfg = &config.Config{} // Use empty defaults so auto-discovery still works
 	}
 
 	// Initialize Registry
@@ -38,25 +65,26 @@ func main() {
 	for _, svcCfg := range cfg.Services {
 		switch svcCfg.Type {
 		case "systemd":
-			if svcCfg.Name == "mysql" || svcCfg.Name == "mariadb" {
+			switch svcCfg.Name {
+			case "mysql", "mariadb":
 				registry.Register(modules.NewMySQLModule())
 				log.Printf("Registered MySQL module: %s", svcCfg.Name)
-			} else if svcCfg.Name == "rabbitmq" {
+			case "rabbitmq":
 				registry.Register(modules.NewRabbitMQModule())
 				log.Printf("Registered RabbitMQ module: %s", svcCfg.Name)
-			} else if svcCfg.Name == "caddy" {
+			case "caddy":
 				registry.Register(modules.NewCaddyModule())
 				log.Printf("Registered Caddy module: %s", svcCfg.Name)
-			} else if svcCfg.Name == "nginx" {
+			case "nginx":
 				registry.Register(modules.NewNginxModule())
 				log.Printf("Registered Nginx module: %s", svcCfg.Name)
-			} else if svcCfg.Name == "minio" {
+			case "minio":
 				registry.Register(modules.NewMinIOModule())
 				log.Printf("Registered MinIO module: %s", svcCfg.Name)
-			} else if svcCfg.Name == "garage" {
+			case "garage":
 				registry.Register(modules.NewGarageModule())
 				log.Printf("Registered Garage module: %s", svcCfg.Name)
-			} else {
+			default:
 				registry.Register(modules.NewSystemdModule(svcCfg.Name, svcCfg.ServiceName, svcCfg.UserScope))
 				log.Printf("Registered systemd service (config): %s", svcCfg.Name)
 			}
@@ -125,12 +153,26 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 	hostname, _ := os.Hostname()
 	services := registry.List()
 
+	// Gather initial status
+	var serviceInfos []protocol.ServiceInfo
+	for _, svcName := range services {
+		mod, err := registry.Get(svcName)
+		var status core.Status = core.StatusUnknown
+		if err == nil {
+			status, _ = mod.Status()
+		}
+		serviceInfos = append(serviceInfos, protocol.ServiceInfo{
+			Name:   svcName,
+			Status: string(status),
+		})
+	}
+
 	regMsg := protocol.Message{
 		Type: protocol.MsgTypeRegister,
 		Payload: protocol.RegisterPayload{
 			Hostname: hostname,
 			Token:    token,
-			Services: services,
+			Services: serviceInfos,
 		},
 	}
 
@@ -220,8 +262,28 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 		case <-done:
 			return fmt.Errorf("connection closed by server")
 		case <-ticker.C:
-			// Send Ping
-			if err := safeWrite(protocol.Message{Type: protocol.MsgTypeKeepAlive}); err != nil {
+			// Get latest status
+			var serviceInfos []protocol.ServiceInfo
+			for _, svcName := range registry.List() {
+				mod, err := registry.Get(svcName)
+				var status core.Status = core.StatusUnknown
+				if err == nil {
+					status, _ = mod.Status()
+				}
+				serviceInfos = append(serviceInfos, protocol.ServiceInfo{
+					Name:   svcName,
+					Status: string(status),
+				})
+			}
+
+			// Send Ping with Status payload
+			pingMsg := protocol.Message{
+				Type: protocol.MsgTypeKeepAlive,
+				Payload: protocol.KeepAlivePayload{
+					Services: serviceInfos,
+				},
+			}
+			if err := safeWrite(pingMsg); err != nil {
 				return fmt.Errorf("ping write error: %w", err)
 			}
 		case <-interrupt:

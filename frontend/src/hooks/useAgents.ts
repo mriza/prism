@@ -9,7 +9,8 @@ export function useAgents() {
     useEffect(() => {
         const fetch_ = async () => {
             try {
-                const res = await fetch('http://localhost:65432/api/agents');
+                const hubUrl = import.meta.env.VITE_HUB_URL || 'http://localhost:65432';
+                const res = await fetch(`${hubUrl}/api/agents`);
                 if (!res.ok) throw new Error('Agent API error');
                 const data = await res.json();
                 setAgents(data || []);
@@ -21,7 +22,7 @@ export function useAgents() {
             }
         };
         fetch_();
-        const interval = setInterval(fetch_, 5000);
+        const interval = setInterval(fetch_, 30000);
         return () => clearInterval(interval);
     }, []);
 

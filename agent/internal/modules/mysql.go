@@ -1,7 +1,7 @@
 package modules
 
 import (
-	"fitz-agent/internal/core"
+	"prism-agent/internal/core"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -22,7 +22,7 @@ var _ core.ServiceModule = (*MySQLModule)(nil)
 
 func (m *MySQLModule) GetFacts() (map[string]string, error) {
 	facts, _ := m.SystemdModule.GetFacts()
-	
+
 	// Add Version
 	out, err := exec.Command("mysql", "--version").Output()
 	if err == nil {
@@ -69,14 +69,13 @@ func (m *MySQLModule) CreateUser(name, password string) error {
 	if !isValidIdentifier(name) {
 		return fmt.Errorf("invalid username")
 	}
-	
+
 	// Password complexity check
 	if err := ValidatePassword(password); err != nil {
 		return err
 	}
-	// basic escaping for password (weak but better than nothing for now using CLI)
 	password = strings.ReplaceAll(password, "'", "\\'")
-	
+
 	// Determine Host (default to %)
 	host := "%"
 	if strings.Contains(name, "@") {
@@ -84,17 +83,22 @@ func (m *MySQLModule) CreateUser(name, password string) error {
 		name = parts[0]
 		host = parts[1]
 	}
-	
+
 	if !isValidIdentifier(name) || !isValidIdentifier(host) {
 		return fmt.Errorf("invalid username or host")
 	}
 
-	return exec.Command("mysql", "-e", fmt.Sprintf("CREATE USER '%s'@'%s' IDENTIFIED BY '%s';", name, host, password)).Run()
+	query := fmt.Sprintf("CREATE USER '%s'@'%s' IDENTIFIED BY '%s';", name, host, password)
+	cmd := exec.Command("mysql")
+	cmd.Stdin = strings.NewReader(query)
+	return cmd.Run()
 }
 
 // Helper for basic identifier validation (alphanumeric, underscore, dash)
 func isValidIdentifier(s string) bool {
-	if len(s) == 0 || len(s) > 64 { return false }
+	if len(s) == 0 || len(s) > 64 {
+		return false
+	}
 	for _, r := range s {
 		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '_' && r != '-' && r != '%' {
 			return false

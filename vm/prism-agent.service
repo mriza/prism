@@ -1,0 +1,12 @@
+[Unit]
+Description=PRISM Agent
+After=network.target
+
+[Service]
+ExecStart=/home/prism/agent_bin
+WorkingDirectory=/home/prism
+User=root
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

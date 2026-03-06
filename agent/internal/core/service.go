@@ -101,3 +101,34 @@ type ProxyInfo struct {
 	Upstream string `json:"upstream"`
 	Enabled  bool   `json:"enabled"`
 }
+
+// PM2App represents a process managed by PM2.
+type PM2App struct {
+	Name   string `json:"name"`
+	Status string `json:"status"`
+	PID    int    `json:"pid"`
+	CPU    string `json:"cpu"`
+	Memory string `json:"memory"`
+}
+
+// PM2Module is implemented by the PM2 service module.
+type PM2Module interface {
+	GetApps() ([]PM2App, error)
+	GetListenPort(pid int) (int, error)
+}
+
+// FirewallModule is implemented by firewall services like UFW.
+type FirewallModule interface {
+	AllowPort(port int, protocol string) error
+	DenyPort(port int, protocol string) error
+	ListRules() ([]map[string]string, error)
+	DeleteRule(ruleID string) error
+	SetDefaultPolicy(policy, direction string) error
+}
+
+// CrowdSecModule is implemented by the CrowdSec security engine.
+type CrowdSecModule interface {
+	ListDecisions() (string, error)
+	AddDecision(ip, duration, reason, decType string) error
+	DeleteDecision(id string) error
+}

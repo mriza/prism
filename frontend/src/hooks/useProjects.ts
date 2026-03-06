@@ -1,41 +1,76 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Project } from '../types';
 
-const STORAGE_KEY = 'fitz:projects';
-
-function load(): Project[] {
-    try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    } catch {
-        return [];
-    }
-}
-function save(data: Project[]) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
+const getHubUrl = () => import.meta.env.VITE_HUB_URL || 'http://localhost:65432';
 
 export function useProjects() {
-    const [projects, setProjects] = useState<Project[]>(load);
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    useEffect(() => { save(projects); }, [projects]);
-
-    const createProject = useCallback((data: Omit<Project, 'id' | 'createdAt'>) => {
-        const p: Project = {
-            ...data,
-            id: crypto.randomUUID(),
-            createdAt: new Date().toISOString(),
-        };
-        setProjects(prev => [p, ...prev]);
-        return p;
+    const fetchProjects = useCallback(async () => {
+        try {
+            const res = await fetch(`${getHubUrl()}/api/projects`);
+            if (res.ok) {
+                const data = await res.json();
+                setProjects(data || []);
+            }
+        } catch (err) {
+            console.error('Failed to fetch projects', err);
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
-    const updateProject = useCallback((id: string, data: Partial<Omit<Project, 'id' | 'createdAt'>>) => {
-        setProjects(prev => prev.map(p => p.id === id ? { ...p, ...data } : p));
+    useEffect(() => {
+        fetchProjects();
+    }, [fetchProjects]);
+
+    const createProject = useCallback(async (data: Omit<Project, 'id' | 'createdAt'>) => {
+        try {
+            const res = await fetch(`${getHubUrl()}/api/projects`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (res.ok) {
+                const newProject = await res.json();
+                setProjects(prev => [newProject, ...prev]);
+                return newProject;
+            }
+        } catch (err) {
+            console.error('Failed to create project', err);
+        }
+        return null; // or throw
     }, []);
 
-    const deleteProject = useCallback((id: string) => {
-        setProjects(prev => prev.filter(p => p.id !== id));
+    const updateProject = useCallback(async (id: string, data: Partial<Omit<Project, 'id' | 'createdAt'>>) => {
+        try {
+            const res = await fetch(`${getHubUrl()}/api/projects/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (res.ok) {
+                const updatedProject = await res.json();
+                setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updatedProject } : p));
+            }
+        } catch (err) {
+            console.error('Failed to update project', err);
+        }
     }, []);
 
-    return { projects, createProject, updateProject, deleteProject };
+    const deleteProject = useCallback(async (id: string) => {
+        try {
+            const res = await fetch(`${getHubUrl()}/api/projects/${id}`, {
+                method: 'DELETE'
+            });
+            if (res.ok) {
+                setProjects(prev => prev.filter(p => p.id !== id));
+            }
+        } catch (err) {
+            console.error('Failed to delete project', err);
+        }
+    }, []);
+
+    return { projects, loading, createProject, updateProject, deleteProject };
 }

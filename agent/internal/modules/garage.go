@@ -1,7 +1,7 @@
 package modules
 
 import (
-	"fitz-agent/internal/core"
+	"prism-agent/internal/core"
 	"os/exec"
 	"strings"
 )

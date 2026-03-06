@@ -1,4 +1,4 @@
-module fitz-agent
+module prism-agent
 
 go 1.25.7
 

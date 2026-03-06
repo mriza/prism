@@ -7,17 +7,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"fitz-agent/internal/core"
+	"prism-agent/internal/core"
 )
-
-// PM2App represents a process managed by PM2.
-type PM2App struct {
-	Name   string `json:"name"`
-	Status string `json:"status"`
-	PID    int    `json:"pid"`
-	CPU    string `json:"cpu"`
-	Memory string `json:"memory"`
-}
 
 type pm2ProcessInfo struct {
 	Name   string `json:"name"`
@@ -84,7 +75,7 @@ func (m *PM2Module) Configure(config map[string]interface{}) error {
 }
 
 // GetApps returns the list of PM2-managed processes with status, PID and resource usage.
-func (m *PM2Module) GetApps() ([]PM2App, error) {
+func (m *PM2Module) GetApps() ([]core.PM2App, error) {
 	out, err := exec.Command("pm2", "jlist").Output()
 	if err != nil {
 		return nil, fmt.Errorf("pm2 jlist failed: %w", err)
@@ -95,9 +86,9 @@ func (m *PM2Module) GetApps() ([]PM2App, error) {
 		return nil, fmt.Errorf("pm2 jlist parse: %w", err)
 	}
 
-	apps := make([]PM2App, 0, len(procs))
+	apps := make([]core.PM2App, 0, len(procs))
 	for _, p := range procs {
-		apps = append(apps, PM2App{
+		apps = append(apps, core.PM2App{
 			Name:   p.Name,
 			Status: p.Pm2Env.Status,
 			PID:    p.Pid,
@@ -109,7 +100,7 @@ func (m *PM2Module) GetApps() ([]PM2App, error) {
 }
 
 // GetListenPort attempts to detect the TCP LISTEN port for a given PID via /proc/net/tcp*.
-func GetListenPort(pid int) (int, error) {
+func (m *PM2Module) GetListenPort(pid int) (int, error) {
 	inodes, err := socketInodesForPID(pid)
 	if err != nil || len(inodes) == 0 {
 		return 0, fmt.Errorf("no sockets found for pid %d", pid)
