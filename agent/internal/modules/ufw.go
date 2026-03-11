@@ -8,7 +8,8 @@ import (
 )
 
 type UFWModule struct {
-	name string
+	name     string
+	isActive bool
 }
 
 func NewUFWModule() *UFWModule {
@@ -19,6 +20,18 @@ func NewUFWModule() *UFWModule {
 
 func (m *UFWModule) Name() string {
 	return m.name
+}
+
+func (m *UFWModule) TargetName() string {
+	return m.name
+}
+
+func (m *UFWModule) IsActive() bool {
+	return m.isActive
+}
+
+func (m *UFWModule) SetActive(active bool) {
+	m.isActive = active
 }
 
 func (m *UFWModule) Install() error {

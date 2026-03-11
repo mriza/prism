@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"runtime"
+	"strings"
 	"prism-agent/internal/config"
 	"prism-agent/internal/core"
 	"prism-agent/internal/discovery"
@@ -28,7 +30,7 @@ func main() {
 	if *generateConfig {
 		log.Println("Starting auto-discovery to generate config...")
 		registry := core.NewRegistry()
-		discovery.Discover(registry)
+		discovery.Discover(registry, "")
 
 		services := discovery.ExportConfig(registry)
 		cfg := config.Config{
@@ -78,6 +80,12 @@ func main() {
 			case "nginx":
 				registry.Register(modules.NewNginxModule())
 				log.Printf("Registered Nginx module: %s", svcCfg.Name)
+			case "mongodb", "mongod":
+				registry.Register(modules.NewMongoDBModule())
+				log.Printf("Registered MongoDB module: %s", svcCfg.Name)
+			case "postgresql", "postgres":
+				registry.Register(modules.NewPostgresModule())
+				log.Printf("Registered PostgreSQL module: %s", svcCfg.Name)
 			case "minio":
 				registry.Register(modules.NewMinIOModule())
 				log.Printf("Registered MinIO module: %s", svcCfg.Name)
@@ -98,7 +106,7 @@ func main() {
 	}
 
 	// Auto-Discovery
-	discovery.Discover(registry)
+	discovery.Discover(registry, cfg.ActiveFirewall)
 
 	// Log all services
 	for _, s := range registry.List() {
@@ -119,7 +127,7 @@ func main() {
 	for {
 		log.Printf("Connecting to Hub at %s", u.String())
 
-		err := connectAndMonitor(u.String(), cfg.Hub.Token, registry, interrupt)
+		err := connectAndMonitor(u.String(), cfg.Hub.Token, registry, interrupt, cfg, *configPath)
 		if err != nil {
 			log.Printf("Connection error: %v", err)
 		}
@@ -134,7 +142,23 @@ func main() {
 	}
 }
 
-func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt chan os.Signal) error {
+func getOSInfo() string {
+	osInfo := runtime.GOOS + "/" + runtime.GOARCH
+	if b, err := os.ReadFile("/etc/os-release"); err == nil {
+		lines := strings.Split(string(b), "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "PRETTY_NAME=") {
+				val := strings.TrimPrefix(line, "PRETTY_NAME=")
+				val = strings.Trim(val, `"'`)
+				osInfo = val + " (" + runtime.GOARCH + ")"
+				break
+			}
+		}
+	}
+	return osInfo
+}
+
+func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt chan os.Signal, cfg *config.Config, cfgPath string) error {
 	c, _, err := websocket.DefaultDialer.Dial(urlStr, nil)
 	if err != nil {
 		return err
@@ -158,12 +182,29 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 	for _, svcName := range services {
 		mod, err := registry.Get(svcName)
 		var status core.Status = core.StatusUnknown
+		var metrics map[string]float64
 		if err == nil {
 			status, _ = mod.Status()
+			if gatherer, ok := mod.(core.MetricGatherer); ok {
+				if m, err := gatherer.Metrics(); err == nil && m != nil {
+					metrics = m
+				}
+			}
+			if fwMod, ok := mod.(core.FirewallModule); ok {
+				if metrics == nil {
+					metrics = make(map[string]float64)
+				}
+				if fwMod.IsActive() {
+					metrics["is_active"] = 1
+				} else {
+					metrics["is_active"] = 0
+				}
+			}
 		}
 		serviceInfos = append(serviceInfos, protocol.ServiceInfo{
-			Name:   svcName,
-			Status: string(status),
+			Name:    svcName,
+			Status:  string(status),
+			Metrics: metrics,
 		})
 	}
 
@@ -171,6 +212,7 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 		Type: protocol.MsgTypeRegister,
 		Payload: protocol.RegisterPayload{
 			Hostname: hostname,
+			OSInfo:   getOSInfo(),
 			Token:    token,
 			Services: serviceInfos,
 		},
@@ -199,15 +241,64 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 			}
 
 			if msg.Type == protocol.MsgTypeCommand {
-				payloadMap, _ := msg.Payload.(map[string]interface{})
-				// Re-marshal to struct (quick hack for map[string]interface{})
-				// Proper way is to use a library or clean switch
+				payloadMap, ok := msg.Payload.(map[string]interface{})
+				if !ok || payloadMap == nil {
+					log.Printf("Received invalid command payload type or nil payload")
+					continue
+				}
 
 				action, _ := payloadMap["action"].(string)
 				serviceName, _ := payloadMap["service"].(string)
 				cmdID, _ := payloadMap["command_id"].(string)
 
+				if action == "" || serviceName == "" {
+					log.Printf("Received command with empty action or service: action='%s', service='%s', cmdID='%s'", action, serviceName, cmdID)
+				}
+
 				log.Printf("Received command: %s %s [%s]", action, serviceName, cmdID)
+
+				if action == "firewall_set_active" {
+					go func() {
+						var success bool
+						var output string
+
+						mod, err := registry.Get(serviceName)
+						if err != nil {
+							success = false
+							output = "target firewall not found"
+						} else if _, ok := mod.(core.FirewallModule); !ok {
+							success = false
+							output = "target is not a firewall module"
+						} else {
+							cfg.ActiveFirewall = serviceName
+							if err := config.Save(cfg, cfgPath); err != nil {
+								success = false
+								output = "failed to save config: " + err.Error()
+							} else {
+								for _, name := range registry.List() {
+									if hw, err := registry.Get(name); err == nil {
+										if fwMod, ok := hw.(core.FirewallModule); ok {
+											fwMod.SetActive(fwMod.TargetName() == serviceName)
+										}
+									}
+								}
+								success = true
+								output = "Active firewall set to " + serviceName
+							}
+						}
+
+						resp := protocol.Message{
+							Type: protocol.MsgTypeResponse,
+							Payload: protocol.ResponsePayload{
+								CommandID: cmdID,
+								Success:   success,
+								Message:   output,
+							},
+						}
+						safeWrite(resp)
+					}()
+					continue
+				}
 
 				// Execute
 				go func() {
@@ -220,7 +311,10 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 						output = err.Error()
 					} else {
 						if handler, ok := CommandHandlers[action]; ok {
-							opts, _ := payloadMap["options"].(map[string]interface{})
+							var opts map[string]interface{}
+							if optsRaw, ok := payloadMap["options"]; ok && optsRaw != nil {
+								opts, _ = optsRaw.(map[string]interface{})
+							}
 							out, err := handler(mod, map[string]interface{}{"options": opts})
 							if err != nil {
 								success = false
@@ -267,12 +361,29 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 			for _, svcName := range registry.List() {
 				mod, err := registry.Get(svcName)
 				var status core.Status = core.StatusUnknown
+				var metrics map[string]float64
 				if err == nil {
 					status, _ = mod.Status()
+					if gatherer, ok := mod.(core.MetricGatherer); ok {
+						if m, err := gatherer.Metrics(); err == nil && m != nil {
+							metrics = m
+						}
+					}
+					if fwMod, ok := mod.(core.FirewallModule); ok {
+						if metrics == nil {
+							metrics = make(map[string]float64)
+						}
+						if fwMod.IsActive() {
+							metrics["is_active"] = 1
+						} else {
+							metrics["is_active"] = 0
+						}
+					}
 				}
 				serviceInfos = append(serviceInfos, protocol.ServiceInfo{
-					Name:   svcName,
-					Status: string(status),
+					Name:    svcName,
+					Status:  string(status),
+					Metrics: metrics,
 				})
 			}
 

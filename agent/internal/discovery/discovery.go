@@ -23,11 +23,10 @@ var standardServices = []struct {
 	{"garage", "garage", "systemd"},
 	{"sftpgo", "sftpgo", "systemd"},
 	{"seaweedfs", "seaweedfs", "systemd"},
-	{"ufw", "ufw", "ufw"},                // Special type
 	{"crowdsec", "crowdsec", "crowdsec"}, // Special type
 }
 
-func Discover(registry *core.Registry) {
+func Discover(registry *core.Registry, activeFirewall string) {
 	// Check standard systemd services
 	for _, svc := range standardServices {
 		// Don't overwrite if already registered (from config)
@@ -40,11 +39,6 @@ func Discover(registry *core.Registry) {
 			if err := exec.Command("systemctl", "list-unit-files", svc.ServiceName+".service").Run(); err == nil {
 				// Installed! Register it.
 				m := modules.NewSystemdModule(svc.Name, svc.ServiceName, false)
-				registry.Register(m)
-			}
-		} else if svc.Type == "ufw" {
-			m := modules.NewUFWModule()
-			if err := m.Install(); err == nil {
 				registry.Register(m)
 			}
 		} else if svc.Type == "crowdsec" {
@@ -60,6 +54,54 @@ func Discover(registry *core.Registry) {
 		m := modules.NewPM2Module()
 		if err := m.Install(); err == nil {
 			registry.Register(m)
+		}
+	}
+
+	// Discover All Firewalls
+	installedFirewalls := []core.ServiceModule{}
+
+	if fwd := modules.NewFirewalldModule(); fwd.Install() == nil {
+		installedFirewalls = append(installedFirewalls, fwd)
+	}
+	if ufw := modules.NewUFWModule(); ufw.Install() == nil {
+		installedFirewalls = append(installedFirewalls, ufw)
+	}
+	if nft := modules.NewNftablesModule(); nft.Install() == nil {
+		installedFirewalls = append(installedFirewalls, nft)
+	}
+	if ipt := modules.NewIptablesModule(); ipt.Install() == nil {
+		installedFirewalls = append(installedFirewalls, ipt)
+	}
+
+	// Register them all
+	var activeModule core.FirewallModule
+	for _, hw := range installedFirewalls {
+		// Only register if it wasn't somehow manually registered
+		if _, err := registry.Get(hw.Name()); err != nil {
+			registry.Register(hw)
+		}
+		
+		// Determine which one should be active
+		fwMod, _ := hw.(core.FirewallModule)
+		if fwMod != nil {
+			if activeFirewall != "" {
+				if hw.Name() == activeFirewall {
+					activeModule = fwMod
+				}
+			} else if activeModule == nil {
+				// No config set, make the first discovered (highest priority based on order above) the active one
+				activeModule = fwMod
+			}
+		}
+	}
+
+	// Apply Active state
+	if activeModule != nil {
+		for _, hw := range installedFirewalls {
+			fwMod, _ := hw.(core.FirewallModule)
+			if fwMod != nil {
+				fwMod.SetActive(fwMod.TargetName() == activeModule.TargetName())
+			}
 		}
 	}
 
@@ -157,6 +199,12 @@ func ExportConfig(registry *core.Registry) []config.ServiceConfig {
 		case *modules.UFWModule:
 			svcCfg.Type = "ufw"
 			svcCfg.ServiceName = "ufw"
+		case *modules.FirewalldModule:
+			svcCfg.Type = "firewalld"
+		case *modules.IptablesModule:
+			svcCfg.Type = "iptables"
+		case *modules.NftablesModule:
+			svcCfg.Type = "nftables"
 		case *modules.AnsibleModule:
 			svcCfg.Type = "ansible"
 		default:

@@ -70,6 +70,8 @@ func HandleAccounts(w http.ResponseWriter, r *http.Request) {
 				err := sendInternalControlCommand(a.AgentID, string(a.Type), "db_create_user", map[string]interface{}{
 					"username": a.Username,
 					"password": a.Password,
+					"role":     a.Role,
+					"target":   a.TargetEntity,
 				})
 				if err != nil {
 					http.Error(w, fmt.Sprintf("Failed to create user on agent: %v", err), http.StatusInternalServerError)
@@ -122,6 +124,22 @@ func HandleAccountDetail(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		a.ID = id
+
+		// Send Update Privileges Command to Agent if applicable
+		if a.Type == "mysql" || a.Type == "postgresql" || a.Type == "mongodb" {
+			if a.Username != "" {
+				err := sendInternalControlCommand(a.AgentID, string(a.Type), "db_update_privileges", map[string]interface{}{
+					"username": a.Username,
+					"role":     a.Role,
+					"target":   a.TargetEntity,
+				})
+				if err != nil {
+					http.Error(w, fmt.Sprintf("Failed to update user privileges on agent: %v", err), http.StatusInternalServerError)
+					return
+				}
+			}
+		}
+
 		if err := db.UpdateServiceAccount(a); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

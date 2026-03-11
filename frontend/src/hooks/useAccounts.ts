@@ -1,15 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { ServiceAccount } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
-const getHubUrl = () => import.meta.env.VITE_HUB_URL || 'http://localhost:65432';
 
 export function useAccounts() {
     const [accounts, setAccounts] = useState<ServiceAccount[]>([]);
     const [loading, setLoading] = useState(true);
+    const { token } = useAuth();
+
+    const apiBase = import.meta.env.VITE_API_URL || '';
 
     const fetchAccounts = useCallback(async () => {
         try {
-            const res = await fetch(`${getHubUrl()}/api/accounts`);
+            const res = await fetch(`${apiBase}/api/accounts`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             if (res.ok) {
                 const data = await res.json();
                 setAccounts(data || []);
@@ -19,7 +24,7 @@ export function useAccounts() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [token, apiBase]);
 
     useEffect(() => {
         fetchAccounts();
@@ -27,9 +32,12 @@ export function useAccounts() {
 
     const createAccount = useCallback(async (data: Omit<ServiceAccount, 'id' | 'createdAt'>) => {
         try {
-            const res = await fetch(`${getHubUrl()}/api/accounts`, {
+            const res = await fetch(`${apiBase}/api/accounts`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify(data)
             });
             if (res.ok) {
@@ -41,13 +49,16 @@ export function useAccounts() {
             console.error('Failed to create account', err);
         }
         return null; // or throw
-    }, []);
+    }, [token, apiBase]);
 
     const updateAccount = useCallback(async (id: string, data: Partial<Omit<ServiceAccount, 'id' | 'createdAt'>>) => {
         try {
-            const res = await fetch(`${getHubUrl()}/api/accounts/${id}`, {
+            const res = await fetch(`${apiBase}/api/accounts/${id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify(data)
             });
             if (res.ok) {
@@ -57,12 +68,13 @@ export function useAccounts() {
         } catch (err) {
             console.error('Failed to update account', err);
         }
-    }, []);
+    }, [token, apiBase]);
 
     const deleteAccount = useCallback(async (id: string) => {
         try {
-            const res = await fetch(`${getHubUrl()}/api/accounts/${id}`, {
-                method: 'DELETE'
+            const res = await fetch(`${apiBase}/api/accounts/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
                 setAccounts(prev => prev.filter(a => a.id !== id));
@@ -70,7 +82,7 @@ export function useAccounts() {
         } catch (err) {
             console.error('Failed to delete account', err);
         }
-    }, []);
+    }, [token, apiBase]);
 
     const deleteAccountsByProject = useCallback(async (projectId: string) => {
         // Find them and delete individually since the API doesn't have a bulk delete right now
@@ -79,12 +91,29 @@ export function useAccounts() {
         for (const account of toDelete) {
             await deleteAccount(account.id);
         }
-    }, [accounts, deleteAccount]);
+    }, [accounts, deleteAccount, token, apiBase]);
+
+    const provisionAccount = useCallback(async (agentId: string, action: string, options: Record<string, unknown>) => {
+        try {
+            const res = await fetch(`${apiBase}/api/agents/${agentId}/command`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ action, options })
+            });
+            return res.ok;
+        } catch (err) {
+            console.error('Failed to provision account', err);
+            return false;
+        }
+    }, [token, apiBase]);
 
     const accountsByProject = useCallback((projectId: string) =>
         accounts.filter(a => a.projectId === projectId), [accounts]);
 
     const independentAccounts = accounts.filter(a => !a.projectId);
 
-    return { accounts, loading, createAccount, updateAccount, deleteAccount, deleteAccountsByProject, accountsByProject, independentAccounts };
+    return { accounts, loading, createAccount, updateAccount, deleteAccount, deleteAccountsByProject, provisionAccount, accountsByProject, independentAccounts };
 }

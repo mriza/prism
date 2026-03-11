@@ -19,12 +19,14 @@ type Message struct {
 // Payloads
 
 type ServiceInfo struct {
-	Name   string `json:"name"`
-	Status string `json:"status"` // running, stopped, unknown, error
+	Name    string             `json:"name"`
+	Status  string             `json:"status"` // running, stopped, unknown, error
+	Metrics map[string]float64 `json:"metrics,omitempty"`
 }
 
 type RegisterPayload struct {
 	Hostname string        `json:"hostname"`
+	OSInfo   string        `json:"os_info"`
 	Token    string        `json:"token"`
 	Services []ServiceInfo `json:"services"` // List of managed services with their initial status
 }

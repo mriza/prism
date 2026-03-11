@@ -2,28 +2,41 @@ import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useProjects } from '../hooks/useProjects';
 import { useAccounts } from '../hooks/useAccounts';
+import { useAuth } from '../contexts/AuthContext';
 import { AccountFormModal } from '../components/modals/AccountFormModal';
 import { ProjectFormModal } from '../components/modals/ProjectFormModal';
 import { Button } from '../components/ui/Button';
 import { ServiceTypeIcon } from '../components/ui/ServiceTypeIcon';
 import { SERVICE_TYPE_LABELS } from '../types';
-import { Plus, ArrowLeft, Pencil, Trash2, Server, KeyRound } from 'lucide-react';
+import { Plus, ArrowLeft, Pencil, Trash2, Server, KeyRound, Copy, Check, Play, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+import type { ServiceAccount } from '../types';
 
 export function ProjectDetailPage() {
     const { id } = useParams<{ id: string }>();
     const { projects, updateProject, deleteProject } = useProjects();
-    const { accountsByProject, createAccount, deleteAccount, deleteAccountsByProject } = useAccounts();
+    const { accountsByProject, createAccount, updateAccount, deleteAccount, deleteAccountsByProject, provisionAccount } = useAccounts();
     const navigate = useNavigate();
+    const { user } = useAuth();
 
     const project = projects.find(p => p.id === id);
     const [showAddAccount, setShowAddAccount] = useState(false);
+    const [editAccount, setEditAccount] = useState<ServiceAccount | null>(null);
     const [showEditProject, setShowEditProject] = useState(false);
+    const [copiedId, setCopiedId] = useState<string | null>(null);
+    const [provisioningId, setProvisioningId] = useState<string | null>(null);
+    const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+
+    const togglePassword = (id: string) => {
+        setShowPasswords(prev => ({ ...prev, [id]: !prev[id] }));
+    };
 
     if (!project) {
         return (
-            <div style={{ textAlign: 'center', padding: '4rem 2rem' }}>
-                <p style={{ color: 'var(--color-text-secondary)' }}>Project not found.</p>
-                <Link to="/projects" style={{ color: 'var(--color-accent)', fontSize: '0.875rem' }}>← Back to projects</Link>
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <p className="text-neutral-content">Project not found.</p>
+                <Link to="/projects" className="btn btn-primary btn-sm">← Back to projects</Link>
             </div>
         );
     }
@@ -31,125 +44,238 @@ export function ProjectDetailPage() {
     const accounts = accountsByProject(project.id);
 
     return (
-        <div className="animate-fade-in">
+        <div className="space-y-6">
             {/* Breadcrumb */}
-            <Link to="/projects" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--color-text-muted)', textDecoration: 'none', marginBottom: '1.25rem' }}>
-                <ArrowLeft size={13} /> Projects
-            </Link>
+            <nav className="text-sm">
+                <Link to="/projects" className="flex items-center gap-1.5 text-neutral-content hover:text-primary transition-colors">
+                    <ArrowLeft size={14} /> <span>Projects</span>
+                </Link>
+            </nav>
 
-            {/* Project header */}
-            <div
-                className="card"
-                style={{ padding: '1.5rem', marginBottom: '1.5rem', borderLeft: `4px solid ${project.color}` }}
-            >
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: project.color + '20', border: `1px solid ${project.color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <KeyRound size={20} color={project.color} />
-                        </div>
-                        <div>
-                            <h1 style={{ fontSize: '1.35rem', fontWeight: 700 }}>{project.name}</h1>
-                            {project.description && (
-                                <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginTop: '0.2rem' }}>
-                                    {project.description}
-                                </p>
-                            )}
-                        </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <Button variant="secondary" size="sm" icon={<Pencil size={13} />} onClick={() => setShowEditProject(true)}>
-                            Edit
-                        </Button>
-                        <Button
-                            variant="danger"
-                            size="sm"
-                            icon={<Trash2 size={13} />}
-                            onClick={() => {
-                                if (confirm(`Delete project "${project.name}" and all its accounts?`)) {
-                                    deleteAccountsByProject(project.id);
-                                    deleteProject(project.id);
-                                    navigate('/projects');
-                                }
-                            }}
-                        >
-                            Delete
-                        </Button>
-                    </div>
-                </div>
-                <div style={{ display: 'flex', gap: '2rem', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--color-border)' }}>
-                    <div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Accounts</div>
-                        <div style={{ fontWeight: 700, fontSize: '1.25rem' }}>{accounts.length}</div>
-                    </div>
-                    <div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Created</div>
-                        <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>
-                            {new Date(project.createdAt).toLocaleDateString()}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Accounts */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                <h2 style={{ fontWeight: 600 }}>Service Accounts</h2>
-                <Button size="sm" icon={<Plus size={14} />} onClick={() => setShowAddAccount(true)}>
-                    Add Account
-                </Button>
-            </div>
-
-            {accounts.length === 0 ? (
-                <div
-                    className="card"
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3rem', borderStyle: 'dashed', gap: '0.75rem' }}
-                >
-                    <KeyRound size={32} color="var(--color-text-muted)" />
-                    <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-                        No accounts in this project yet.
-                    </p>
-                    <Button size="sm" icon={<Plus size={14} />} onClick={() => setShowAddAccount(true)}>
-                        Add First Account
-                    </Button>
-                </div>
-            ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-                    {accounts.map(a => (
-                        <div
-                            key={a.id}
-                            className="card"
-                            style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', transition: 'var(--transition)' }}
-                            onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)')}
-                            onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--color-border)')}
-                        >
-                            <ServiceTypeIcon type={a.type} size={38} />
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{a.name}</div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '2px', display: 'flex', gap: '1rem' }}>
-                                    <span>{SERVICE_TYPE_LABELS[a.type]}</span>
-                                    {a.host && <span>{a.host}{a.port ? `:${a.port}` : ''}</span>}
-                                    {a.database && <span>db: {a.database}</span>}
-                                    {a.bucket && <span>bucket: {a.bucket}</span>}
-                                    {a.appName && <span>app: {a.appName}</span>}
-                                </div>
+            {/* Project header card */}
+            <div className="card bg-base-200 border border-white/5 overflow-hidden">
+                <div className="h-1.5 w-full" style={{ background: project.color }} />
+                <div className="card-body p-6 md:p-8">
+                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border border-white/10" style={{ background: `${project.color}20` }}>
+                                <KeyRound size={28} style={{ color: project.color }} />
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.7rem', color: 'var(--color-text-muted)', background: 'var(--color-bg-elevated)', padding: '0.2rem 0.5rem', borderRadius: '5px' }}>
-                                    <Server size={11} />
-                                    {a.agentId || 'no agent'}
-                                </div>
-                                <button
-                                    onClick={() => { if (confirm(`Delete account "${a.name}"?`)) deleteAccount(a.id); }}
-                                    style={{ padding: '0.35rem', borderRadius: '6px', border: 'none', background: 'transparent', color: 'var(--color-text-muted)', cursor: 'pointer' }}
-                                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.15)'; e.currentTarget.style.color = '#f87171'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-muted)'; }}
+                            <div className="space-y-1">
+                                <h1 className="text-2xl font-bold">{project.name}</h1>
+                                {project.description && (
+                                    <p className="text-neutral-content text-sm max-w-2xl">
+                                        {project.description}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                        {user?.role !== 'user' && (
+                            <div className="flex gap-2 shrink-0">
+                                <Button variant="secondary" size="sm" icon={<Pencil size={14} />} onClick={() => setShowEditProject(true)}>
+                                    Edit Project
+                                </Button>
+                                <Button
+                                    variant="danger"
+                                    size="sm"
+                                    icon={<Trash2 size={14} />}
+                                    onClick={() => {
+                                        if (confirm(`Delete project "${project.name}" and all its accounts?`)) {
+                                            deleteAccountsByProject(project.id);
+                                            deleteProject(project.id);
+                                            navigate('/projects');
+                                        }
+                                    }}
                                 >
-                                    <Trash2 size={14} />
-                                </button>
+                                    Delete
+                                </Button>
                             </div>
+                        )}
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-8 mt-8 border-t border-white/5">
+                        <div className="space-y-1">
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-content/60">Service Accounts</div>
+                            <div className="text-xl font-bold">{accounts.length}</div>
                         </div>
-                    ))}
+                        <div className="space-y-1">
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-content/60">Date Created</div>
+                            <div className="text-base font-semibold">{new Date(project.createdAt).toLocaleDateString()}</div>
+                        </div>
+                    </div>
                 </div>
-            )}
+            </div>
+
+            {/* Accounts section */}
+            <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-bold flex items-center gap-2">
+                        <span>Service Accounts</span>
+                        <div className="badge badge-neutral badge-sm font-mono">{accounts.length}</div>
+                    </h2>
+                    {user?.role !== 'user' && (
+                        <Button size="sm" icon={<Plus size={16} />} onClick={() => setShowAddAccount(true)}>
+                            Add Account
+                        </Button>
+                    )}
+                </div>
+
+                {accounts.length === 0 ? (
+                    <div className="card bg-base-200 border border-white/5 border-dashed py-12 flex flex-col items-center justify-center gap-4">
+                        <KeyRound size={32} className="text-neutral-content/40" />
+                        <p className="text-sm text-neutral-content">No accounts in this project yet.</p>
+                        {user?.role !== 'user' && (
+                            <Button size="sm" variant="outline" icon={<Plus size={14} />} onClick={() => setShowAddAccount(true)}>
+                                Add First Account
+                            </Button>
+                        )}
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 gap-3">
+                        {accounts.map(a => (
+                            <div
+                                key={a.id}
+                                className="card bg-base-200 border border-white/5 hover:border-primary/20 transition-all group overflow-hidden"
+                            >
+                                <div className="p-4 md:p-5 flex flex-col md:flex-row md:items-center gap-4">
+                                    <div className="shrink-0 flex items-center gap-4">
+                                        <ServiceTypeIcon type={a.type} size={42} />
+                                        <div className="md:hidden">
+                                            <div className="font-bold text-base">{a.name}</div>
+                                            <div className="text-xs text-neutral-content uppercase tracking-wider font-semibold">{SERVICE_TYPE_LABELS[a.type]}</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex-1 min-w-0 space-y-2">
+                                        <div className="hidden md:block font-bold text-base line-clamp-1">{a.name}</div>
+                                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-content font-medium">
+                                            <span className="hidden md:inline text-primary uppercase tracking-wider">{SERVICE_TYPE_LABELS[a.type]}</span>
+                                            {a.host && <span className="flex items-center gap-1.5"><Server size={12} className="opacity-60" /> {a.host}{a.port ? `:${a.port}` : ''}</span>}
+                                            {a.database && <span className="flex items-center gap-1.5">db: <span className="text-base-content">{a.database}</span></span>}
+                                            {a.bucket && <span className="flex items-center gap-1.5">bucket: <span className="text-base-content">{a.bucket}</span></span>}
+                                            {a.appName && <span className="flex items-center gap-1.5">app: <span className="text-base-content">{a.appName}</span></span>}
+                                            {a.agentId && <div className="badge badge-neutral badge-xs py-2 px-2 gap-1"><Server size={10} /> {a.agentId}</div>}
+                                        </div>
+
+                                        {a.type === 'mongodb' && a.username && a.password && a.host && a.database && (
+                                            <div className="pt-1">
+                                                <div className="flex items-center gap-1 max-w-xl bg-black/30 border border-white/5 rounded-md p-1 pl-3">
+                                                    <code className="text-[10px] text-success flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-mono py-1">
+                                                        mongodb://{a.username}:{showPasswords[a.id] ? a.password : '••••••••'}@{a.host}:{a.port || 27017}/{a.database}
+                                                    </code>
+                                                    <div className="flex gap-1 pr-1">
+                                                        <button
+                                                            onClick={() => togglePassword(a.id)}
+                                                            className="btn btn-ghost btn-square btn-xs text-neutral-content hover:text-base-content"
+                                                            title={showPasswords[a.id] ? "Hide Password" : "Show Password"}
+                                                        >
+                                                            {showPasswords[a.id] ? <EyeOff size={13} /> : <Eye size={13} />}
+                                                        </button>
+                                                        <button
+                                                            onClick={async () => {
+                                                                const uri = `mongodb://${encodeURIComponent(a.username!)}:${encodeURIComponent(a.password!)}@${a.host}:${a.port || 27017}/${encodeURIComponent(a.database!)}`;
+                                                                await navigator.clipboard.writeText(uri);
+                                                                setCopiedId(a.id);
+                                                                setTimeout(() => setCopiedId(null), 2000);
+                                                            }}
+                                                            className={twMerge(
+                                                                clsx(
+                                                                    "btn btn-ghost btn-square btn-xs",
+                                                                    copiedId === a.id ? "text-success" : "text-neutral-content hover:text-base-content"
+                                                                )
+                                                            )}
+                                                            title="Copy Connection String"
+                                                        >
+                                                            {copiedId === a.id ? <Check size={13} /> : <Copy size={13} />}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {user?.role !== 'user' && (
+                                        <div className="flex items-center justify-end gap-2 shrink-0 md:ml-4 pt-4 md:pt-0 border-t md:border-t-0 border-white/5">
+                                            {(a.type === 'mongodb' || a.type === 'mysql' || a.type === 'postgresql') && (
+                                                <>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="secondary"
+                                                        icon={<Play size={13} />}
+                                                        disabled={provisioningId === a.id || !a.agentId}
+                                                        onClick={async () => {
+                                                            if (!a.agentId) return;
+
+                                                            let fallbackRole = '';
+                                                            if (a.type === 'mongodb') fallbackRole = 'readWrite';
+                                                            if (a.type === 'mysql' || a.type === 'postgresql') fallbackRole = 'ALL PRIVILEGES';
+
+                                                            setProvisioningId(a.id);
+                                                            const ok = await provisionAccount(a.agentId, 'db_create_user', {
+                                                                username: a.type === 'mongodb' ? `${a.username}@${a.database}` : a.username,
+                                                                password: a.password,
+                                                                role: a.role || fallbackRole,
+                                                                target: a.targetEntity
+                                                            });
+                                                            setProvisioningId(null);
+                                                            if (ok) alert('Successfully provisioned account on server.');
+                                                            else alert('Failed to provision account on server.');
+                                                        }}
+                                                        className="h-8 min-h-0 px-3"
+                                                    >
+                                                        {provisioningId === a.id ? '...' : 'Provision'}
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        icon={<RefreshCw size={13} />}
+                                                        disabled={provisioningId === a.id || !a.agentId}
+                                                        onClick={async () => {
+                                                            if (!a.agentId) return;
+
+                                                            let fallbackRole = '';
+                                                            if (a.type === 'mongodb') fallbackRole = 'readWrite';
+                                                            if (a.type === 'mysql' || a.type === 'postgresql') fallbackRole = 'ALL PRIVILEGES';
+
+                                                            setProvisioningId(a.id);
+                                                            const ok = await provisionAccount(a.agentId, 'db_update_privileges', {
+                                                                username: a.type === 'mongodb' ? `${a.username}@${a.database}` : a.username,
+                                                                role: a.role || fallbackRole,
+                                                                target: a.targetEntity
+                                                            });
+                                                            setProvisioningId(null);
+                                                            if (ok) alert('Successfully updated privileges on server.');
+                                                            else alert('Failed to update privileges on server.');
+                                                        }}
+                                                        className="h-8 min-h-0 px-3"
+                                                        title="Sync modifications to the target entity or role selection to the server."
+                                                    >
+                                                        Update
+                                                    </Button>
+                                                </>
+                                            )}
+                                            <button
+                                                onClick={() => setEditAccount(a)}
+                                                className="btn btn-ghost btn-square btn-sm text-neutral-content hover:text-primary"
+                                                title="Edit Account"
+                                            >
+                                                <Pencil size={16} />
+                                            </button>
+                                            <button
+                                                onClick={() => { if (confirm(`Delete account "${a.name}"?`)) deleteAccount(a.id); }}
+                                                className="btn btn-ghost btn-square btn-sm text-neutral-content hover:btn-error hover:text-error-content"
+                                                title="Delete Account"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
 
             {/* Modals */}
             <AccountFormModal
@@ -158,6 +284,14 @@ export function ProjectDetailPage() {
                 onSave={data => createAccount(data)}
                 projectId={project.id}
             />
+            {editAccount && (
+                <AccountFormModal
+                    isOpen={true}
+                    onClose={() => setEditAccount(null)}
+                    onSave={data => updateAccount(editAccount.id, data)}
+                    initial={editAccount}
+                />
+            )}
             {showEditProject && (
                 <ProjectFormModal
                     isOpen
@@ -169,3 +303,4 @@ export function ProjectDetailPage() {
         </div>
     );
 }
+

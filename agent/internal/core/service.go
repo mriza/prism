@@ -37,8 +37,8 @@ type DatabaseModule interface {
 	ListDatabases() ([]string, error)
 	CreateDatabase(name string) error
 	ListUsers() ([]string, error)
-	CreateUser(name, password string) error
-	// GrantPrivilege(user, database, privilege string) error
+	CreateUser(name, password, role, target string) error
+	UpdatePrivileges(name, role, target string) error
 }
 
 type RabbitMQModule interface {
@@ -119,6 +119,9 @@ type PM2Module interface {
 
 // FirewallModule is implemented by firewall services like UFW.
 type FirewallModule interface {
+	IsActive() bool
+	SetActive(active bool)
+	TargetName() string
 	AllowPort(port int, protocol string) error
 	DenyPort(port int, protocol string) error
 	ListRules() ([]map[string]string, error)
@@ -131,4 +134,10 @@ type CrowdSecModule interface {
 	ListDecisions() (string, error)
 	AddDecision(ip, duration, reason, decType string) error
 	DeleteDecision(id string) error
+	DeleteDecisionByIP(ip string) error
+}
+
+// MetricGatherer can be implemented by modules to report quantitative statistics.
+type MetricGatherer interface {
+	Metrics() (map[string]float64, error)
 }

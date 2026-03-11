@@ -1,40 +1,26 @@
 import { type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
-
-const fieldStyle: React.CSSProperties = {
-    width: '100%',
-    background: 'var(--color-bg-base)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius-md)',
-    color: 'var(--color-text-primary)',
-    fontFamily: 'inherit',
-    fontSize: '0.875rem',
-    padding: '0.5rem 0.75rem',
-    transition: 'var(--transition)',
-    outline: 'none',
-};
-
-const labelStyle: React.CSSProperties = {
-    display: 'block',
-    fontSize: '0.75rem',
-    fontWeight: 600,
-    color: 'var(--color-text-secondary)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-    marginBottom: '0.375rem',
-};
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
     label?: string;
 }
 
-export function Input({ label, style, ...props }: InputProps) {
+export function Input({ label, className, ...props }: InputProps) {
     return (
-        <div>
-            {label && <label style={labelStyle}>{label}</label>}
+        <div className="form-control w-full">
+            {label && (
+                <label className="label py-1.5 pt-0">
+                    <span className="label-text text-[10px] font-bold uppercase tracking-wider text-neutral-content">{label}</span>
+                </label>
+            )}
             <input
-                style={{ ...fieldStyle, ...style }}
-                onFocus={e => { e.currentTarget.style.borderColor = 'var(--color-accent)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--color-accent-subtle)'; }}
-                onBlur={e => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.boxShadow = 'none'; }}
+                className={twMerge(
+                    clsx(
+                        "input input-bordered bg-base-100 focus:input-primary transition-all duration-200",
+                        className
+                    )
+                )}
                 {...props}
             />
         </div>
@@ -46,18 +32,25 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
     options: { value: string; label: string }[];
 }
 
-export function Select({ label, options, style, ...props }: SelectProps) {
+export function Select({ label, options, className, ...props }: SelectProps) {
     return (
-        <div>
-            {label && <label style={labelStyle}>{label}</label>}
+        <div className="form-control w-full">
+            {label && (
+                <label className="label py-1.5 pt-0">
+                    <span className="label-text text-[10px] font-bold uppercase tracking-wider text-neutral-content">{label}</span>
+                </label>
+            )}
             <select
-                style={{ ...fieldStyle, cursor: 'pointer', ...style }}
-                onFocus={e => { e.currentTarget.style.borderColor = 'var(--color-accent)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--color-accent-subtle)'; }}
-                onBlur={e => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.boxShadow = 'none'; }}
+                className={twMerge(
+                    clsx(
+                        "select select-bordered bg-base-100 focus:select-primary transition-all duration-200",
+                        className
+                    )
+                )}
                 {...props}
             >
                 {options.map(o => (
-                    <option key={o.value} value={o.value} style={{ background: 'var(--color-bg-elevated)' }}>
+                    <option key={o.value} value={o.value}>
                         {o.label}
                     </option>
                 ))}
@@ -70,16 +63,24 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
     label?: string;
 }
 
-export function Textarea({ label, style, ...props }: TextareaProps) {
+export function Textarea({ label, className, ...props }: TextareaProps) {
     return (
-        <div>
-            {label && <label style={labelStyle}>{label}</label>}
+        <div className="form-control w-full">
+            {label && (
+                <label className="label py-1.5 pt-0">
+                    <span className="label-text text-[10px] font-bold uppercase tracking-wider text-neutral-content">{label}</span>
+                </label>
+            )}
             <textarea
-                style={{ ...fieldStyle, resize: 'vertical', minHeight: '5rem', ...style }}
-                onFocus={e => { e.currentTarget.style.borderColor = 'var(--color-accent)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--color-accent-subtle)'; }}
-                onBlur={e => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.boxShadow = 'none'; }}
+                className={twMerge(
+                    clsx(
+                        "textarea textarea-bordered bg-base-100 focus:textarea-primary min-h-[5rem] transition-all duration-200",
+                        className
+                    )
+                )}
                 {...props}
             />
         </div>
     );
 }
+

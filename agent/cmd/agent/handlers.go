@@ -2,14 +2,54 @@ package main
 
 import (
 	"encoding/json"
-	"prism-agent/internal/core"
 	"fmt"
+	"prism-agent/internal/core"
 )
 
 // CommandHandlerFunc defines the signature for a command handler
 type CommandHandlerFunc func(mod core.ServiceModule, payload map[string]interface{}) (string, error)
 
 // CommandHandlers maps command actions to their handler functions
+
+// Helper functions for safe payload extraction
+func getStringOpt(p map[string]interface{}, key string) string {
+	if p == nil {
+		return ""
+	}
+	optsRaw, ok := p["options"]
+	if !ok || optsRaw == nil {
+		return ""
+	}
+	opts, ok := optsRaw.(map[string]interface{})
+	if !ok || opts == nil {
+		return ""
+	}
+	val, ok := opts[key].(string)
+	if !ok {
+		return ""
+	}
+	return val
+}
+
+func getFloatOpt(p map[string]interface{}, key string) float64 {
+	if p == nil {
+		return 0
+	}
+	optsRaw, ok := p["options"]
+	if !ok || optsRaw == nil {
+		return 0
+	}
+	opts, ok := optsRaw.(map[string]interface{})
+	if !ok || opts == nil {
+		return 0
+	}
+	val, ok := opts[key].(float64)
+	if !ok {
+		return 0
+	}
+	return val
+}
+
 var CommandHandlers = map[string]CommandHandlerFunc{
 	// --- Generic Service Control ---
 	"start": func(mod core.ServiceModule, _ map[string]interface{}) (string, error) {
@@ -48,8 +88,7 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 	},
 	"db_create_db": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if db, ok := mod.(core.DatabaseModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			name, _ := opts["name"].(string)
+			name := getStringOpt(p, "name")
 			return "", db.CreateDatabase(name)
 		}
 		return "", fmt.Errorf("module does not support database operations")
@@ -67,10 +106,20 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 	},
 	"db_create_user": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if db, ok := mod.(core.DatabaseModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			user, _ := opts["username"].(string)
-			pass, _ := opts["password"].(string)
-			return "", db.CreateUser(user, pass)
+			user := getStringOpt(p, "username")
+			pass := getStringOpt(p, "password")
+			role := getStringOpt(p, "role")
+			target := getStringOpt(p, "target")
+			return "", db.CreateUser(user, pass, role, target)
+		}
+		return "", fmt.Errorf("module does not support database operations")
+	},
+	"db_update_privileges": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
+		if db, ok := mod.(core.DatabaseModule); ok {
+			user := getStringOpt(p, "username")
+			role := getStringOpt(p, "role")
+			target := getStringOpt(p, "target")
+			return "", db.UpdatePrivileges(user, role, target)
 		}
 		return "", fmt.Errorf("module does not support database operations")
 	},
@@ -89,16 +138,14 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 	},
 	"rmq_create_vhost": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			name, _ := opts["name"].(string)
+			name := getStringOpt(p, "name")
 			return "", rmq.CreateVHost(name)
 		}
 		return "", fmt.Errorf("not a rabbitmq module")
 	},
 	"rmq_delete_vhost": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			name, _ := opts["name"].(string)
+			name := getStringOpt(p, "name")
 			return "", rmq.DeleteVHost(name)
 		}
 		return "", fmt.Errorf("not a rabbitmq module")
@@ -116,30 +163,27 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 	},
 	"rmq_create_user": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			user, _ := opts["username"].(string)
-			pass, _ := opts["password"].(string)
-			tags, _ := opts["tags"].(string)
+			user := getStringOpt(p, "username")
+			pass := getStringOpt(p, "password")
+			tags := getStringOpt(p, "tags")
 			return "", rmq.CreateUser(user, pass, tags)
 		}
 		return "", fmt.Errorf("not a rabbitmq module")
 	},
 	"rmq_set_permissions": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			vhost, _ := opts["vhost"].(string)
-			user, _ := opts["username"].(string)
+			vhost := getStringOpt(p, "vhost")
+			user := getStringOpt(p, "username")
 			return "", rmq.SetPermissions(vhost, user, ".*", ".*", ".*")
 		}
 		return "", fmt.Errorf("not a rabbitmq module")
 	},
 	"rmq_create_binding": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			vhost, _ := opts["vhost"].(string)
-			queue, _ := opts["queue"].(string)
-			exchange, _ := opts["exchange"].(string)
-			routingKey, _ := opts["routing_key"].(string)
+			vhost := getStringOpt(p, "vhost")
+			queue := getStringOpt(p, "queue")
+			exchange := getStringOpt(p, "exchange")
+			routingKey := getStringOpt(p, "routing_key")
 			return "", rmq.CreateBinding(vhost, exchange, queue, routingKey)
 		}
 		return "", fmt.Errorf("not a rabbitmq module")
@@ -159,33 +203,29 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 	},
 	"web_create_site": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if web, ok := mod.(core.WebServerModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			name, _ := opts["name"].(string)
-			content, _ := opts["content"].(string)
+			name := getStringOpt(p, "name")
+			content := getStringOpt(p, "content")
 			return "", web.CreateSite(name, content)
 		}
 		return "", fmt.Errorf("not a web server module")
 	},
 	"web_delete_site": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if web, ok := mod.(core.WebServerModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			name, _ := opts["name"].(string)
+			name := getStringOpt(p, "name")
 			return "", web.DeleteSite(name)
 		}
 		return "", fmt.Errorf("not a web server module")
 	},
 	"web_enable_site": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if web, ok := mod.(core.WebServerModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			name, _ := opts["name"].(string)
+			name := getStringOpt(p, "name")
 			return "", web.EnableSite(name)
 		}
 		return "", fmt.Errorf("not a web server module")
 	},
 	"web_disable_site": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if web, ok := mod.(core.WebServerModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			name, _ := opts["name"].(string)
+			name := getStringOpt(p, "name")
 			return "", web.DisableSite(name)
 		}
 		return "", fmt.Errorf("not a web server module")
@@ -205,16 +245,14 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 	},
 	"storage_create_bucket": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if store, ok := mod.(core.StorageModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			name, _ := opts["name"].(string)
+			name := getStringOpt(p, "name")
 			return "", store.CreateBucket(name)
 		}
 		return "", fmt.Errorf("not a storage module")
 	},
 	"storage_delete_bucket": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if store, ok := mod.(core.StorageModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			name, _ := opts["name"].(string)
+			name := getStringOpt(p, "name")
 			return "", store.DeleteBucket(name)
 		}
 		return "", fmt.Errorf("not a storage module")
@@ -232,9 +270,8 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 	},
 	"storage_create_user": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if store, ok := mod.(core.StorageModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			accessKey, _ := opts["access_key"].(string)
-			secretKey, _ := opts["secret_key"].(string)
+			accessKey := getStringOpt(p, "access_key")
+			secretKey := getStringOpt(p, "secret_key")
 			user, err := store.CreateUser(accessKey, secretKey)
 			if err != nil {
 				return "", err
@@ -246,10 +283,9 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 	},
 	"storage_delete_user": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if store, ok := mod.(core.StorageModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			accessKey, _ := opts["access_key"].(string)
+			accessKey := getStringOpt(p, "access_key")
 			if accessKey == "" {
-				accessKey, _ = opts["username"].(string)
+				accessKey = getStringOpt(p, "username")
 			}
 			return "", store.DeleteUser(accessKey)
 		}
@@ -258,10 +294,9 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 	// --- Ansible ---
 	"ansible_run_playbook": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if ansible, ok := mod.(core.AnsibleModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			playbook, _ := opts["playbook"].(string)
-			inventory, _ := opts["inventory"].(string)
-			vars, _ := opts["extra_vars"].(string)
+			playbook := getStringOpt(p, "playbook")
+			inventory := getStringOpt(p, "inventory")
+			vars := getStringOpt(p, "extra_vars")
 			return ansible.RunPlaybook(playbook, inventory, vars)
 		}
 		return "", fmt.Errorf("not an ansible module")
@@ -281,8 +316,7 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 	},
 	"pm2_get_listen_port": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if pm2, ok := mod.(core.PM2Module); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			pidFloat, _ := opts["pid"].(float64)
+			pidFloat := getFloatOpt(p, "pid")
 			port, err := pm2.GetListenPort(int(pidFloat))
 			if err != nil {
 				return "", err
@@ -306,17 +340,15 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 	},
 	"proxy_create": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if proxy, ok := mod.(core.ProxyModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			domain, _ := opts["domain"].(string)
-			portFloat, _ := opts["port"].(float64)
+			domain := getStringOpt(p, "domain")
+			portFloat := getFloatOpt(p, "port")
 			return "", proxy.CreateReverseProxy(domain, int(portFloat))
 		}
 		return "", fmt.Errorf("not a proxy module")
 	},
 	"proxy_delete": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if proxy, ok := mod.(core.ProxyModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			domain, _ := opts["domain"].(string)
+			domain := getStringOpt(p, "domain")
 			return "", proxy.DeleteReverseProxy(domain)
 		}
 		return "", fmt.Errorf("not a proxy module")
@@ -328,12 +360,97 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 		return "", fmt.Errorf("not a proxy module")
 	},
 
-	// --- Firewall ---
+	// --- Firewall (Generic) ---
+	"firewall_allow": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
+		if fw, ok := mod.(core.FirewallModule); ok {
+			if !fw.IsActive() {
+				return "", fmt.Errorf("firewall module %s is not the active engine", fw.TargetName())
+			}
+			portFloat := getFloatOpt(p, "port")
+			protocol := getStringOpt(p, "protocol")
+			if protocol == "" {
+				protocol = "tcp"
+			}
+			return "", fw.AllowPort(int(portFloat), protocol)
+		}
+		return "", fmt.Errorf("not a firewall module")
+	},
+	"firewall_deny": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
+		if fw, ok := mod.(core.FirewallModule); ok {
+			if !fw.IsActive() {
+				return "", fmt.Errorf("firewall module %s is not the active engine", fw.TargetName())
+			}
+			portFloat := getFloatOpt(p, "port")
+			protocol := getStringOpt(p, "protocol")
+			if protocol == "" {
+				protocol = "tcp"
+			}
+			return "", fw.DenyPort(int(portFloat), protocol)
+		}
+		return "", fmt.Errorf("not a firewall module")
+	},
+	"firewall_list": func(mod core.ServiceModule, _ map[string]interface{}) (string, error) {
+		if fw, ok := mod.(core.FirewallModule); ok {
+			if !fw.IsActive() {
+				return "", fmt.Errorf("firewall module %s is not the active engine", fw.TargetName())
+			}
+			rules, err := fw.ListRules()
+			if err != nil {
+				return "", err
+			}
+			b, _ := json.Marshal(rules)
+			return string(b), nil
+		}
+		return "", fmt.Errorf("not a firewall module")
+	},
+	"firewall_add": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
+		if fw, ok := mod.(core.FirewallModule); ok {
+			if !fw.IsActive() {
+				return "", fmt.Errorf("firewall module %s is not the active engine", fw.TargetName())
+			}
+			portFloat := getFloatOpt(p, "port")
+			protocol := getStringOpt(p, "protocol")
+			action := getStringOpt(p, "action")
+			if protocol == "" {
+				protocol = "tcp"
+			}
+			if action == "deny" {
+				return "", fw.DenyPort(int(portFloat), protocol)
+			}
+			return "", fw.AllowPort(int(portFloat), protocol)
+		}
+		return "", fmt.Errorf("not a firewall module")
+	},
+	"firewall_delete": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
+		if fw, ok := mod.(core.FirewallModule); ok {
+			if !fw.IsActive() {
+				return "", fmt.Errorf("firewall module %s is not the active engine", fw.TargetName())
+			}
+			ruleID := getStringOpt(p, "rule_id")
+			return "", fw.DeleteRule(ruleID)
+		}
+		return "", fmt.Errorf("not a firewall module")
+	},
+	"firewall_default": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
+		if fw, ok := mod.(core.FirewallModule); ok {
+			if !fw.IsActive() {
+				return "", fmt.Errorf("firewall module %s is not the active engine", fw.TargetName())
+			}
+			policy := getStringOpt(p, "policy")
+			direction := getStringOpt(p, "direction")
+			if direction == "" {
+				direction = "incoming"
+			}
+			return "", fw.SetDefaultPolicy(policy, direction)
+		}
+		return "", fmt.Errorf("not a firewall module")
+	},
+
+	// UFW Aliases (Backward Compatibility)
 	"ufw_allow": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if fw, ok := mod.(core.FirewallModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			portFloat, _ := opts["port"].(float64)
-			protocol, _ := opts["protocol"].(string)
+			portFloat := getFloatOpt(p, "port")
+			protocol := getStringOpt(p, "protocol")
 			if protocol == "" {
 				protocol = "tcp"
 			}
@@ -343,9 +460,8 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 	},
 	"ufw_deny": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if fw, ok := mod.(core.FirewallModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			portFloat, _ := opts["port"].(float64)
-			protocol, _ := opts["protocol"].(string)
+			portFloat := getFloatOpt(p, "port")
+			protocol := getStringOpt(p, "protocol")
 			if protocol == "" {
 				protocol = "tcp"
 			}
@@ -366,10 +482,9 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 	},
 	"ufw_add": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if fw, ok := mod.(core.FirewallModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			portFloat, _ := opts["port"].(float64)
-			protocol, _ := opts["protocol"].(string)
-			action, _ := opts["action"].(string)
+			portFloat := getFloatOpt(p, "port")
+			protocol := getStringOpt(p, "protocol")
+			action := getStringOpt(p, "action")
 			if protocol == "" {
 				protocol = "tcp"
 			}
@@ -382,17 +497,15 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 	},
 	"ufw_delete": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if fw, ok := mod.(core.FirewallModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			ruleID, _ := opts["rule_id"].(string)
+			ruleID := getStringOpt(p, "rule_id")
 			return "", fw.DeleteRule(ruleID)
 		}
 		return "", fmt.Errorf("not a firewall module")
 	},
 	"ufw_default": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if fw, ok := mod.(core.FirewallModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			policy, _ := opts["policy"].(string)
-			direction, _ := opts["direction"].(string)
+			policy := getStringOpt(p, "policy")
+			direction := getStringOpt(p, "direction")
 			if direction == "" {
 				direction = "incoming"
 			}
@@ -410,20 +523,25 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 	},
 	"crowdsec_add": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if cs, ok := mod.(core.CrowdSecModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			ip, _ := opts["ip"].(string)
-			duration, _ := opts["duration"].(string)
-			reason, _ := opts["reason"].(string)
-			decType, _ := opts["type"].(string)
+			ip := getStringOpt(p, "ip")
+			duration := getStringOpt(p, "duration")
+			reason := getStringOpt(p, "reason")
+			decType := getStringOpt(p, "type")
 			return "", cs.AddDecision(ip, duration, reason, decType)
 		}
 		return "", fmt.Errorf("not a crowdsec module")
 	},
 	"crowdsec_delete": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
 		if cs, ok := mod.(core.CrowdSecModule); ok {
-			opts, _ := p["options"].(map[string]interface{})
-			id, _ := opts["id"].(string)
+			id := getStringOpt(p, "id")
 			return "", cs.DeleteDecision(id)
+		}
+		return "", fmt.Errorf("not a crowdsec module")
+	},
+	"crowdsec_delete_by_ip": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
+		if cs, ok := mod.(core.CrowdSecModule); ok {
+			ip := getStringOpt(p, "ip")
+			return "", cs.DeleteDecisionByIP(ip)
 		}
 		return "", fmt.Errorf("not a crowdsec module")
 	},

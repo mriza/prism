@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input, Select } from '../ui/Fields';
-import { Shield, Plus, Trash2, RefreshCw } from 'lucide-react';
+import { Shield, Plus, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
-const HUB = import.meta.env.VITE_HUB_URL || '';
 
 interface Decision {
     id: number;
@@ -23,7 +24,7 @@ interface Props {
 }
 
 async function controlAgent(agentId: string, action: string, options?: Record<string, unknown>) {
-    const res = await fetch(`${HUB}/api/control`, {
+    const res = await fetch(`/api/control`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agent_id: agentId, service: 'crowdsec', action, options }),
@@ -60,7 +61,10 @@ export function CrowdSecModal({ isOpen, onClose, agentId }: Props) {
     }, [agentId]);
 
     useEffect(() => {
-        if (isOpen) fetchDecisions();
+        if (isOpen) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            fetchDecisions();
+        }
     }, [isOpen, fetchDecisions]);
 
     const handleAdd = async () => {
@@ -87,212 +91,165 @@ export function CrowdSecModal({ isOpen, onClose, agentId }: Props) {
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={`CrowdSec — ${agentId}`} size="xl">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div className="space-y-6 text-sm">
                 {/* Status bar */}
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '0.5rem',
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fb923c', fontSize: '0.8rem' }}>
-                        <Shield size={16} />
-                        <span>{decisions.length} active decision{decisions.length !== 1 ? 's' : ''}</span>
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-2 text-warning">
+                        <div className="p-2 rounded-lg bg-warning/10">
+                            <Shield size={18} />
+                        </div>
+                        <span className="text-sm font-bold">{decisions.length} Active Decision{decisions.length !== 1 ? 's' : ''}</span>
                     </div>
-                    <Button variant="ghost" size="sm" icon={<RefreshCw size={12} />} onClick={fetchDecisions} loading={loading}>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs h-8 hover:bg-white/5"
+                        onClick={fetchDecisions}
+                        loading={loading}
+                    >
+                        <RefreshCw size={14} className={clsx("mr-1.5", loading && "animate-spin")} />
                         Refresh
                     </Button>
                 </div>
 
                 {/* Error */}
                 {error && (
-                    <div style={{
-                        padding: '0.625rem 0.875rem',
-                        borderRadius: 'var(--radius-sm)',
-                        background: 'rgba(239,68,68,0.1)',
-                        border: '1px solid rgba(239,68,68,0.3)',
-                        color: '#f87171',
-                        fontSize: '0.8rem',
-                    }}>
-                        {error}
+                    <div className="alert alert-error text-xs p-3 rounded-xl border border-error/20 flex items-start">
+                        <div className="p-1 rounded bg-error/10 mr-1">
+                            <AlertTriangle size={14} />
+                        </div>
+                        <span>{error}</span>
                     </div>
                 )}
 
                 {/* Add decision form */}
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'flex-end',
-                    gap: '0.5rem',
-                    padding: '0.875rem',
-                    background: 'var(--color-bg-elevated)',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                    flexWrap: 'wrap',
-                }}>
-                    <div style={{ flex: 1, minWidth: '120px' }}>
-                        <Input
-                            label="IP Address"
-                            placeholder="e.g. 1.2.3.4"
-                            value={newIp}
-                            onChange={e => setNewIp(e.target.value)}
-                        />
+                <div className="p-4 bg-base-200 rounded-xl border border-white/5 shadow-inner">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 items-end gap-3">
+                        <div className="md:col-span-2">
+                            <Input
+                                label="IP Address"
+                                placeholder="e.g. 1.2.3.4"
+                                value={newIp}
+                                onChange={e => setNewIp(e.target.value)}
+                            />
+                        </div>
+                        <div className="w-full">
+                            <Input
+                                label="Duration"
+                                placeholder="4h"
+                                value={newDuration}
+                                onChange={e => setNewDuration(e.target.value)}
+                            />
+                        </div>
+                        <div className="w-full">
+                            <Select
+                                label="Type"
+                                value={newType}
+                                onChange={e => setNewType(e.target.value)}
+                                options={[
+                                    { value: 'ban', label: 'Ban' },
+                                    { value: 'captcha', label: 'Captcha' },
+                                    { value: 'throttle', label: 'Throttle' },
+                                ]}
+                            />
+                        </div>
+                        <Button
+                            variant="primary"
+                            size="md"
+                            className="w-full h-11"
+                            onClick={handleAdd}
+                            loading={actionLoading === 'add'}
+                            disabled={!newIp}
+                        >
+                            <Plus size={16} />
+                            Add Decision
+                        </Button>
+                        <div className="md:col-span-4 mt-1">
+                            <Input
+                                label="Reason (optional)"
+                                placeholder="e.g. repeated failed logins"
+                                value={newReason}
+                                onChange={e => setNewReason(e.target.value)}
+                            />
+                        </div>
                     </div>
-                    <div style={{ width: '90px' }}>
-                        <Input
-                            label="Duration"
-                            placeholder="4h"
-                            value={newDuration}
-                            onChange={e => setNewDuration(e.target.value)}
-                        />
-                    </div>
-                    <div style={{ flex: 1, minWidth: '100px' }}>
-                        <Input
-                            label="Reason"
-                            placeholder="optional"
-                            value={newReason}
-                            onChange={e => setNewReason(e.target.value)}
-                        />
-                    </div>
-                    <div style={{ width: '100px' }}>
-                        <Select
-                            label="Type"
-                            value={newType}
-                            onChange={e => setNewType(e.target.value)}
-                            options={[
-                                { value: 'ban', label: 'Ban' },
-                                { value: 'captcha', label: 'Captcha' },
-                                { value: 'throttle', label: 'Throttle' },
-                            ]}
-                        />
-                    </div>
-                    <Button
-                        variant="primary"
-                        size="md"
-                        icon={<Plus size={14} />}
-                        onClick={handleAdd}
-                        loading={actionLoading === 'add'}
-                        disabled={!newIp}
-                    >
-                        Add
-                    </Button>
                 </div>
 
-                {/* Decisions table */}
-                <div style={{
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
-                    overflow: 'hidden',
-                }}>
-                    {/* Table header */}
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: '55px 80px 1fr 1fr 80px 70px 50px',
-                        padding: '0.625rem 0.875rem',
-                        background: 'var(--color-bg-elevated)',
-                        borderBottom: '1px solid var(--color-border)',
-                        fontSize: '0.7rem',
-                        fontWeight: 600,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.06em',
-                        color: 'var(--color-text-secondary)',
-                    }}>
-                        <span>ID</span>
-                        <span>Source</span>
-                        <span>Value</span>
-                        <span>Reason</span>
-                        <span>Type</span>
-                        <span>Duration</span>
-                        <span></span>
+                {/* Decisions Table */}
+                <div className="rounded-xl border border-white/5 overflow-hidden bg-base-200/50 backdrop-blur-sm shadow-sm ring-1 ring-white/5">
+                    <div className="overflow-x-auto">
+                        <table className="table table-sm w-full">
+                            <thead>
+                                <tr className="bg-base-300/50 text-[10px] uppercase font-black tracking-[0.15em] text-neutral-content/40 border-b border-white/5 leading-none h-10">
+                                    <th className="pl-4 w-12 text-center">ID</th>
+                                    <th>Source</th>
+                                    <th>Value</th>
+                                    <th>Reason</th>
+                                    <th>Type</th>
+                                    <th>Duration</th>
+                                    <th className="pr-4 w-12"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {loading && decisions.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={7} className="py-12 text-center text-neutral-content/40 italic">
+                                            <span className="loading loading-spinner h-6 w-6 mb-2" />
+                                            <div>Loading decisions...</div>
+                                        </td>
+                                    </tr>
+                                ) : decisions.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={7} className="py-12 text-center text-neutral-content/40 italic">
+                                            No active decisions — all clear 🎉
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    decisions.map(dec => {
+                                        const isBan = dec.type === 'ban';
+                                        return (
+                                            <tr key={dec.id} className="hover:bg-white/[0.02] transition-colors border-b border-white/5 group last:border-0 h-12">
+                                                <td className="pl-4 text-center font-mono opacity-40 text-[11px]">{dec.id}</td>
+                                                <td className="text-[10px] uppercase font-bold text-neutral-content/40">{dec.origin}</td>
+                                                <td className="font-mono font-bold text-xs text-warning/80">{dec.value}</td>
+                                                <td className="max-w-[200px] truncate text-neutral-content/60 text-[11px]" title={dec.reason}>
+                                                    {dec.reason}
+                                                </td>
+                                                <td>
+                                                    <span className={twMerge(
+                                                        clsx(
+                                                            "badge badge-xs font-black uppercase text-[9px] px-2 py-2 border leading-none shadow-sm",
+                                                            isBan ? "bg-error/10 text-error border-error/20" : "bg-warning/10 text-warning border-warning/20"
+                                                        )
+                                                    )}>
+                                                        {dec.type}
+                                                    </span>
+                                                </td>
+                                                <td className="text-neutral-content/60 text-[11px] font-mono">{dec.duration}</td>
+                                                <td className="pr-4 text-right">
+                                                    <button
+                                                        title="Delete decision"
+                                                        onClick={() => handleDelete(dec.id)}
+                                                        disabled={actionLoading === `del-${dec.id}`}
+                                                        className="btn btn-ghost btn-xs btn-square text-neutral-content/30 hover:text-error hover:bg-error/10 transition-all rounded-lg opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                                    >
+                                                        {actionLoading === `del-${dec.id}` ? (
+                                                            <span className="loading loading-spinner h-3.5 w-3.5" />
+                                                        ) : (
+                                                            <Trash2 size={14} />
+                                                        )}
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
                     </div>
-
-                    {/* Table rows */}
-                    {loading && decisions.length === 0 ? (
-                        <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-                            Loading decisions…
-                        </div>
-                    ) : decisions.length === 0 ? (
-                        <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-                            No active decisions — all clear 🎉
-                        </div>
-                    ) : (
-                        decisions.map(dec => {
-                            const isBan = dec.type === 'ban';
-                            return (
-                                <div
-                                    key={dec.id}
-                                    style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: '55px 80px 1fr 1fr 80px 70px 50px',
-                                        padding: '0.5rem 0.875rem',
-                                        borderBottom: '1px solid var(--color-border)',
-                                        fontSize: '0.78rem',
-                                        alignItems: 'center',
-                                        transition: 'var(--transition)',
-                                    }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
-                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                >
-                                    <span style={{ color: 'var(--color-text-muted)', fontWeight: 500 }}>{dec.id}</span>
-                                    <span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>{dec.origin}</span>
-                                    <span style={{ fontFamily: 'monospace', color: 'var(--color-text-primary)', fontWeight: 500, fontSize: '0.78rem' }}>
-                                        {dec.value}
-                                    </span>
-                                    <span style={{
-                                        color: 'var(--color-text-secondary)',
-                                        fontSize: '0.73rem',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
-                                    }}
-                                        title={dec.reason}
-                                    >
-                                        {dec.reason}
-                                    </span>
-                                    <span>
-                                        <span style={{
-                                            display: 'inline-flex',
-                                            padding: '0.1rem 0.4rem',
-                                            borderRadius: '4px',
-                                            fontSize: '0.68rem',
-                                            fontWeight: 600,
-                                            background: isBan ? 'rgba(239,68,68,0.12)' : 'rgba(234,179,8,0.12)',
-                                            color: isBan ? '#f87171' : '#facc15',
-                                            border: `1px solid ${isBan ? 'rgba(239,68,68,0.25)' : 'rgba(234,179,8,0.25)'}`,
-                                        }}>
-                                            {dec.type?.toUpperCase()}
-                                        </span>
-                                    </span>
-                                    <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.7rem' }}>{dec.duration}</span>
-                                    <button
-                                        title="Delete decision"
-                                        onClick={() => handleDelete(dec.id)}
-                                        disabled={actionLoading === `del-${dec.id}`}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            width: '28px',
-                                            height: '28px',
-                                            borderRadius: 'var(--radius-sm)',
-                                            border: 'none',
-                                            background: 'transparent',
-                                            color: 'var(--color-text-muted)',
-                                            cursor: 'pointer',
-                                            transition: 'var(--transition)',
-                                            opacity: actionLoading === `del-${dec.id}` ? 0.4 : 1,
-                                        }}
-                                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.15)'; e.currentTarget.style.color = '#f87171'; }}
-                                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-muted)'; }}
-                                    >
-                                        <Trash2 size={13} />
-                                    </button>
-                                </div>
-                            );
-                        })
-                    )}
                 </div>
             </div>
         </Modal>
     );
 }
+

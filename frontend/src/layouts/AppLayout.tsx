@@ -1,71 +1,57 @@
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { useAgents } from '../hooks/useAgents';
+import { clsx } from 'clsx';
 
 export function AppLayout() {
     const { agents, error } = useAgents();
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh' }}>
-            <Sidebar />
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                {/* Topbar */}
-                <header
-                    style={{
-                        height: '52px',
-                        flexShrink: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'flex-end',
-                        padding: '0 1.5rem',
-                        borderBottom: '1px solid var(--color-border)',
-                        background: 'var(--color-bg-surface)',
-                        gap: '0.75rem',
-                    }}
-                >
+        <div className="drawer lg:drawer-open bg-base-100 min-h-screen">
+            <input id="app-drawer" type="checkbox" className="drawer-toggle" />
+            
+            {/* Main Content Area */}
+            <div className="drawer-content flex flex-col min-h-screen overflow-hidden">
+                {/* Navbar */}
+                <header className="navbar bg-base-200/50 backdrop-blur-md border-b border-white/5 sticky top-0 z-10 min-h-[52px]">
+                    <div className="flex-none lg:hidden">
+                        <label htmlFor="app-drawer" aria-label="open sidebar" className="btn btn-square btn-ghost btn-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="inline-block w-5 h-5 stroke-current"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                        </label>
+                    </div>
+                    <div className="flex-1">
+                        <span className="lg:hidden font-bold ml-2">PRISM</span>
+                    </div>
+                    
                     {/* Agent status badge */}
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            padding: '0.3rem 0.75rem',
-                            borderRadius: 'var(--radius-md)',
-                            background: error ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)',
-                            border: `1px solid ${error ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)'}`,
-                            fontSize: '0.75rem',
-                        }}
-                    >
-                        <span
-                            style={{
-                                width: '6px',
-                                height: '6px',
-                                borderRadius: '50%',
-                                background: error ? 'var(--color-red)' : 'var(--color-green)',
-                                animation: error ? 'none' : 'pulse-dot 2s infinite',
-                            }}
-                        />
-                        {error ? (
-                            <span style={{ color: '#f87171' }}>Hub offline</span>
-                        ) : (
-                            <span style={{ color: '#4ade80' }}>
-                                {agents.length} agent{agents.length !== 1 ? 's' : ''} online
-                            </span>
-                        )}
+                    <div className="flex-none gap-2 px-2">
+                        <div className={clsx(
+                            "badge gap-2 font-bold p-3 uppercase tracking-wider text-[10px]",
+                            error 
+                                ? "badge-error badge-outline" 
+                                : "badge-success badge-outline"
+                        )}>
+                            <span className={clsx(
+                                "w-1.5 h-1.5 rounded-full",
+                                error ? "bg-error" : "bg-success animate-pulse-dot"
+                            )} />
+                            {error ? "Hub offline" : `${agents.length} agent${agents.length !== 1 ? 's' : ''} online`}
+                        </div>
                     </div>
                 </header>
 
-                {/* Page content */}
-                <main
-                    style={{
-                        flex: 1,
-                        overflowY: 'auto',
-                        padding: '1.75rem',
-                    }}
-                >
+                {/* Page Content */}
+                <main className="flex-1 overflow-y-auto p-4 md:p-7">
                     <Outlet />
                 </main>
+            </div> 
+            
+            {/* Sidebar Drawer Side */}
+            <div className="drawer-side z-20">
+                <label htmlFor="app-drawer" aria-label="close sidebar" className="drawer-overlay"></label>
+                <Sidebar />
             </div>
         </div>
     );
 }
+

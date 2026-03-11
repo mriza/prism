@@ -5,48 +5,16 @@ import { useAgents } from '../hooks/useAgents';
 import { FolderKanban, KeyRound, Server, Plus, ArrowRight } from 'lucide-react';
 
 function StatCard({
-    label, value, icon, color, href
-}: { label: string; value: number; icon: React.ReactNode; color: string; href: string }) {
+    label, value, icon, colorClass, href
+}: { label: string; value: number; icon: React.ReactNode; colorClass: string; href: string }) {
     return (
-        <Link to={href} style={{ textDecoration: 'none' }}>
-            <div
-                className="card"
-                style={{
-                    padding: '1.25rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '1rem',
-                    cursor: 'pointer',
-                    transition: 'var(--transition)',
-                }}
-                onMouseEnter={e => {
-                    (e.currentTarget as HTMLElement).style.borderColor = color + '55';
-                    (e.currentTarget as HTMLElement).style.boxShadow = `0 0 20px ${color}15`;
-                }}
-                onMouseLeave={e => {
-                    (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)';
-                    (e.currentTarget as HTMLElement).style.boxShadow = 'none';
-                }}
-            >
-                <div
-                    style={{
-                        width: '48px',
-                        height: '48px',
-                        borderRadius: '12px',
-                        background: color + '20',
-                        border: `1px solid ${color}40`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color,
-                    }}
-                >
+        <Link to={href} className="stats shadow bg-base-200 border border-white/5 hover:border-primary/30 transition-all duration-200">
+            <div className="stat">
+                <div className={`stat-figure ${colorClass}`}>
                     {icon}
                 </div>
-                <div>
-                    <div style={{ fontSize: '1.75rem', fontWeight: 800, lineHeight: 1 }}>{value}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>{label}</div>
-                </div>
+                <div className="stat-value text-2xl">{value}</div>
+                <div className="stat-title text-neutral-content">{label}</div>
             </div>
         </Link>
     );
@@ -58,67 +26,53 @@ export function DashboardPage() {
     const { agents, error } = useAgents();
 
     return (
-        <div className="animate-fade-in">
+        <div className="space-y-8">
             {/* Header */}
-            <div style={{ marginBottom: '2rem' }}>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.25rem' }}>
-                    Dashboard
-                </h1>
-                <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem' }}>
-                    Overview of your infrastructure
-                </p>
+            <div>
+                <h1 className="text-2xl font-bold">Dashboard</h1>
+                <p className="text-neutral-content text-sm">Overview of your infrastructure</p>
             </div>
 
             {/* Stat cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-                <StatCard label="Projects" value={projects.length} icon={<FolderKanban size={22} />} color="#6366f1" href="/projects" />
-                <StatCard label="Service Accounts" value={accounts.length} icon={<KeyRound size={22} />} color="#ec4899" href="/accounts" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatCard label="Projects" value={projects.length} icon={<FolderKanban size={24} />} colorClass="text-primary" href="/projects" />
+                <StatCard label="Service Accounts" value={accounts.length} icon={<KeyRound size={24} />} colorClass="text-secondary" href="/accounts" />
                 <StatCard
                     label="Agents Online"
                     value={agents.length}
-                    icon={<Server size={22} />}
-                    color={error ? '#ef4444' : '#22c55e'}
+                    icon={<Server size={24} />}
+                    colorClass={error ? 'text-error' : 'text-success'}
                     href="/agents"
                 />
-                <StatCard label="Independent Accts" value={independentAccounts.length} icon={<KeyRound size={22} />} color="#f97316" href="/accounts" />
+                <StatCard label="Independent Accts" value={independentAccounts.length} icon={<KeyRound size={24} />} colorClass="text-accent" href="/accounts" />
             </div>
 
             {/* Quick actions */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
-                <Link to="/projects" style={{ textDecoration: 'none' }}>
-                    <div
-                        className="card"
-                        style={{ padding: '1.25rem', cursor: 'pointer', transition: 'var(--transition)' }}
-                        onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--color-accent)')}
-                        onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--color-border)')}
-                    >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                                <Plus size={16} color="var(--color-accent)" />
-                                <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>New Project</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Link to="/projects" className="card bg-base-200 border border-white/5 hover:border-primary/30 transition-all cursor-pointer">
+                    <div className="card-body p-6">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <Plus size={18} className="text-primary" />
+                                <span className="font-semibold">New Project</span>
                             </div>
-                            <ArrowRight size={14} color="var(--color-text-muted)" />
+                            <ArrowRight size={16} className="text-neutral-content" />
                         </div>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: '0.5rem' }}>
+                        <p className="text-sm text-neutral-content mt-2">
                             Create a project to group your service accounts
                         </p>
                     </div>
                 </Link>
-                <Link to="/accounts" style={{ textDecoration: 'none' }}>
-                    <div
-                        className="card"
-                        style={{ padding: '1.25rem', cursor: 'pointer', transition: 'var(--transition)' }}
-                        onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--color-accent)')}
-                        onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--color-border)')}
-                    >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                                <Plus size={16} color="#ec4899" />
-                                <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Add Account</span>
+                <Link to="/accounts" className="card bg-base-200 border border-white/5 hover:border-primary/30 transition-all cursor-pointer">
+                    <div className="card-body p-6">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <Plus size={18} className="text-secondary" />
+                                <span className="font-semibold">Add Account</span>
                             </div>
-                            <ArrowRight size={14} color="var(--color-text-muted)" />
+                            <ArrowRight size={16} className="text-neutral-content" />
                         </div>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: '0.5rem' }}>
+                        <p className="text-sm text-neutral-content mt-2">
                             Add a DB, MQ, S3, FTP, or PM2 service account
                         </p>
                     </div>
@@ -127,41 +81,35 @@ export function DashboardPage() {
 
             {/* Recent projects */}
             {projects.length > 0 && (
-                <div className="card" style={{ padding: '1.25rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                        <h2 style={{ fontWeight: 600, fontSize: '0.9rem' }}>Recent Projects</h2>
-                        <Link to="/projects" style={{ fontSize: '0.75rem', color: 'var(--color-accent)', textDecoration: 'none' }}>
-                            View all →
-                        </Link>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        {projects.slice(0, 5).map(p => (
-                            <Link key={p.id} to={`/projects/${p.id}`} style={{ textDecoration: 'none' }}>
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.75rem',
-                                        padding: '0.625rem',
-                                        borderRadius: 'var(--radius-md)',
-                                        transition: 'var(--transition)',
-                                    }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
-                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                <div className="card bg-base-200 border border-white/5">
+                    <div className="card-body p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="card-title text-base font-bold text-neutral-content uppercase tracking-wider">Recent Projects</h2>
+                            <Link to="/projects" className="text-sm text-primary hover:underline italic">
+                                View all →
+                            </Link>
+                        </div>
+                        <div className="space-y-1">
+                            {projects.slice(0, 5).map(p => (
+                                <Link 
+                                    key={p.id} 
+                                    to={`/projects/${p.id}`} 
+                                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors group"
                                 >
-                                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: p.color, flexShrink: 0 }} />
-                                    <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{p.name}</span>
+                                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: p.color }} />
+                                    <span className="font-medium group-hover:text-primary transition-colors">{p.name}</span>
                                     {p.description && (
-                                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: 'auto' }}>
+                                        <span className="text-xs text-neutral-content ml-auto line-clamp-1">
                                             {p.description}
                                         </span>
                                     )}
-                                </div>
-                            </Link>
-                        ))}
+                                </Link>
+                            ))}
+                        </div>
                     </div>
                 </div>
             )}
         </div>
     );
 }
+

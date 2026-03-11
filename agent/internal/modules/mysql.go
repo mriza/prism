@@ -1,9 +1,9 @@
 package modules
 
 import (
-	"prism-agent/internal/core"
 	"fmt"
 	"os/exec"
+	"prism-agent/internal/core"
 	"strings"
 )
 
@@ -64,7 +64,7 @@ func (m *MySQLModule) ListUsers() ([]string, error) {
 	return strings.Split(string(out), "\n"), nil
 }
 
-func (m *MySQLModule) CreateUser(name, password string) error {
+func (m *MySQLModule) CreateUser(name, password, role, target string) error {
 	// Validate input
 	if !isValidIdentifier(name) {
 		return fmt.Errorf("invalid username")
@@ -88,7 +88,47 @@ func (m *MySQLModule) CreateUser(name, password string) error {
 		return fmt.Errorf("invalid username or host")
 	}
 
-	query := fmt.Sprintf("CREATE USER '%s'@'%s' IDENTIFIED BY '%s';", name, host, password)
+	// Determine Role/Privileges (default to ALL PRIVILEGES)
+	privileges := "ALL PRIVILEGES"
+	if role != "" {
+		privileges = role
+	}
+
+	targetDB := "*.*"
+	if target != "" {
+		targetDB = target
+	}
+
+	// First query creates the user. Second query grants the privileges.
+	query := fmt.Sprintf("CREATE USER '%s'@'%s' IDENTIFIED BY '%s'; GRANT %s ON %s TO '%s'@'%s'; FLUSH PRIVILEGES;", name, host, password, privileges, targetDB, name, host)
+	cmd := exec.Command("mysql")
+	cmd.Stdin = strings.NewReader(query)
+	return cmd.Run()
+}
+
+func (m *MySQLModule) UpdatePrivileges(name, role, target string) error {
+	host := "%"
+	if strings.Contains(name, "@") {
+		parts := strings.Split(name, "@")
+		name = parts[0]
+		host = parts[1]
+	}
+
+	if !isValidIdentifier(name) || !isValidIdentifier(host) {
+		return fmt.Errorf("invalid username or host")
+	}
+
+	privileges := "ALL PRIVILEGES"
+	if role != "" {
+		privileges = role
+	}
+
+	targetDB := "*.*"
+	if target != "" {
+		targetDB = target
+	}
+
+	query := fmt.Sprintf("REVOKE ALL PRIVILEGES, GRANT OPTION FROM '%s'@'%s'; GRANT %s ON %s TO '%s'@'%s'; FLUSH PRIVILEGES;", name, host, privileges, targetDB, name, host)
 	cmd := exec.Command("mysql")
 	cmd.Stdin = strings.NewReader(query)
 	return cmd.Run()

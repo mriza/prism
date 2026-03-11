@@ -108,3 +108,38 @@ func (m *CrowdSecModule) DeleteDecision(id string) error {
 	}
 	return exec.Command("cscli", "decisions", "delete", "--id", id).Run()
 }
+
+// DeleteDecisionByIP removes all decisions associated with a specific IP address.
+func (m *CrowdSecModule) DeleteDecisionByIP(ip string) error {
+	if ip == "" {
+		return fmt.Errorf("IP address is required")
+	}
+	return exec.Command("cscli", "decisions", "delete", "-i", ip).Run()
+}
+
+// Metrics implements the MetricGatherer interface
+func (m *CrowdSecModule) Metrics() (map[string]float64, error) {
+	out, err := exec.Command("cscli", "decisions", "list", "-o", "json").Output()
+	metrics := make(map[string]float64)
+
+	// If no decisions or error counting, return 0
+	if err != nil || len(out) == 0 {
+		metrics["active_decisions"] = 0
+		return metrics, nil
+	}
+
+	result := strings.TrimSpace(string(out))
+	if result == "" || result == "null" {
+		metrics["active_decisions"] = 0
+		return metrics, nil
+	}
+
+	// Simple count by finding JSON objects in the array.
+	// Since cscli outputs a JSON array [{}, {}], we can just count "id": or split by "}".
+	// But it's safer to just decode JSON properly if we imported it, or simply use strings.Count as a fast approximation.
+	// We'll use strings.Count for "id": inside the array output.
+	count := strings.Count(result, `"id":`)
+	metrics["active_decisions"] = float64(count)
+
+	return metrics, nil
+}

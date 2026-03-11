@@ -6,117 +6,92 @@ import {
     Server,
     Settings,
     Zap,
+    AppWindow,
+    ShieldCheck,
+    Users
 } from 'lucide-react';
+import { twMerge } from 'tailwind-merge';
+import { useAuth } from '../contexts/AuthContext';
 
 const navItems = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
     { to: '/projects', label: 'Projects', icon: FolderKanban },
     { to: '/accounts', label: 'Accounts', icon: KeyRound },
-    { to: '/agents', label: 'Agents', icon: Server },
+    { to: '/servers', label: 'Servers', icon: Server },
+    { to: '/services', label: 'Services', icon: AppWindow },
+    { to: '/security', label: 'Security', icon: ShieldCheck },
     { to: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export function Sidebar() {
+    const { user } = useAuth();
     return (
-        <aside
-            style={{
-                width: '220px',
-                flexShrink: 0,
-                background: 'var(--color-bg-surface)',
-                borderRight: '1px solid var(--color-border)',
-                display: 'flex',
-                flexDirection: 'column',
-                height: '100vh',
-                position: 'sticky',
-                top: 0,
-            }}
-        >
+        <aside className="menu bg-base-200 text-base-content min-h-full w-64 p-4 border-r border-white/5 flex flex-col gap-4">
             {/* Brand */}
-            <div
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.625rem',
-                    padding: '1.25rem 1.25rem 1rem',
-                    borderBottom: '1px solid var(--color-border)',
-                }}
-            >
-                <div
-                    style={{
-                        width: '32px',
-                        height: '32px',
-                        borderRadius: '8px',
-                        background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                        boxShadow: '0 0 12px rgba(99,102,241,0.4)',
-                    }}
-                >
-                    <Zap size={16} color="#fff" />
+            <div className="flex items-center gap-3 px-2 py-2 border-b border-white/10 mx-2 pb-6">
+                <div className="w-10 h-10 rounded-xl bg-linear-to-br from-primary to-secondary flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(99,102,241,0.5)]">
+                    <Zap size={20} className="text-white" />
                 </div>
                 <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.9rem', lineHeight: 1.2 }}>PRISM</div>
-                    <div style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                    <div className="font-bold text-lg leading-none text-white tracking-wide">PRISM</div>
+                    <div className="text-[10px] text-primary font-bold tracking-[0.2em] uppercase mt-1">
                         Infra Manager
                     </div>
                 </div>
             </div>
 
             {/* Nav */}
-            <nav style={{ flex: 1, padding: '0.75rem 0.625rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <ul className="menu w-full gap-1 flex-1">
                 {navItems.map(({ to, label, icon: Icon, end }) => (
-                    <NavLink
-                        key={to}
-                        to={to}
-                        end={end}
-                        style={({ isActive }) => ({
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.625rem',
-                            padding: '0.55rem 0.75rem',
-                            borderRadius: 'var(--radius-md)',
-                            textDecoration: 'none',
-                            fontSize: '0.875rem',
-                            fontWeight: isActive ? 600 : 400,
-                            color: isActive ? '#fff' : 'var(--color-text-secondary)',
-                            background: isActive ? 'var(--color-accent)' : 'transparent',
-                            boxShadow: isActive ? 'var(--shadow-glow)' : 'none',
-                            transition: 'var(--transition)',
-                        })}
-                        onMouseEnter={e => {
-                            const el = e.currentTarget;
-                            if (!el.classList.contains('active')) {
-                                el.style.background = 'rgba(255,255,255,0.05)';
-                                el.style.color = 'var(--color-text-primary)';
-                            }
-                        }}
-                        onMouseLeave={e => {
-                            const el = e.currentTarget;
-                            if (!el.classList.contains('active')) {
-                                el.style.background = 'transparent';
-                                el.style.color = 'var(--color-text-secondary)';
-                            }
-                        }}
-                    >
-                        <Icon size={16} />
-                        {label}
-                    </NavLink>
+                    <li key={to}>
+                        <NavLink
+                            to={to}
+                            end={end}
+                            className={({ isActive }) => twMerge(
+                                "flex items-center gap-3 py-3 px-4 transition-all duration-200 rounded-xl",
+                                isActive 
+                                    ? "bg-primary text-primary-content active shadow-lg shadow-primary/20 font-bold" 
+                                    : "text-neutral-content hover:bg-base-300 hover:text-base-content"
+                            )}
+                            onClick={() => {
+                                // Close drawer on mobile click
+                                const drawer = document.getElementById('app-drawer') as HTMLInputElement;
+                                if (drawer && window.innerWidth < 1024) drawer.checked = false;
+                            }}
+                        >
+                            <Icon size={18} />
+                            {label}
+                        </NavLink>
+                    </li>
                 ))}
-            </nav>
+                
+                {user?.role === 'admin' && (
+                    <li key="/users">
+                        <NavLink
+                            to="/users"
+                            className={({ isActive }) => twMerge(
+                                "flex items-center gap-3 py-3 px-4 transition-all duration-200 rounded-xl",
+                                isActive 
+                                    ? "bg-primary text-primary-content active shadow-lg shadow-primary/20 font-bold" 
+                                    : "text-neutral-content hover:bg-base-300 hover:text-base-content"
+                            )}
+                            onClick={() => {
+                                const drawer = document.getElementById('app-drawer') as HTMLInputElement;
+                                if (drawer && window.innerWidth < 1024) drawer.checked = false;
+                            }}
+                        >
+                            <Users size={18} />
+                            Users
+                        </NavLink>
+                    </li>
+                )}
+            </ul>
 
             {/* Footer */}
-            <div
-                style={{
-                    padding: '0.75rem 1.25rem',
-                    borderTop: '1px solid var(--color-border)',
-                    fontSize: '0.7rem',
-                    color: 'var(--color-text-muted)',
-                }}
-            >
+            <div className="opacity-40 text-xs font-mono uppercase tracking-widest text-center py-4 border-t border-white/10 mx-2">
                 v0.1.0-alpha
             </div>
         </aside>
     );
 }
+

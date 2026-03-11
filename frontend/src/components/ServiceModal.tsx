@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
-import { X, Play, Square, RotateCw, Info, Server } from 'lucide-react'
-import { twMerge } from 'tailwind-merge'
+import { Play, Square, RotateCw, Info, Server, AlertCircle, Activity } from 'lucide-react'
+import { Modal } from './ui/Modal'
 import { DatabaseManager } from './services/managers/DatabaseManager'
 import { RabbitMQManager } from './services/managers/RabbitMQManager'
 import { WebServerManager } from './services/managers/WebServerManager'
 import { StorageManager } from './services/managers/StorageManager'
+import { clsx } from 'clsx'
+
 
 interface ServiceModalProps {
     isOpen: boolean
@@ -35,14 +37,15 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
             setActionOutput(null)
             setError(null)
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, agentId, serviceName])
 
-    const sendCommand = async (action: string, options: any = {}) => {
+    const sendCommand = async (action: string, options: Record<string, unknown> = {}) => {
         setLoading(true)
         setError(null)
         setActionOutput(null)
         try {
-            const response = await fetch('http://localhost:65432/api/control', {
+            const response = await fetch(`/api/control`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -60,8 +63,12 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
                 throw new Error(data.message)
             }
             return data
-        } catch (err: any) {
-            setError(err.message)
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                setError(err.message)
+            } else {
+                setError(String(err))
+            }
             return null
         } finally {
             setLoading(false)
@@ -73,166 +80,201 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
         if (data && data.message) {
             try {
                 setFacts(JSON.parse(data.message))
-            } catch (e) {
+            } catch {
                 setFacts({ raw: data.message })
             }
         }
     }
 
-    if (!isOpen) return null
-
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl border border-gray-700 flex flex-col max-h-[90vh]">
-
-                {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-gray-700">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-indigo-600/20 rounded-lg">
-                            <Server className="w-6 h-6 text-indigo-400" />
-                        </div>
-                        <div>
-                            <h2 className="text-xl font-bold text-white">{serviceName}</h2>
-                            <p className="text-sm text-gray-400">Agent: {agentId}</p>
-                        </div>
-                    </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
-                        <X className="w-6 h-6" />
-                    </button>
-                </div>
-
+        <Modal 
+            isOpen={isOpen} 
+            onClose={onClose} 
+            title={serviceName} 
+            size="xl"
+            subtitle={`Agent: ${agentId}`}
+            icon={<Server className="w-5 h-5" />}
+        >
+            <div className="flex flex-col h-full min-h-[400px]">
                 {/* Tabs */}
-                <div className="flex border-b border-gray-700">
+                <div role="tablist" className="tabs tabs-lifted mb-6">
                     <button
+                        role="tab"
                         onClick={() => setActiveTab('overview')}
-                        className={twMerge("flex-1 py-3 text-sm font-medium border-b-2 transition-colors", activeTab === 'overview' ? "border-indigo-500 text-indigo-400" : "border-transparent text-gray-400 hover:text-gray-300")}
+                        className={clsx("tab h-10 font-bold text-xs uppercase tracking-wider", activeTab === 'overview' && "tab-active [--tab-bg:var(--color-base-200)]")}
                     >
                         Overview
                     </button>
                     <button
+                        role="tab"
                         onClick={() => setActiveTab('control')}
-                        className={twMerge("flex-1 py-3 text-sm font-medium border-b-2 transition-colors", activeTab === 'control' ? "border-indigo-500 text-indigo-400" : "border-transparent text-gray-400 hover:text-gray-300")}
+                        className={clsx("tab h-10 font-bold text-xs uppercase tracking-wider", activeTab === 'control' && "tab-active [--tab-bg:var(--color-base-200)]")}
                     >
                         Control
                     </button>
                     {isDatabase && (
                         <button
+                            role="tab"
                             onClick={() => setActiveTab('database')}
-                            className={twMerge("flex-1 py-3 text-sm font-medium border-b-2 transition-colors", activeTab === 'database' ? "border-indigo-500 text-indigo-400" : "border-transparent text-gray-400 hover:text-gray-300")}
+                            className={clsx("tab h-10 font-bold text-xs uppercase tracking-wider", activeTab === 'database' && "tab-active [--tab-bg:var(--color-base-200)]")}
                         >
                             Database
                         </button>
                     )}
                     {isRabbitMQ && (
                         <button
+                            role="tab"
                             onClick={() => setActiveTab('rabbitmq')}
-                            className={twMerge("flex-1 py-3 text-sm font-medium border-b-2 transition-colors", activeTab === 'rabbitmq' ? "border-indigo-500 text-indigo-400" : "border-transparent text-gray-400 hover:text-gray-300")}
+                            className={clsx("tab h-10 font-bold text-xs uppercase tracking-wider", activeTab === 'rabbitmq' && "tab-active [--tab-bg:var(--color-base-200)]")}
                         >
                             RabbitMQ
                         </button>
                     )}
                     {isWebServer && (
                         <button
+                            role="tab"
                             onClick={() => setActiveTab('sites')}
-                            className={twMerge("flex-1 py-3 text-sm font-medium border-b-2 transition-colors", activeTab === 'sites' ? "border-indigo-500 text-indigo-400" : "border-transparent text-gray-400 hover:text-gray-300")}
+                            className={clsx("tab h-10 font-bold text-xs uppercase tracking-wider", activeTab === 'sites' && "tab-active [--tab-bg:var(--color-base-200)]")}
                         >
                             Sites
                         </button>
                     )}
                     {isStorage && (
                         <button
+                            role="tab"
                             onClick={() => setActiveTab('storage')}
-                            className={twMerge("flex-1 py-3 text-sm font-medium border-b-2 transition-colors", activeTab === 'storage' ? "border-indigo-500 text-indigo-400" : "border-transparent text-gray-400 hover:text-gray-300")}
+                            className={clsx("tab h-10 font-bold text-xs uppercase tracking-wider", activeTab === 'storage' && "tab-active [--tab-bg:var(--color-base-200)]")}
                         >
                             Storage
                         </button>
                     )}
                 </div>
 
-                {/* Content */}
-                <div className="p-6 overflow-y-auto flex-1">
+                {/* Content Area */}
+                <div className="flex-1 overflow-y-auto">
                     {error && (
-                        <div className="mb-4 p-3 bg-red-900/30 border border-red-800 text-red-200 rounded-lg text-sm">
-                            {error}
+                        <div className="alert alert-error text-xs mb-6 rounded-xl border border-error/20 flex items-start">
+                            <AlertCircle size={16} className="mt-0.5" />
+                            <span>{error}</span>
                         </div>
                     )}
 
-                    {loading && <div className="text-center py-4"><RotateCw className="w-6 h-6 animate-spin mx-auto text-indigo-500" /></div>}
-
-                    {/* Overview Tab */}
-                    {activeTab === 'overview' && !loading && (
-                        <div className="space-y-4">
-                            <h3 className="text-lg font-medium text-white flex items-center gap-2">
-                                <Info className="w-5 h-5" /> Service Facts
-                            </h3>
-                            {facts ? (
-                                <div className="grid grid-cols-2 gap-4">
-                                    {Object.entries(facts).map(([key, value]) => (
-                                        <div key={key} className="bg-gray-700/50 p-3 rounded-lg">
-                                            <span className="block text-xs text-gray-400 uppercase">{key.replace('_', ' ')}</span>
-                                            <span className="text-sm font-mono text-white break-words">{String(value)}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-gray-500 italic">No facts available.</p>
-                            )}
+                    {loading && (
+                        <div className="flex flex-col items-center justify-center py-12 text-primary opacity-50">
+                            <RotateCw className="w-8 h-8 animate-spin mb-4" />
+                            <span className="text-xs font-bold uppercase tracking-widest">Processing request...</span>
                         </div>
                     )}
 
-                    {/* Control Tab */}
-                    {activeTab === 'control' && (
+                    {!loading && (
                         <div className="space-y-6">
-                            <div className="grid grid-cols-3 gap-4">
-                                <button onClick={async () => {
-                                    const res = await sendCommand('start');
-                                    if (res) setActionOutput("Service Started");
-                                }} className="flex flex-col items-center justify-center p-4 bg-gray-700 hover:bg-green-900/40 hover:border-green-500 border border-gray-600 rounded-xl transition-all group">
-                                    <Play className="w-8 h-8 text-green-500 group-hover:scale-110 transition-transform mb-2" />
-                                    <span className="text-sm font-medium text-gray-200">Start</span>
-                                </button>
-                                <button onClick={async () => {
-                                    const res = await sendCommand('stop');
-                                    if (res) setActionOutput("Service Stopped");
-                                }} className="flex flex-col items-center justify-center p-4 bg-gray-700 hover:bg-red-900/40 hover:border-red-500 border border-gray-600 rounded-xl transition-all group">
-                                    <Square className="w-8 h-8 text-red-500 group-hover:scale-110 transition-transform mb-2" />
-                                    <span className="text-sm font-medium text-gray-200">Stop</span>
-                                </button>
-                                <button onClick={async () => {
-                                    const res = await sendCommand('restart');
-                                    if (res) setActionOutput("Service Restarted");
-                                }} className="flex flex-col items-center justify-center p-4 bg-gray-700 hover:bg-yellow-900/40 hover:border-yellow-500 border border-gray-600 rounded-xl transition-all group">
-                                    <RotateCw className="w-8 h-8 text-yellow-500 group-hover:spin transition-transform mb-2" />
-                                    <span className="text-sm font-medium text-gray-200">Restart</span>
-                                </button>
-                            </div>
-                            {actionOutput && (
-                                <div className="p-3 bg-green-900/30 border border-green-800 text-green-200 rounded-lg text-sm text-center">
-                                    {actionOutput}
+                            {/* Overview Tab */}
+                            {activeTab === 'overview' && (
+                                <div className="space-y-4 animate-in fade-in duration-300">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                                            <Info size={16} />
+                                        </div>
+                                        <h3 className="text-sm font-black uppercase tracking-widest">Service Information</h3>
+                                    </div>
+                                    
+                                    {facts ? (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {Object.entries(facts).map(([key, value]) => (
+                                                <div key={key} className="p-3 bg-base-200 rounded-xl border border-white/5 shadow-sm group hover:border-primary/30 transition-colors">
+                                                    <span className="block text-[10px] text-neutral-content/40 font-black uppercase tracking-wider mb-1">
+                                                        {key.replace(/_/g, ' ')}
+                                                    </span>
+                                                    <span className="text-sm font-mono font-bold text-primary/80 break-all leading-tight">
+                                                        {String(value)}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="py-12 text-center bg-base-200/50 rounded-2xl border border-dashed border-white/10 italic text-neutral-content/40">
+                                            No diagnostic facts available for this service.
+                                        </div>
+                                    )}
                                 </div>
                             )}
+
+                            {/* Control Tab */}
+                            {activeTab === 'control' && (
+                                <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                        <button 
+                                            onClick={async () => {
+                                                const res = await sendCommand('start');
+                                                if (res) setActionOutput("Service Started Successfully");
+                                            }} 
+                                            className="flex flex-col items-center justify-center p-6 bg-base-200 hover:bg-success/10 hover:border-success/30 border border-white/5 rounded-2xl transition-all group active:scale-95"
+                                        >
+                                            <div className="p-3 rounded-full bg-success/10 text-success group-hover:scale-110 transition-transform mb-3 ring-4 ring-transparent group-hover:ring-success/5">
+                                                <Play className="w-6 h-6 fill-current" />
+                                            </div>
+                                            <span className="text-xs font-black uppercase tracking-widest">Start</span>
+                                        </button>
+                                        
+                                        <button 
+                                            onClick={async () => {
+                                                const res = await sendCommand('stop');
+                                                if (res) setActionOutput("Service Stopped Successfully");
+                                            }} 
+                                            className="flex flex-col items-center justify-center p-6 bg-base-200 hover:bg-error/10 hover:border-error/30 border border-white/5 rounded-2xl transition-all group active:scale-95"
+                                        >
+                                            <div className="p-3 rounded-full bg-error/10 text-error group-hover:scale-110 transition-transform mb-3 ring-4 ring-transparent group-hover:ring-error/5">
+                                                <Square className="w-6 h-6 fill-current" />
+                                            </div>
+                                            <span className="text-xs font-black uppercase tracking-widest">Stop</span>
+                                        </button>
+                                        
+                                        <button 
+                                            onClick={async () => {
+                                                const res = await sendCommand('restart');
+                                                if (res) setActionOutput("Service Restarted Successfully");
+                                            }} 
+                                            className="flex flex-col items-center justify-center p-6 bg-base-200 hover:bg-warning/10 hover:border-warning/30 border border-white/5 rounded-2xl transition-all group active:scale-95"
+                                        >
+                                            <div className="p-3 rounded-full bg-warning/10 text-warning group-hover:rotate-180 transition-transform duration-500 mb-3 ring-4 ring-transparent group-hover:ring-warning/5">
+                                                <RotateCw className="w-6 h-6" />
+                                            </div>
+                                            <span className="text-xs font-black uppercase tracking-widest">Restart</span>
+                                        </button>
+                                    </div>
+                                    
+                                    {actionOutput && (
+                                        <div className="alert alert-success text-xs font-bold uppercase tracking-wider py-4 rounded-xl border border-success/20 flex justify-center shadow-lg shadow-success/5">
+                                            <Activity size={16} className="mr-2" />
+                                            {actionOutput}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Manager Components */}
+                            <div className="animate-in fade-in duration-500">
+                                {activeTab === 'database' && (
+                                    <DatabaseManager sendCommand={sendCommand} />
+                                )}
+
+                                {activeTab === 'rabbitmq' && (
+                                    <RabbitMQManager sendCommand={sendCommand} setActionOutput={setActionOutput} />
+                                )}
+
+                                {activeTab === 'sites' && (
+                                    <WebServerManager sendCommand={sendCommand} serviceName={serviceName} />
+                                )}
+
+                                {activeTab === 'storage' && (
+                                    <StorageManager sendCommand={sendCommand} />
+                                )}
+                            </div>
                         </div>
                     )}
-
-                    {/* Manager Components */}
-                    {activeTab === 'database' && (
-                        <DatabaseManager sendCommand={sendCommand} />
-                    )}
-
-                    {activeTab === 'rabbitmq' && (
-                        <RabbitMQManager sendCommand={sendCommand} setActionOutput={setActionOutput} />
-                    )}
-
-                    {activeTab === 'sites' && (
-                        <WebServerManager sendCommand={sendCommand} serviceName={serviceName} />
-                    )}
-
-                    {activeTab === 'storage' && (
-                        <StorageManager sendCommand={sendCommand} />
-                    )}
-
                 </div>
             </div>
-        </div>
+        </Modal>
     )
 }
+

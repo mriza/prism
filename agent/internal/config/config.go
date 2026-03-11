@@ -12,8 +12,9 @@ import (
 type Config struct {
 	Server   ServerConfig    `toml:"server"`
 	Hub      HubConfig       `toml:"hub"`
-	Database DatabaseConfig  `toml:"database"`
-	Services []ServiceConfig `toml:"services"`
+	Database       DatabaseConfig  `toml:"database"`
+	Services       []ServiceConfig `toml:"services"`
+	ActiveFirewall string          `toml:"active_firewall"`
 }
 
 type HubConfig struct {

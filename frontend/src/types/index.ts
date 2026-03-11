@@ -3,11 +3,17 @@ export type ServiceType =
     | 'mysql'
     | 'postgresql'
     | 'rabbitmq'
+    | 'mqtt-mosquitto'
     | 's3-minio'
     | 's3-garage'
     | 'ftp-vsftpd'
     | 'ftp-sftpgo'
-    | 'pm2';
+    | 'web-caddy'
+    | 'web-nginx'
+    | 'pm2'
+    | 'supervisor'
+    | 'systemd'
+    | 'security-crowdsec';
 
 export type ProxyType = 'caddy' | 'nginx' | 'none';
 
@@ -22,19 +28,27 @@ export const SERVICE_TYPE_LABELS: Record<ServiceType, string> = {
     mysql: 'MySQL',
     postgresql: 'PostgreSQL',
     rabbitmq: 'RabbitMQ',
+    'mqtt-mosquitto': 'Mosquitto (MQTT)',
     's3-minio': 'MinIO (S3)',
     's3-garage': 'Garage (S3)',
     'ftp-vsftpd': 'vsftpd (FTP)',
     'ftp-sftpgo': 'SFTPGo',
+    'web-caddy': 'Caddy',
+    'web-nginx': 'Nginx',
     pm2: 'PM2 Process',
+    supervisor: 'Supervisor',
+    systemd: 'Systemd (User)',
+    'security-crowdsec': 'CrowdSec',
 };
 
 export const SERVICE_TYPE_CATEGORIES: Record<string, ServiceType[]> = {
     Database: ['mongodb', 'mysql', 'postgresql'],
-    'Message Queue': ['rabbitmq'],
+    'Message Queue': ['rabbitmq', 'mqtt-mosquitto'],
     'Object Storage': ['s3-minio', 's3-garage'],
     'File Transfer': ['ftp-vsftpd', 'ftp-sftpgo'],
-    'Process Manager': ['pm2'],
+    'Web Server': ['web-caddy', 'web-nginx'],
+    'Process Manager': ['pm2', 'supervisor', 'systemd'],
+    'Security': ['security-crowdsec'],
 };
 
 export interface Project {
@@ -58,6 +72,8 @@ export interface ServiceAccount {
     database?: string;
     username?: string;
     password?: string;
+    role?: string;
+    targetEntity?: string;
     // RabbitMQ
     vhost?: string;
     // S3
@@ -81,10 +97,24 @@ export interface ServiceAccount {
 
 export interface Agent {
     id: string;
+    name: string;
+    description: string;
+    hostname: string;
+    osInfo: string;
+    status: 'pending' | 'approved' | 'online' | 'offline' | 'rejected';
+    lastSeen: string;
+    createdAt: string;
     services: {
         name: string;
         status: string;
     }[];
+}
+
+export interface User {
+    id: string;
+    username: string;
+    role: 'admin' | 'manager' | 'user';
+    createdAt: string;
 }
 
 export const PROJECT_COLORS = [
