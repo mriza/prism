@@ -73,7 +73,7 @@ export function LoginPage() {
                     <form onSubmit={handleLogin} className="space-y-6">
                         <div className="form-control">
                             <label className="label pb-2 pt-0.5">
-                                <span className="label-text text-[11px] font-extrabold uppercase tracking-widest text-neutral-content/60">Username</span>
+                                <span className="label-text text-[11px] font-extrabold uppercase tracking-widest text-neutral-content/90">Username</span>
                             </label>
                             <input 
                                 type="text" 
@@ -86,7 +86,7 @@ export function LoginPage() {
                         </div>
                         <div className="form-control">
                             <label className="label pb-2 pt-0.5">
-                                <span className="label-text text-[11px] font-extrabold uppercase tracking-widest text-neutral-content/60">Password</span>
+                                <span className="label-text text-[11px] font-extrabold uppercase tracking-widest text-neutral-content/90">Password</span>
                             </label>
                             <input 
                                 type="password" 

@@ -11,7 +11,7 @@ export function Input({ label, className, ...props }: InputProps) {
         <div className="form-control w-full">
             {label && (
                 <label className="label pb-2 pt-0.5">
-                    <span className="label-text text-[11px] font-extrabold uppercase tracking-widest text-neutral-content/60">{label}</span>
+                    <span className="label-text text-[11px] font-extrabold uppercase tracking-widest text-neutral-content/90">{label}</span>
                 </label>
             )}
             <input
@@ -37,7 +37,7 @@ export function Select({ label, options, className, ...props }: SelectProps) {
         <div className="form-control w-full">
             {label && (
                 <label className="label pb-2 pt-0.5">
-                    <span className="label-text text-[11px] font-extrabold uppercase tracking-widest text-neutral-content/60">{label}</span>
+                    <span className="label-text text-[11px] font-extrabold uppercase tracking-widest text-neutral-content/90">{label}</span>
                 </label>
             )}
             <select
@@ -68,7 +68,7 @@ export function Textarea({ label, className, ...props }: TextareaProps) {
         <div className="form-control w-full">
             {label && (
                 <label className="label pb-2 pt-0.5">
-                    <span className="label-text text-[11px] font-extrabold uppercase tracking-widest text-neutral-content/60">{label}</span>
+                    <span className="label-text text-[11px] font-extrabold uppercase tracking-widest text-neutral-content/90">{label}</span>
                 </label>
             )}
             <textarea

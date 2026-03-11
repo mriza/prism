@@ -7,5 +7,15 @@
 
 body {
   font-family: var(--font-sans);
-  background-color: var(--color-base-300);
+  background-color: #0a0a0c;
+  color: #e2e8f0;
+}
+
+/* Custom contrast overrides */
+:root {
+  --color-base-100: #121217;
+  --color-base-200: #0f0f13;
+  --color-base-300: #0a0a0c;
+  --color-primary: #818cf8; /* Lighter, more vibrant indigo for dark mode */
+  --color-neutral-content: #94a3b8;
 }

@@ -48,7 +48,7 @@ export function ProjectFormModal({ isOpen, onClose, onSave, initial }: Props) {
                     {/* Color picker */}
                     <div className="space-y-3 pt-2">
                         <label className="label pb-2 pt-0.5">
-                            <span className="label-text text-[11px] font-extrabold uppercase tracking-widest text-neutral-content/60">Project Color</span>
+                            <span className="label-text text-[11px] font-extrabold uppercase tracking-widest text-neutral-content/90">Project Color</span>
                         </label>
                         <div className="flex flex-wrap gap-3">
                             {PROJECT_COLORS.map(c => (

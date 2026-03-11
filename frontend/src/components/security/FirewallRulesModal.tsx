@@ -192,10 +192,10 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
                     <form onSubmit={handleAddRule} className="flex gap-4 items-end">
                         <div className="form-control flex-1">
                             <label className="label pb-2 pt-0.5">
-                                <span className="label-text text-[11px] font-extrabold uppercase tracking-[0.15em] text-neutral-content/40">Action</span>
+                                <span className="label-text text-[11px] font-extrabold uppercase tracking-[0.15em] text-neutral-content/80">Action</span>
                             </label>
                             <select 
-                                className="select select-bordered select-sm w-full bg-base-100 transition-colors focus:border-primary" 
+                                className="select select-bordered w-full bg-base-100 transition-colors focus:border-primary" 
                                 value={newAction} 
                                 onChange={e => setNewAction(e.target.value)}
                             >
@@ -205,13 +205,13 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
                         </div>
                         <div className="form-control flex-1">
                             <label className="label pb-2 pt-0.5">
-                                <span className="label-text text-[11px] font-extrabold uppercase tracking-[0.15em] text-neutral-content/40">Port</span>
+                                <span className="label-text text-[11px] font-extrabold uppercase tracking-[0.15em] text-neutral-content/80">Port</span>
                             </label>
                             <input 
                                 type="number" 
                                 min="1" max="65535"
-                                placeholder="e.g. 8080"
-                                className="input input-bordered input-sm w-full bg-base-100 transition-colors focus:border-primary placeholder:text-neutral-content/30" 
+                                placeholder="8080"
+                                className="input input-bordered w-full bg-base-100 transition-colors focus:border-primary placeholder:text-neutral-content/30 text-lg font-mono font-bold py-6" 
                                 value={newPort} 
                                 onChange={e => setNewPort(e.target.value)}
                                 required
@@ -219,10 +219,10 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
                         </div>
                         <div className="form-control flex-1">
                             <label className="label pb-2 pt-0.5">
-                                <span className="label-text text-[11px] font-extrabold uppercase tracking-[0.15em] text-neutral-content/40">Protocol</span>
+                                <span className="label-text text-[11px] font-extrabold uppercase tracking-[0.15em] text-neutral-content/80">Protocol</span>
                             </label>
                             <select 
-                                className="select select-bordered select-sm w-full bg-base-100 transition-colors focus:border-primary" 
+                                className="select select-bordered w-full bg-base-100 transition-colors focus:border-primary" 
                                 value={newProtocol} 
                                 onChange={e => setNewProtocol(e.target.value)}
                             >
@@ -232,7 +232,7 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
                         </div>
                         <button 
                             type="submit" 
-                            className="btn btn-primary btn-sm px-6 h-[32px] font-semibold tracking-wide shadow-sm"
+                            className="btn btn-primary px-8 h-[48px] font-bold tracking-wide shadow-lg"
                             disabled={submitting || !newPort}
                         >
                             {submitting ? <span className="loading loading-spinner loading-xs"></span> : 'Add Rule'}
