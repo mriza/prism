@@ -10,8 +10,8 @@ export function Input({ label, className, ...props }: InputProps) {
     return (
         <div className="form-control w-full">
             {label && (
-                <label className="label py-1.5 pt-0">
-                    <span className="label-text text-[10px] font-bold uppercase tracking-wider text-neutral-content">{label}</span>
+                <label className="label pb-2 pt-0.5">
+                    <span className="label-text text-[11px] font-extrabold uppercase tracking-widest text-neutral-content/60">{label}</span>
                 </label>
             )}
             <input
@@ -36,8 +36,8 @@ export function Select({ label, options, className, ...props }: SelectProps) {
     return (
         <div className="form-control w-full">
             {label && (
-                <label className="label py-1.5 pt-0">
-                    <span className="label-text text-[10px] font-bold uppercase tracking-wider text-neutral-content">{label}</span>
+                <label className="label pb-2 pt-0.5">
+                    <span className="label-text text-[11px] font-extrabold uppercase tracking-widest text-neutral-content/60">{label}</span>
                 </label>
             )}
             <select
@@ -67,8 +67,8 @@ export function Textarea({ label, className, ...props }: TextareaProps) {
     return (
         <div className="form-control w-full">
             {label && (
-                <label className="label py-1.5 pt-0">
-                    <span className="label-text text-[10px] font-bold uppercase tracking-wider text-neutral-content">{label}</span>
+                <label className="label pb-2 pt-0.5">
+                    <span className="label-text text-[11px] font-extrabold uppercase tracking-widest text-neutral-content/60">{label}</span>
                 </label>
             )}
             <textarea

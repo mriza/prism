@@ -188,11 +188,11 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
                 )}
 
                 {/* Add Rule Form */}
-                <div className="bg-base-200/50 p-4 rounded-lg border border-base-300 mb-6 shrink-0 transition-all focus-within:ring-2 focus-within:ring-primary/20">
-                    <form onSubmit={handleAddRule} className="flex gap-3 items-end">
+                <div className="bg-base-200/50 p-5 rounded-xl border border-white/5 mb-6 shrink-0 transition-all focus-within:ring-2 focus-within:ring-primary/20 shadow-inner">
+                    <form onSubmit={handleAddRule} className="flex gap-4 items-end">
                         <div className="form-control flex-1">
-                            <label className="label">
-                                <span className="label-text font-medium text-xs uppercase tracking-wider">Action</span>
+                            <label className="label pb-2 pt-0.5">
+                                <span className="label-text text-[11px] font-extrabold uppercase tracking-[0.15em] text-neutral-content/40">Action</span>
                             </label>
                             <select 
                                 className="select select-bordered select-sm w-full bg-base-100 transition-colors focus:border-primary" 
@@ -204,8 +204,8 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
                             </select>
                         </div>
                         <div className="form-control flex-1">
-                            <label className="label">
-                                <span className="label-text font-medium text-xs uppercase tracking-wider">Port</span>
+                            <label className="label pb-2 pt-0.5">
+                                <span className="label-text text-[11px] font-extrabold uppercase tracking-[0.15em] text-neutral-content/40">Port</span>
                             </label>
                             <input 
                                 type="number" 
@@ -218,8 +218,8 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
                             />
                         </div>
                         <div className="form-control flex-1">
-                            <label className="label">
-                                <span className="label-text font-medium text-xs uppercase tracking-wider">Protocol</span>
+                            <label className="label pb-2 pt-0.5">
+                                <span className="label-text text-[11px] font-extrabold uppercase tracking-[0.15em] text-neutral-content/40">Protocol</span>
                             </label>
                             <select 
                                 className="select select-bordered select-sm w-full bg-base-100 transition-colors focus:border-primary" 
