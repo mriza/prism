@@ -16,6 +16,13 @@ type Project struct {
 	CreatedAt   string `json:"createdAt"`
 }
 
+type RMQBinding struct {
+	VHost            string `json:"vhost"`
+	SourceExchange   string `json:"sourceExchange"`
+	DestinationQueue string `json:"destinationQueue"`
+	RoutingKey       string `json:"routingKey"`
+}
+
 type ServiceAccount struct {
 	ID             string   `json:"id"`
 	ProjectID      string   `json:"projectId,omitempty"`
@@ -25,16 +32,20 @@ type ServiceAccount struct {
 	Host           string   `json:"host,omitempty"`
 	Port           int      `json:"port,omitempty"`
 	Database       string   `json:"database,omitempty"`
+	Databases      []string `json:"databases,omitempty"` // For multi-DB support
 	Username       string   `json:"username,omitempty"`
 	Password       string   `json:"password,omitempty"`
 	Role           string   `json:"role,omitempty"`
 	TargetEntity   string   `json:"targetEntity,omitempty"`
 	VHost          string   `json:"vhost,omitempty"`
+	Bindings       []RMQBinding `json:"bindings,omitempty"` // For RabbitMQ bindings
 	Endpoint       string   `json:"endpoint,omitempty"`
 	AccessKey      string   `json:"accessKey,omitempty"`
 	SecretKey      string   `json:"secretKey,omitempty"`
 	Bucket         string   `json:"bucket,omitempty"`
 	RootPath       string   `json:"rootPath,omitempty"`
+	Quota          int      `json:"quota,omitempty"`        // in MB
+	QuotaEnabled   bool     `json:"quotaEnabled,omitempty"`
 	AppName        string   `json:"appName,omitempty"`
 	Script         string   `json:"script,omitempty"`
 	Cwd            string   `json:"cwd,omitempty"`

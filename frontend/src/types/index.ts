@@ -59,6 +59,13 @@ export interface Project {
     createdAt: string;
 }
 
+export interface RMQBinding {
+    vhost: string;
+    sourceExchange: string;
+    destinationQueue: string;
+    routingKey: string;
+}
+
 export interface ServiceAccount {
     id: string;
     projectId?: string;
@@ -69,13 +76,15 @@ export interface ServiceAccount {
     host?: string;
     port?: number;
     // DB
-    database?: string;
+    database?: string;      // Legacy
+    databases?: string[];   // Multi-DB
     username?: string;
     password?: string;
     role?: string;
     targetEntity?: string;
     // RabbitMQ
     vhost?: string;
+    bindings?: RMQBinding[];
     // S3
     endpoint?: string;
     accessKey?: string;
@@ -83,6 +92,8 @@ export interface ServiceAccount {
     bucket?: string;
     // FTP
     rootPath?: string;
+    quota?: number;          // in MB
+    quotaEnabled?: boolean;
     // PM2
     appName?: string;
     script?: string;
@@ -107,6 +118,7 @@ export interface Agent {
     services: {
         name: string;
         status: string;
+        metrics?: Record<string, number>;
     }[];
 }
 

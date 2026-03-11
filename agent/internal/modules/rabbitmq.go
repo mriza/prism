@@ -3,6 +3,7 @@ package modules
 import (
 	"prism-agent/internal/core"
 	"fmt"
+	"log"
 	"os/exec"
 	"strings"
 )
@@ -26,8 +27,6 @@ func (m *RabbitMQModule) GetFacts() (map[string]string, error) {
 	// Get Version
 	_, err := exec.Command("rabbitmqctl", "status").Output()
 	if err == nil {
-		// Parsing rabbitmqctl status is verbose, maybe just basic check or grep version
-		// For now just indicate it's rabbitmq
 		facts["type"] = "message-broker"
 	}
 	return facts, nil
@@ -36,7 +35,6 @@ func (m *RabbitMQModule) GetFacts() (map[string]string, error) {
 // --- VHost Management ---
 
 func (m *RabbitMQModule) ListVHosts() ([]string, error) {
-	// rabbitmqctl list_vhosts --quiet --no-table-headers
 	out, err := exec.Command("rabbitmqctl", "list_vhosts", "--quiet", "--no-table-headers").Output()
 	if err != nil {
 		return nil, err
@@ -48,7 +46,10 @@ func (m *RabbitMQModule) CreateVHost(name string) error {
 	if !isValidRMQIdentifier(name) {
 		return fmt.Errorf("invalid vhost name")
 	}
-	return exec.Command("rabbitmqctl", "add_vhost", name).Run()
+	// add_vhost fails if exists, but that's often okay for us
+	log.Printf("Creating vhost: %s", name)
+	exec.Command("rabbitmqctl", "add_vhost", name).Run()
+	return nil
 }
 
 func (m *RabbitMQModule) DeleteVHost(name string) error {
@@ -57,8 +58,6 @@ func (m *RabbitMQModule) DeleteVHost(name string) error {
 	}
 	return exec.Command("rabbitmqctl", "delete_vhost", name).Run()
 }
-
-// --- User Management ---
 
 // Helper for basic RabbitMQ identifier validation
 func isValidRMQIdentifier(s string) bool {
@@ -73,6 +72,53 @@ func isValidRMQIdentifier(s string) bool {
 	}
 	return true
 }
+
+// --- Standardized Interface Methods ---
+
+func (m *RabbitMQModule) CreateDatabase(name string) error {
+	return m.CreateVHost(name)
+}
+
+func (m *RabbitMQModule) CreateUser(name, password, role, target string) error {
+	if !isValidRMQIdentifier(name) {
+		return fmt.Errorf("invalid username")
+	}
+	
+	// 1. Create User (ignore error if already exists)
+	exec.Command("rabbitmqctl", "add_user", name, password).Run()
+
+	// 2. Set Tags (role mappings)
+	if role == "" {
+		role = "management"
+	}
+	exec.Command("rabbitmqctl", "set_user_tags", name, role).Run()
+
+	// 3. Set Permissions for the vhost
+	vhost := "/"
+	if target != "" && target != "*" {
+		vhost = target
+	}
+	
+	return exec.Command("rabbitmqctl", "set_permissions", "-p", vhost, name, ".*", ".*", ".*").Run()
+}
+
+func (m *RabbitMQModule) UpdatePrivileges(name, role, target string) error {
+	if !isValidRMQIdentifier(name) {
+		return fmt.Errorf("invalid username")
+	}
+
+	if role != "" {
+		exec.Command("rabbitmqctl", "set_user_tags", name, role).Run()
+	}
+
+	vhost := "/"
+	if target != "" && target != "*" {
+		vhost = target
+	}
+	return exec.Command("rabbitmqctl", "set_permissions", "-p", vhost, name, ".*", ".*", ".*").Run()
+}
+
+// --- List/Delete Methods ---
 
 func (m *RabbitMQModule) ListUsers() ([]core.RabbitUser, error) {
 	out, err := exec.Command("rabbitmqctl", "list_users", "-q").CombinedOutput()
@@ -95,22 +141,6 @@ func (m *RabbitMQModule) ListUsers() ([]core.RabbitUser, error) {
 	return users, nil
 }
 
-func (m *RabbitMQModule) CreateUser(name, password, tags string) error {
-	if !isValidRMQIdentifier(name) {
-		return fmt.Errorf("invalid username")
-	}
-	if err := exec.Command("rabbitmqctl", "add_user", name, password).Run(); err != nil {
-		return err
-	}
-	if tags != "" {
-		if !isValidRMQIdentifier(tags) && !strings.Contains(tags, ",") {
-			// Tags can be comma separated, but we do basic check
-		}
-		return exec.Command("rabbitmqctl", "set_user_tags", name, tags).Run()
-	}
-	return nil
-}
-
 func (m *RabbitMQModule) DeleteUser(name string) error {
 	if !isValidRMQIdentifier(name) {
 		return fmt.Errorf("invalid username")
@@ -122,30 +152,41 @@ func (m *RabbitMQModule) SetPermissions(vhost, user, conf, write, read string) e
 	if !isValidRMQIdentifier(vhost) || !isValidRMQIdentifier(user) {
 		return fmt.Errorf("invalid vhost or username")
 	}
-	// rabbitmqctl set_permissions -p vhost user "conf" "write" "read"
 	return exec.Command("rabbitmqctl", "set_permissions", "-p", vhost, user, conf, write, read).Run()
 }
 
-// --- Binding Management (MQTT Support) ---
+// --- Binding Management ---
 
-// CreateBinding binds a queue to an exchange.
-// For MQTT, we typically bind a queue to 'amq.topic' exchange.
 func (m *RabbitMQModule) CreateBinding(vhost, sourceExchange, destinationQueue, routingKey string) error {
 	if !isValidRMQIdentifier(vhost) || !isValidRMQIdentifier(sourceExchange) || !isValidRMQIdentifier(destinationQueue) || !isValidRMQIdentifier(routingKey) {
 		return fmt.Errorf("invalid identifier in binding parameters")
 	}
-	// rabbitmqctl bind_queue -p vhost queue exchange routing_key
-	// Note: rabbitmqctl syntax: bind_queue source_exchange destination_queue routing_key [arguments] -- vhost via -p
-
-	// Syntax: rabbitmqctl bind_queue <queue> <exchange> <routing_key> -p <vhost>
 	return exec.Command("rabbitmqctl", "bind_queue", destinationQueue, sourceExchange, routingKey, "-p", vhost).Run()
 }
 
 func (m *RabbitMQModule) ListBindings(vhost string) ([]string, error) {
-	// rabbitmqctl list_bindings -p vhost --quiet --no-table-headers
 	out, err := exec.Command("rabbitmqctl", "list_bindings", "-p", vhost, "--quiet", "--no-table-headers").Output()
 	if err != nil {
 		return nil, err
 	}
 	return strings.Split(strings.TrimSpace(string(out)), "\n"), nil
+}
+
+func (m *RabbitMQModule) SyncBindings(bindings []map[string]interface{}) error {
+	for _, b := range bindings {
+		vhost, _ := b["vhost"].(string)
+		exchange, _ := b["sourceExchange"].(string)
+		queue, _ := b["destinationQueue"].(string)
+		rkey, _ := b["routingKey"].(string)
+
+		if vhost == "" || queue == "" || exchange == "" {
+			continue
+		}
+
+		err := m.CreateBinding(vhost, exchange, queue, rkey)
+		if err != nil {
+			log.Printf("Binding error for %s: %v", queue, err)
+		}
+	}
+	return nil
 }

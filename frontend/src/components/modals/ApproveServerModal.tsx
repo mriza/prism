@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Server } from 'lucide-react';
 import { useAgents } from '../../hooks/useAgents';
+import { Input, Textarea } from '../ui/Fields';
 
 interface ApproveServerModalProps {
     isOpen: boolean;
@@ -69,32 +70,23 @@ export function ApproveServerModal({ isOpen, onClose, agentId, hostname }: Appro
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="form-control">
-                        <label className="label">
-                            <span className="label-text font-semibold">Server Name <span className="text-error">*</span></span>
-                        </label>
-                        <input
-                            type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="e.g. Production Database"
-                            className="input input-bordered w-full bg-base-300 focus:border-primary"
-                            autoFocus
-                        />
-                    </div>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <Input
+                        label="Server Name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="e.g. Production Database"
+                        autoFocus
+                        required
+                    />
                     
-                    <div className="form-control">
-                        <label className="label">
-                            <span className="label-text font-semibold">Description</span>
-                        </label>
-                        <textarea
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            placeholder="Optional details about this server's purpose..."
-                            className="textarea textarea-bordered h-24 bg-base-300 focus:border-primary"
-                        />
-                    </div>
+                    <Textarea
+                        label="Description"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Optional details about this server's purpose..."
+                        className="min-h-[6rem]"
+                    />
                     
                     <div className="modal-action mt-6">
                         <button type="button" className="btn btn-ghost" onClick={onClose} disabled={isSubmitting}>

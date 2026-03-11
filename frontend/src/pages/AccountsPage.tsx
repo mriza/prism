@@ -6,12 +6,12 @@ import { Button } from '../components/ui/Button';
 import { ServiceTypeIcon } from '../components/ui/ServiceTypeIcon';
 import { SERVICE_TYPE_LABELS, SERVICE_TYPE_CATEGORIES } from '../types';
 import type { ServiceType, ServiceAccount } from '../types';
-import { Plus, KeyRound, Trash2, Server, Check, Copy, Play, Eye, EyeOff, RefreshCw, Pencil } from 'lucide-react';
+import { Plus, KeyRound, Trash2, Server, Check, Copy, Eye, EyeOff, RefreshCw, Pencil } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 export function AccountsPage() {
-    const { independentAccounts, createAccount, updateAccount, deleteAccount, provisionAccount } = useAccounts();
+    const { independentAccounts, createAccount, updateAccount, deleteAccount } = useAccounts();
     const [showAdd, setShowAdd] = useState(false);
     const [editAccount, setEditAccount] = useState<ServiceAccount | null>(null);
     const [filterType, setFilterType] = useState<ServiceType | 'all'>('all');
@@ -122,7 +122,15 @@ export function AccountsPage() {
                                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-content font-medium">
                                         <span className="hidden md:inline text-primary uppercase tracking-wider">{SERVICE_TYPE_LABELS[a.type]}</span>
                                         {a.host && <span className="flex items-center gap-1.5"><Server size={12} className="opacity-60" /> {a.host}{a.port ? `:${a.port}` : ''}</span>}
-                                        {a.database && <span className="flex items-center gap-1.5">db: <span className="text-base-content">{a.database}</span></span>}
+                                        {(a.databases && a.databases.length > 0) ? (
+                                            <span className="flex items-center gap-1.5">
+                                                dbs: <span className="text-base-content font-bold">{a.databases.join(', ')}</span>
+                                            </span>
+                                        ) : a.database ? (
+                                            <span className="flex items-center gap-1.5">
+                                                db: <span className="text-base-content font-bold">{a.database}</span>
+                                            </span>
+                                        ) : null}
                                         {a.bucket && <span className="flex items-center gap-1.5">bucket: <span className="text-base-content">{a.bucket}</span></span>}
                                         {a.endpoint && <span className="flex items-center gap-1.5">endpoint: <span className="text-base-content">{a.endpoint}</span></span>}
                                         {a.appName && <span className="flex items-center gap-1.5">app: <span className="text-base-content">{a.appName}</span></span>}
@@ -168,63 +176,25 @@ export function AccountsPage() {
 
                                 {user?.role !== 'user' && (
                                     <div className="flex items-center justify-end gap-2 shrink-0 md:ml-4 pt-4 md:pt-0 border-t md:border-t-0 border-white/5">
-                                        {(a.type === 'mongodb' || a.type === 'mysql' || a.type === 'postgresql') && (
-                                            <>
-                                                <Button
-                                                    size="sm"
-                                                    variant="secondary"
-                                                    icon={<Play size={13} />}
-                                                    disabled={provisioningId === a.id || !a.agentId}
-                                                    onClick={async () => {
-                                                        if (!a.agentId) return;
-
-                                                        let fallbackRole = '';
-                                                        if (a.type === 'mongodb') fallbackRole = 'readWrite';
-                                                        if (a.type === 'mysql' || a.type === 'postgresql') fallbackRole = 'ALL PRIVILEGES';
-
-                                                        setProvisioningId(a.id);
-                                                        const ok = await provisionAccount(a.agentId, 'db_create_user', {
-                                                            username: a.type === 'mongodb' ? `${a.username}@${a.database}` : a.username,
-                                                            password: a.password,
-                                                            role: a.role || fallbackRole,
-                                                            target: a.targetEntity
-                                                        });
-                                                        setProvisioningId(null);
-                                                        if (ok) alert('Successfully provisioned account on server.');
-                                                        else alert('Failed to provision account on server.');
-                                                    }}
-                                                    className="h-8 min-h-0 px-3"
-                                                >
-                                                    {provisioningId === a.id ? '...' : 'Provision'}
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    icon={<RefreshCw size={13} />}
-                                                    disabled={provisioningId === a.id || !a.agentId}
-                                                    onClick={async () => {
-                                                        if (!a.agentId) return;
-
-                                                        let fallbackRole = '';
-                                                        if (a.type === 'mongodb') fallbackRole = 'readWrite';
-                                                        if (a.type === 'mysql' || a.type === 'postgresql') fallbackRole = 'ALL PRIVILEGES';
-
-                                                        setProvisioningId(a.id);
-                                                        const ok = await provisionAccount(a.agentId, 'db_update_privileges', {
-                                                            username: a.type === 'mongodb' ? `${a.username}@${a.database}` : a.username,
-                                                            role: a.role || fallbackRole,
-                                                            target: a.targetEntity
-                                                        });
-                                                        setProvisioningId(null);
-                                                        if (ok) alert('Successfully updated privileges on server.');
-                                                        else alert('Failed to update privileges on server.');
-                                                    }}
-                                                    className="h-8 min-h-0 px-3"
-                                                    title="Sync modifications to the target entity or role selection to the server."
-                                                >
-                                                    Update
-                                                </Button>
-                                            </>
+                                        {(['mongodb', 'mysql', 'postgresql', 'rabbitmq'] as string[]).includes(a.type) && (
+                                            <Button
+                                                size="sm"
+                                                variant="secondary"
+                                                icon={<RefreshCw size={13} className={provisioningId === a.id ? 'animate-spin' : ''} />}
+                                                disabled={provisioningId === a.id}
+                                                onClick={async () => {
+                                                    setProvisioningId(a.id);
+                                                    const success = await updateAccount(a.id, a);
+                                                    setProvisioningId(null);
+                                                    if (success) {
+                                                        alert('Sync successful: Configurations re-applied to agent.');
+                                                    }
+                                                }}
+                                                className="h-8 min-h-0 px-3"
+                                                title="Re-provision all databases, users, and bindings to the agent based on current settings."
+                                            >
+                                                {provisioningId === a.id ? 'Syncing...' : 'Sync Settings'}
+                                            </Button>
                                         )}
                                         <button
                                             onClick={() => setEditAccount(a)}

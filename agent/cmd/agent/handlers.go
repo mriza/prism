@@ -50,6 +50,52 @@ func getFloatOpt(p map[string]interface{}, key string) float64 {
 	return val
 }
 
+func getBoolOpt(p map[string]interface{}, key string) bool {
+	if p == nil {
+		return false
+	}
+	optsRaw, ok := p["options"]
+	if !ok || optsRaw == nil {
+		return false
+	}
+	opts, ok := optsRaw.(map[string]interface{})
+	if !ok || opts == nil {
+		return false
+	}
+	val, ok := opts[key].(bool)
+	if !ok {
+		return false
+	}
+	return val
+}
+
+func getInterfaceSliceOpt(p map[string]interface{}, key string) []map[string]interface{} {
+	if p == nil {
+		return nil
+	}
+	optsRaw, ok := p["options"]
+	if !ok || optsRaw == nil {
+		return nil
+	}
+	opts, ok := optsRaw.(map[string]interface{})
+	if !ok || opts == nil {
+		return nil
+	}
+	
+	rawList, ok := opts[key].([]interface{})
+	if !ok {
+		return nil
+	}
+	
+	result := make([]map[string]interface{}, 0, len(rawList))
+	for _, item := range rawList {
+		if m, ok := item.(map[string]interface{}); ok {
+			result = append(result, m)
+		}
+	}
+	return result
+}
+
 var CommandHandlers = map[string]CommandHandlerFunc{
 	// --- Generic Service Control ---
 	"start": func(mod core.ServiceModule, _ map[string]interface{}) (string, error) {
@@ -87,11 +133,14 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 		return "", fmt.Errorf("module does not support database operations")
 	},
 	"db_create_db": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
+		name := getStringOpt(p, "name")
 		if db, ok := mod.(core.DatabaseModule); ok {
-			name := getStringOpt(p, "name")
 			return "", db.CreateDatabase(name)
 		}
-		return "", fmt.Errorf("module does not support database operations")
+		if rmq, ok := mod.(core.RabbitMQModule); ok {
+			return "", rmq.CreateVHost(name)
+		}
+		return "", fmt.Errorf("module does not support database/vhost creation")
 	},
 	"db_list_users": func(mod core.ServiceModule, _ map[string]interface{}) (string, error) {
 		if db, ok := mod.(core.DatabaseModule); ok {
@@ -122,6 +171,23 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 			return "", db.UpdatePrivileges(user, role, target)
 		}
 		return "", fmt.Errorf("module does not support database operations")
+	},
+	"db_create_binding": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
+		if rmq, ok := mod.(core.RabbitMQModule); ok {
+			vhost := getStringOpt(p, "vhost")
+			queue := getStringOpt(p, "destinationQueue") // Changed to match server names
+			exchange := getStringOpt(p, "sourceExchange")
+			routingKey := getStringOpt(p, "routingKey")
+			return "", rmq.CreateBinding(vhost, exchange, queue, routingKey)
+		}
+		return "", fmt.Errorf("module does not support binding operations")
+	},
+	"db_sync": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
+		if rmq, ok := mod.(core.RabbitMQModule); ok {
+			bindings := getInterfaceSliceOpt(p, "bindings")
+			return "", rmq.SyncBindings(bindings)
+		}
+		return "", fmt.Errorf("module does not support sync operations")
 	},
 
 	// --- RabbitMQ ---
@@ -165,8 +231,9 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
 			user := getStringOpt(p, "username")
 			pass := getStringOpt(p, "password")
-			tags := getStringOpt(p, "tags")
-			return "", rmq.CreateUser(user, pass, tags)
+			role := getStringOpt(p, "role")
+			target := getStringOpt(p, "vhost")
+			return "", rmq.CreateUser(user, pass, role, target)
 		}
 		return "", fmt.Errorf("not a rabbitmq module")
 	},
@@ -185,6 +252,13 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 			exchange := getStringOpt(p, "exchange")
 			routingKey := getStringOpt(p, "routing_key")
 			return "", rmq.CreateBinding(vhost, exchange, queue, routingKey)
+		}
+		return "", fmt.Errorf("not a rabbitmq module")
+	},
+	"rabbitmq_sync": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
+		if rmq, ok := mod.(core.RabbitMQModule); ok {
+			bindings := getInterfaceSliceOpt(p, "bindings")
+			return "", rmq.SyncBindings(bindings)
 		}
 		return "", fmt.Errorf("not a rabbitmq module")
 	},
@@ -352,6 +426,43 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 			return "", proxy.DeleteReverseProxy(domain)
 		}
 		return "", fmt.Errorf("not a proxy module")
+	},
+
+	// --- MQTT ---
+	"mq_create_user": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
+		if mq, ok := mod.(core.MQTTModule); ok {
+			user := getStringOpt(p, "username")
+			pass := getStringOpt(p, "password")
+			return "", mq.CreateUser(user, pass)
+		}
+		return "", fmt.Errorf("not a mqtt module")
+	},
+	"mq_delete_user": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
+		if mq, ok := mod.(core.MQTTModule); ok {
+			user := getStringOpt(p, "username")
+			return "", mq.DeleteUser(user)
+		}
+		return "", fmt.Errorf("not a mqtt module")
+	},
+
+	// --- FTP ---
+	"ftp_create_user": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
+		if ftp, ok := mod.(core.FTPModule); ok {
+			user := getStringOpt(p, "username")
+			pass := getStringOpt(p, "password")
+			path := getStringOpt(p, "root_path")
+			quota := int(getFloatOpt(p, "quota"))
+			enabled := getBoolOpt(p, "quota_enabled")
+			return "", ftp.CreateUser(user, pass, path, quota, enabled)
+		}
+		return "", fmt.Errorf("not a ftp module")
+	},
+	"ftp_delete_user": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
+		if ftp, ok := mod.(core.FTPModule); ok {
+			user := getStringOpt(p, "username")
+			return "", ftp.DeleteUser(user)
+		}
+		return "", fmt.Errorf("not a ftp module")
 	},
 	"proxy_detect": func(mod core.ServiceModule, _ map[string]interface{}) (string, error) {
 		if proxy, ok := mod.(core.ProxyModule); ok {
@@ -544,5 +655,19 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 			return "", cs.DeleteDecisionByIP(ip)
 		}
 		return "", fmt.Errorf("not a crowdsec module")
+	},
+	// --- Configuration Management ---
+	"service_get_config": func(mod core.ServiceModule, _ map[string]interface{}) (string, error) {
+		if cfg, ok := mod.(core.ConfigurableModule); ok {
+			return cfg.ReadConfig()
+		}
+		return "", fmt.Errorf("module %s does not support configuration management", mod.Name())
+	},
+	"service_update_config": func(mod core.ServiceModule, p map[string]interface{}) (string, error) {
+		if cfg, ok := mod.(core.ConfigurableModule); ok {
+			content := getStringOpt(p, "content")
+			return "", cfg.WriteConfig(content)
+		}
+		return "", fmt.Errorf("module %s does not support configuration management", mod.Name())
 	},
 }

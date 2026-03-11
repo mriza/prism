@@ -87,6 +87,9 @@ func createTables() error {
 		pm2_proxy_type TEXT,
 		pm2_proxy_domain TEXT,
 		tags TEXT,
+		config TEXT DEFAULT '{}',
+		quota INTEGER DEFAULT 0,
+		quota_enabled INTEGER DEFAULT 0,
 		created_at TEXT,
 		FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
 	);`
@@ -121,6 +124,9 @@ func createTables() error {
 	DB.Exec("ALTER TABLE agents ADD COLUMN description TEXT DEFAULT ''")
 	DB.Exec("ALTER TABLE service_accounts ADD COLUMN role TEXT DEFAULT ''")
 	DB.Exec("ALTER TABLE service_accounts ADD COLUMN target_entity TEXT DEFAULT ''")
+	DB.Exec("ALTER TABLE service_accounts ADD COLUMN config TEXT DEFAULT '{}'")
+	DB.Exec("ALTER TABLE service_accounts ADD COLUMN quota INTEGER DEFAULT 0")
+	DB.Exec("ALTER TABLE service_accounts ADD COLUMN quota_enabled INTEGER DEFAULT 0")
 
 	log.Println("Database tables initialized successfully.")
 	return nil

@@ -17,7 +17,8 @@ type Config struct {
 }
 
 type AuthConfig struct {
-	Token string `toml:"token"`
+	Token     string `toml:"token"`
+	JwtSecret string `toml:"jwt_secret"`
 }
 
 type ServerConfig struct {

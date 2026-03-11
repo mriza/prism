@@ -109,23 +109,33 @@ func (m *MongoDBModule) CreateUser(name, password, role, target string) error {
 		roleDoc = fmt.Sprintf(`{ role: "%s", db: "%s", collection: "%s" }`, role, database, target)
 	}
 
-	// 1. Create the user
-	createUserEval := fmt.Sprintf(`
-		var res = db.getSiblingDB('%s').createUser({
-			user: '%s',
-			pwd: '%s',
-			roles: [ %s ]
-		});
-		if (res) print(res);
-	`, database, username, password, roleDoc)
+	// Idempotent approach: Try to update first. If user doesn't exist, it might fail or do nothing depending on version.
+	// Actually, the most robust way is to try createUser and if it fails with "already exists", call updateUser.
+	script := fmt.Sprintf(`
+		try {
+			db.getSiblingDB('%s').createUser({
+				user: '%s',
+				pwd: '%s',
+				roles: [ %s ]
+			});
+		} catch (e) {
+			if (e.message.includes('already exists')) {
+				db.getSiblingDB('%s').updateUser('%s', {
+					pwd: '%s',
+					roles: [ %s ]
+				});
+			} else {
+				throw e;
+			}
+		}
+	`, database, username, password, roleDoc, database, username, password, roleDoc)
 
-	err := exec.Command(cmd, "--quiet", "--eval", createUserEval).Run()
+	err := exec.Command(cmd, "--quiet", "--eval", script).Run()
 	if err != nil {
-		return fmt.Errorf("failed to create user: %v", err)
+		return fmt.Errorf("failed to create/update mongodb user: %v", err)
 	}
 
 	// 2. Create the dummy collection so the DB is actually instantiated
-	// This only makes sense if the DB isn't 'admin'
 	if database != "admin" {
 		createCollEval := fmt.Sprintf(`db.getSiblingDB('%s').createCollection('_prism_init')`, database)
 		exec.Command(cmd, "--quiet", "--eval", createCollEval).Run()

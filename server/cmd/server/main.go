@@ -457,6 +457,12 @@ func main() {
 	if cfg != nil && cfg.Database.Path != "" {
 		dbPath = cfg.Database.Path
 	}
+
+	// Load JWT Secret from config if available
+	if cfg != nil && cfg.Auth.JwtSecret != "" {
+		api.JWTSecret = []byte(cfg.Auth.JwtSecret)
+	}
+
 	if err := db.InitDB(dbPath); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
@@ -514,6 +520,8 @@ func main() {
 		port = cfg.Server.Port
 	}
 
+	api.ControlURL = fmt.Sprintf("http://localhost:%d/api/control", port)
+
 	addr := fmt.Sprintf(":%d", port)
 	log.Printf("Hub Server listening on %s", addr)
 	if err := http.ListenAndServe(addr, nil); err != nil {
@@ -567,6 +575,28 @@ func handleServiceControl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	service := req.Service
+	if service == "firewall" {
+		// Resolve active firewall
+		found := false
+		for name, svc := range agent.Services {
+			if isActive, ok := svc.Metrics["is_active"]; ok && isActive == 1 {
+				service = name
+				found = true
+				break
+			}
+		}
+		if !found {
+			// Fallback to ufw if no active one found (might be first time setup)
+			if _, ok := agent.Services["ufw"]; ok {
+				service = "ufw"
+			} else {
+				http.Error(w, "No active firewall found on agent", http.StatusNotFound)
+				return
+			}
+		}
+	}
+
 	// Send Command to Agent
 	cmdID := fmt.Sprintf("%d", time.Now().UnixNano())
 	cmd := protocol.Message{
@@ -574,8 +604,8 @@ func handleServiceControl(w http.ResponseWriter, r *http.Request) {
 		Payload: protocol.CommandPayload{
 			CommandID: cmdID,
 			Action:    req.Action,
-			Service:   req.Service,
-			Options:   req.Options, // Add Options field to CommandPayload in protocol!
+			Service:   service,
+			Options:   req.Options,
 		},
 	}
 

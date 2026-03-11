@@ -14,7 +14,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// JWTSecret should ideally be loaded from config, hardcoded for now or use env
+// JWTSecret is used to sign and verify JWT tokens. Should be set from config.
 var JWTSecret = []byte("PRISM_SUPER_SECRET_KEY_CHANGE_ME_IN_PROD")
 
 // Claims represents the JWT payload

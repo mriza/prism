@@ -11,6 +11,8 @@ import (
 	"strings"
 )
 
+var ControlURL = "http://localhost:65432/api/control"
+
 func sendInternalControlCommand(agentID, service, action string, options map[string]interface{}) error {
 	payload := map[string]interface{}{
 		"agent_id": agentID,
@@ -19,8 +21,9 @@ func sendInternalControlCommand(agentID, service, action string, options map[str
 		"options":  options,
 	}
 	b, _ := json.Marshal(payload)
-	resp, err := http.Post("http://localhost:65432/api/control", "application/json", bytes.NewReader(b))
+	resp, err := http.Post(ControlURL, "application/json", bytes.NewReader(b))
 	if err != nil {
+		log.Printf("Error sending internal control command: %v", err)
 		return err
 	}
 	defer resp.Body.Close()
@@ -56,38 +59,119 @@ func HandleAccounts(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// 1. Remote Provisioning Logic via Agent
-		if a.Type == "mysql" || a.Type == "postgresql" || a.Type == "mongodb" {
+		if a.Type == "mysql" || a.Type == "postgresql" || a.Type == "mongodb" || a.Type == "rabbitmq" {
+			// Handle legacy single-database field and new multiple-databases array
+			allDBs := a.Databases
 			if a.Database != "" {
+				// check if already in slice
+				found := false
+				for _, d := range allDBs {
+					if d == a.Database {
+						found = true
+						break
+					}
+				}
+				if !found {
+					allDBs = append(allDBs, a.Database)
+				}
+			}
+
+			// 1.1 Create Databases
+			for _, dbName := range allDBs {
 				err := sendInternalControlCommand(a.AgentID, string(a.Type), "db_create_db", map[string]interface{}{
-					"name": a.Database,
+					"name": dbName,
 				})
 				if err != nil {
-					http.Error(w, fmt.Sprintf("Failed to create database on agent: %v", err), http.StatusInternalServerError)
+					http.Error(w, fmt.Sprintf("Failed to create database/vhost %s on agent: %v", dbName, err), http.StatusInternalServerError)
 					return
 				}
 			}
+
+			// 1.2 Create Users & Permissions
 			if a.Username != "" && a.Password != "" {
-				err := sendInternalControlCommand(a.AgentID, string(a.Type), "db_create_user", map[string]interface{}{
-					"username": a.Username,
-					"password": a.Password,
-					"role":     a.Role,
-					"target":   a.TargetEntity,
+				for _, dbName := range allDBs {
+					err := sendInternalControlCommand(a.AgentID, string(a.Type), "db_create_user", map[string]interface{}{
+						"username": a.Username,
+						"password": a.Password,
+						"role":     a.Role,
+						"target":   dbName, // Target database or vhost
+					})
+					if err != nil {
+						http.Error(w, fmt.Sprintf("Failed to create user for database %s on agent: %v", dbName, err), http.StatusInternalServerError)
+						return
+					}
+				}
+			}
+
+			// 1.3 RabbitMQ Bindings Sync
+			if a.Type == "rabbitmq" {
+				err := sendInternalControlCommand(a.AgentID, "rabbitmq", "db_sync", map[string]interface{}{
+					"bindings": a.Bindings,
 				})
 				if err != nil {
-					http.Error(w, fmt.Sprintf("Failed to create user on agent: %v", err), http.StatusInternalServerError)
-					return
+					log.Printf("Warning: failed to sync RabbitMQ bindings: %v", err)
 				}
+			}
+
+			// 1.4 S3 Storage Provisioning
+			if a.Type == "s3-minio" || a.Type == "s3-garage" {
+				if a.Bucket != "" {
+					sendInternalControlCommand(a.AgentID, string(a.Type), "storage_create_bucket", map[string]interface{}{
+						"name": a.Bucket,
+					})
+				}
+				if a.AccessKey != "" {
+					sendInternalControlCommand(a.AgentID, string(a.Type), "storage_create_user", map[string]interface{}{
+						"access_key": a.AccessKey,
+						"secret_key": a.SecretKey,
+					})
+				}
+			}
+
+			// 1.5 Web Server & Proxy Provisioning
+			if a.Type == "web-caddy" || a.Type == "web-nginx" {
+				if a.Endpoint != "" {
+					sendInternalControlCommand(a.AgentID, string(a.Type), "proxy_create", map[string]interface{}{
+						"domain": a.Endpoint,
+						"port":   float64(a.Port),
+					})
+				}
+			}
+
+			// 1.6 PM2 Proxy Provisioning
+			if a.Type == "pm2" && a.PM2ProxyDomain != "" && a.PM2ProxyType != "none" && a.PM2ProxyType != "" {
+				sendInternalControlCommand(a.AgentID, a.PM2ProxyType, "proxy_create", map[string]interface{}{
+					"domain": a.PM2ProxyDomain,
+					"port":   float64(a.PM2Port),
+				})
+			}
+
+			// 1.7 MQTT Provisioning
+			if a.Type == "mqtt-mosquitto" {
+				sendInternalControlCommand(a.AgentID, "mosquitto", "mq_create_user", map[string]interface{}{
+					"username": a.Username,
+					"password": a.Password,
+				})
+			}
+
+			// 1.8 FTP Provisioning
+			if a.Type == "ftp-vsftpd" {
+				sendInternalControlCommand(a.AgentID, "vsftpd", "ftp_create_user", map[string]interface{}{
+					"username":  a.Username,
+					"password":  a.Password,
+					"root_path": a.RootPath,
+				})
 			}
 		}
 
 		// 2. Open Firewall Port
 		if a.Port > 0 {
-			err := sendInternalControlCommand(a.AgentID, "ufw", "ufw_allow", map[string]interface{}{
+			err := sendInternalControlCommand(a.AgentID, "firewall", "firewall_allow", map[string]interface{}{
 				"port":     float64(a.Port),
 				"protocol": "tcp",
 			})
 			if err != nil {
-				log.Printf("Warning: failed to open UFW port: %v", err)
+				log.Printf("Warning: failed to open firewall port: %v", err)
 			}
 		}
 
@@ -126,17 +210,106 @@ func HandleAccountDetail(w http.ResponseWriter, r *http.Request) {
 		a.ID = id
 
 		// Send Update Privileges Command to Agent if applicable
-		if a.Type == "mysql" || a.Type == "postgresql" || a.Type == "mongodb" {
-			if a.Username != "" {
-				err := sendInternalControlCommand(a.AgentID, string(a.Type), "db_update_privileges", map[string]interface{}{
-					"username": a.Username,
-					"role":     a.Role,
-					"target":   a.TargetEntity,
+		if a.Type == "mysql" || a.Type == "postgresql" || a.Type == "mongodb" || a.Type == "rabbitmq" {
+			// Handle legacy single-database field and new multiple-databases array
+			allDBs := a.Databases
+			if a.Database != "" {
+				found := false
+				for _, d := range allDBs {
+					if d == a.Database {
+						found = true
+						break
+					}
+				}
+				if !found {
+					allDBs = append(allDBs, a.Database)
+				}
+			}
+
+			// 2.1 Ensure Databases/VHosts Exist
+			for _, dbName := range allDBs {
+				err := sendInternalControlCommand(a.AgentID, string(a.Type), "db_create_db", map[string]interface{}{
+					"name": dbName,
 				})
 				if err != nil {
-					http.Error(w, fmt.Sprintf("Failed to update user privileges on agent: %v", err), http.StatusInternalServerError)
+					http.Error(w, fmt.Sprintf("Failed to ensure database/vhost %s exists on agent: %v", dbName, err), http.StatusInternalServerError)
 					return
 				}
+			}
+
+			// 2.2 Update Privileges
+			if a.Username != "" {
+				for _, dbName := range allDBs {
+					err := sendInternalControlCommand(a.AgentID, string(a.Type), "db_update_privileges", map[string]interface{}{
+						"username": a.Username,
+						"role":     a.Role,
+						"target":   dbName,
+					})
+					if err != nil {
+						http.Error(w, fmt.Sprintf("Failed to update user privileges for %s on agent: %v", dbName, err), http.StatusInternalServerError)
+						return
+					}
+				}
+			}
+
+			// Sync Bindings for RabbitMQ
+			if a.Type == "rabbitmq" {
+				err := sendInternalControlCommand(a.AgentID, "rabbitmq", "db_sync", map[string]interface{}{
+					"bindings": a.Bindings,
+				})
+				if err != nil {
+					log.Printf("Warning: failed to sync RabbitMQ bindings: %v", err)
+				}
+			}
+
+			// Sync S3 Buckets/Users
+			if a.Type == "s3-minio" || a.Type == "s3-garage" {
+				if a.Bucket != "" {
+					sendInternalControlCommand(a.AgentID, string(a.Type), "storage_create_bucket", map[string]interface{}{
+						"name": a.Bucket,
+					})
+				}
+				if a.AccessKey != "" {
+					sendInternalControlCommand(a.AgentID, string(a.Type), "storage_create_user", map[string]interface{}{
+						"access_key": a.AccessKey,
+						"secret_key": a.SecretKey,
+					})
+				}
+			}
+
+			// Sync Web/Proxy
+			if a.Type == "web-caddy" || a.Type == "web-nginx" {
+				if a.Endpoint != "" {
+					sendInternalControlCommand(a.AgentID, string(a.Type), "proxy_create", map[string]interface{}{
+						"domain": a.Endpoint,
+						"port":   float64(a.Port),
+					})
+				}
+			}
+
+			// Sync PM2 Proxy
+			if a.Type == "pm2" && a.PM2ProxyDomain != "" && a.PM2ProxyType != "none" && a.PM2ProxyType != "" {
+				sendInternalControlCommand(a.AgentID, a.PM2ProxyType, "proxy_create", map[string]interface{}{
+					"domain": a.PM2ProxyDomain,
+					"port":   float64(a.PM2Port),
+				})
+			}
+
+			// Sync MQTT
+			if a.Type == "mqtt-mosquitto" {
+				sendInternalControlCommand(a.AgentID, "mosquitto", "mq_create_user", map[string]interface{}{
+					"username": a.Username,
+					"password": a.Password,
+				})
+			}
+
+			// Sync FTP
+			if a.Type == "ftp-vsftpd" {
+				sendInternalControlCommand(a.AgentID, "vsftpd", "ftp_create_user", map[string]interface{}{
+					"username":  a.Username,
+					"password":  a.Password,
+					"root_path": a.RootPath,
+				})
 			}
 		}
 

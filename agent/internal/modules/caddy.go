@@ -199,3 +199,21 @@ func (m *CaddyModule) DeleteReverseProxy(domain string) error {
 	}
 	return m.Reload()
 }
+
+// --- ConfigurableModule Implementation ---
+
+func (m *CaddyModule) GetConfigPath() string {
+	return "/etc/caddy/Caddyfile"
+}
+
+func (m *CaddyModule) ReadConfig() (string, error) {
+	content, err := os.ReadFile(m.GetConfigPath())
+	return string(content), err
+}
+
+func (m *CaddyModule) WriteConfig(content string) error {
+	if err := os.WriteFile(m.GetConfigPath(), []byte(content), 0644); err != nil {
+		return err
+	}
+	return m.Restart()
+}

@@ -3,6 +3,9 @@ server/server_bin
 server/prism-server
 agent/agent_bin
 agent/prism-agent
+agent/handlers
+server/server
+server/main
 frontend/dist/
 
 # Go

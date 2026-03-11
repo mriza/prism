@@ -67,6 +67,11 @@ func (m *MinIOModule) ListBuckets() ([]string, error) {
 }
 
 func (m *MinIOModule) CreateBucket(name string) error {
+	// Check if already exists
+	check := exec.Command("mc", "ls", m.Alias+"/"+name)
+	if err := check.Run(); err == nil {
+		return nil // Already exists
+	}
 	return exec.Command("mc", "mb", m.Alias+"/"+name).Run()
 }
 

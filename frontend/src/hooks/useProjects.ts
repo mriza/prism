@@ -12,9 +12,7 @@ export function useProjects() {
 
     const fetchProjects = useCallback(async () => {
         try {
-            const res = await fetch(`${apiBase}/api/projects`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetch(`${apiBase}/api/projects`, {});
             if (res.ok) {
                 const data = await res.json();
                 setProjects(data || []);
@@ -35,8 +33,7 @@ export function useProjects() {
             const res = await fetch(`${apiBase}/api/projects`, {
                 method: 'POST',
                 headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(data)
             });
@@ -56,8 +53,7 @@ export function useProjects() {
             const res = await fetch(`${apiBase}/api/projects/${id}`, {
                 method: 'PUT',
                 headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(data)
             });
@@ -73,8 +69,7 @@ export function useProjects() {
     const deleteProject = useCallback(async (id: string) => {
         try {
             const res = await fetch(`${apiBase}/api/projects/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
+                method: 'DELETE'
             });
             if (res.ok) {
                 setProjects(prev => prev.filter(p => p.id !== id));

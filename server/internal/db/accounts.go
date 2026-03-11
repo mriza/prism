@@ -18,11 +18,17 @@ func CreateServiceAccount(a models.ServiceAccount) (models.ServiceAccount, error
 	}
 
 	tagsJSON, _ := json.Marshal(a.Tags)
+	
+	configData := map[string]interface{}{
+		"databases": a.Databases,
+		"bindings":  a.Bindings,
+	}
+	configJSON, _ := json.Marshal(configData)
 
 	query := `INSERT INTO service_accounts (
-		id, project_id, agent_id, type, name, host, port, database_name, username, password, role, target_entity, vhost, endpoint, access_key, secret_key, bucket, root_path, app_name, script, cwd, pm2_port, pm2_proxy_type, pm2_proxy_domain, tags, created_at
+		id, project_id, agent_id, type, name, host, port, database_name, username, password, role, target_entity, vhost, endpoint, access_key, secret_key, bucket, root_path, quota, quota_enabled, app_name, script, cwd, pm2_port, pm2_proxy_type, pm2_proxy_domain, tags, config, created_at
 	) VALUES (
-		?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+		?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 	)`
 
 	// Use NullString for project ID to allow independent accounts
@@ -38,9 +44,10 @@ func CreateServiceAccount(a models.ServiceAccount) (models.ServiceAccount, error
 		a.Host, a.Port, a.Database, a.Username, a.Password,
 		a.Role, a.TargetEntity,
 		a.VHost, a.Endpoint, a.AccessKey, a.SecretKey, a.Bucket,
-		a.RootPath, a.AppName, a.Script, a.Cwd,
+		a.RootPath, a.Quota, a.QuotaEnabled,
+		a.AppName, a.Script, a.Cwd,
 		a.PM2Port, a.PM2ProxyType, a.PM2ProxyDomain,
-		string(tagsJSON), a.CreatedAt,
+		string(tagsJSON), string(configJSON), a.CreatedAt,
 	)
 	if err != nil {
 		return a, err
@@ -50,7 +57,7 @@ func CreateServiceAccount(a models.ServiceAccount) (models.ServiceAccount, error
 
 func GetServiceAccounts(projectIDFilter string) ([]models.ServiceAccount, error) {
 	query := `SELECT 
-		id, project_id, agent_id, type, name, host, port, database_name, username, password, role, target_entity, vhost, endpoint, access_key, secret_key, bucket, root_path, app_name, script, cwd, pm2_port, pm2_proxy_type, pm2_proxy_domain, tags, created_at
+		id, project_id, agent_id, type, name, host, port, database_name, username, password, role, target_entity, vhost, endpoint, access_key, secret_key, bucket, root_path, quota, quota_enabled, app_name, script, cwd, pm2_port, pm2_proxy_type, pm2_proxy_domain, tags, config, created_at
 	FROM service_accounts
 	`
 
@@ -72,15 +79,17 @@ func GetServiceAccounts(projectIDFilter string) ([]models.ServiceAccount, error)
 		var a models.ServiceAccount
 		var pID sql.NullString
 		var tagsJSON string
+		var configJSON string
 
 		err := rows.Scan(
 			&a.ID, &pID, &a.AgentID, &a.Type, &a.Name,
 			&a.Host, &a.Port, &a.Database, &a.Username, &a.Password,
 			&a.Role, &a.TargetEntity,
 			&a.VHost, &a.Endpoint, &a.AccessKey, &a.SecretKey, &a.Bucket,
-			&a.RootPath, &a.AppName, &a.Script, &a.Cwd,
+			&a.RootPath, &a.Quota, &a.QuotaEnabled,
+			&a.AppName, &a.Script, &a.Cwd,
 			&a.PM2Port, &a.PM2ProxyType, &a.PM2ProxyDomain,
-			&tagsJSON, &a.CreatedAt,
+			&tagsJSON, &configJSON, &a.CreatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -96,6 +105,17 @@ func GetServiceAccounts(projectIDFilter string) ([]models.ServiceAccount, error)
 			a.Tags = []string{}
 		}
 
+		if configJSON != "" {
+			var config struct {
+				Databases []string            `json:"databases"`
+				Bindings  []models.RMQBinding `json:"bindings"`
+			}
+			if err := json.Unmarshal([]byte(configJSON), &config); err == nil {
+				a.Databases = config.Databases
+				a.Bindings = config.Bindings
+			}
+		}
+
 		accounts = append(accounts, a)
 	}
 	return accounts, nil
@@ -103,6 +123,12 @@ func GetServiceAccounts(projectIDFilter string) ([]models.ServiceAccount, error)
 
 func UpdateServiceAccount(a models.ServiceAccount) error {
 	tagsJSON, _ := json.Marshal(a.Tags)
+	
+	configData := map[string]interface{}{
+		"databases": a.Databases,
+		"bindings":  a.Bindings,
+	}
+	configJSON, _ := json.Marshal(configData)
 
 	var projectID sql.NullString
 	if a.ProjectID != "" {
@@ -112,7 +138,7 @@ func UpdateServiceAccount(a models.ServiceAccount) error {
 	}
 
 	query := `UPDATE service_accounts SET 
-		project_id = ?, agent_id = ?, type = ?, name = ?, host = ?, port = ?, database_name = ?, username = ?, password = ?, role = ?, target_entity = ?, vhost = ?, endpoint = ?, access_key = ?, secret_key = ?, bucket = ?, root_path = ?, app_name = ?, script = ?, cwd = ?, pm2_port = ?, pm2_proxy_type = ?, pm2_proxy_domain = ?, tags = ?
+		project_id = ?, agent_id = ?, type = ?, name = ?, host = ?, port = ?, database_name = ?, username = ?, password = ?, role = ?, target_entity = ?, vhost = ?, endpoint = ?, access_key = ?, secret_key = ?, bucket = ?, root_path = ?, quota = ?, quota_enabled = ?, app_name = ?, script = ?, cwd = ?, pm2_port = ?, pm2_proxy_type = ?, pm2_proxy_domain = ?, tags = ?, config = ?
 	WHERE id = ?`
 
 	_, err := DB.Exec(query,
@@ -120,9 +146,10 @@ func UpdateServiceAccount(a models.ServiceAccount) error {
 		a.Host, a.Port, a.Database, a.Username, a.Password,
 		a.Role, a.TargetEntity,
 		a.VHost, a.Endpoint, a.AccessKey, a.SecretKey, a.Bucket,
-		a.RootPath, a.AppName, a.Script, a.Cwd,
+		a.RootPath, a.Quota, a.QuotaEnabled,
+		a.AppName, a.Script, a.Cwd,
 		a.PM2Port, a.PM2ProxyType, a.PM2ProxyDomain,
-		string(tagsJSON), a.ID,
+		string(tagsJSON), string(configJSON), a.ID,
 	)
 	return err
 }

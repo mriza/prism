@@ -11,9 +11,7 @@ export function useUsers() {
         if (!token) return;
         setLoading(true);
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/users`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/users`, {});
             if (res.ok) {
                 const data = await res.json();
                 setUsers(data || []);
@@ -34,8 +32,7 @@ export function useUsers() {
             const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/users`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(data)
             });
@@ -53,8 +50,7 @@ export function useUsers() {
             const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/users/${id}`, {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(data)
             });
@@ -70,8 +66,7 @@ export function useUsers() {
     const deleteUser = async (id: string) => {
         try {
             const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/users/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
+                method: 'DELETE'
             });
             if (!res.ok) throw new Error('Failed to delete user');
             setUsers(prev => prev.filter(u => u.id !== id));

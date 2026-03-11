@@ -12,9 +12,7 @@ export function useAccounts() {
 
     const fetchAccounts = useCallback(async () => {
         try {
-            const res = await fetch(`${apiBase}/api/accounts`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetch(`${apiBase}/api/accounts`, {});
             if (res.ok) {
                 const data = await res.json();
                 setAccounts(data || []);
@@ -35,8 +33,7 @@ export function useAccounts() {
             const res = await fetch(`${apiBase}/api/accounts`, {
                 method: 'POST',
                 headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(data)
             });
@@ -56,25 +53,25 @@ export function useAccounts() {
             const res = await fetch(`${apiBase}/api/accounts/${id}`, {
                 method: 'PUT',
                 headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(data)
             });
             if (res.ok) {
                 const updatedAccount = await res.json();
                 setAccounts(prev => prev.map(a => a.id === id ? { ...a, ...updatedAccount } : a));
+                return true;
             }
         } catch (err) {
             console.error('Failed to update account', err);
         }
+        return false;
     }, [token, apiBase]);
 
     const deleteAccount = useCallback(async (id: string) => {
         try {
             const res = await fetch(`${apiBase}/api/accounts/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
+                method: 'DELETE'
             });
             if (res.ok) {
                 setAccounts(prev => prev.filter(a => a.id !== id));
@@ -95,20 +92,26 @@ export function useAccounts() {
 
     const provisionAccount = useCallback(async (agentId: string, action: string, options: Record<string, unknown>) => {
         try {
-            const res = await fetch(`${apiBase}/api/agents/${agentId}/command`, {
+            const service = action.startsWith('db_') ? (accounts.find(a => a.agentId === agentId)?.type || 'mongodb') : 'unknown';
+            
+            const res = await fetch(`${apiBase}/api/control`, {
                 method: 'POST',
                 headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ action, options })
+                body: JSON.stringify({ 
+                    agent_id: agentId,
+                    service: service,
+                    action, 
+                    options 
+                })
             });
             return res.ok;
         } catch (err) {
             console.error('Failed to provision account', err);
             return false;
         }
-    }, [token, apiBase]);
+    }, [token, apiBase, accounts]);
 
     const accountsByProject = useCallback((projectId: string) =>
         accounts.filter(a => a.projectId === projectId), [accounts]);

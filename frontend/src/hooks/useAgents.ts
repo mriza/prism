@@ -12,9 +12,7 @@ export function useAgents() {
 
     const fetchAgents = useCallback(async () => {
         try {
-            const res = await fetch(`${apiBase}/api/agents`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetch(`${apiBase}/api/agents`, {});
             if (!res.ok) throw new Error('Agent API error');
             const data = await res.json();
             setAgents(data || []);
@@ -37,8 +35,7 @@ export function useAgents() {
             const res = await fetch(`${apiBase}/api/agents/${id}/approve`, {
                 method: 'POST',
                 headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ name, description })
             });
@@ -55,8 +52,7 @@ export function useAgents() {
     const deleteAgent = async (id: string) => {
         try {
             const res = await fetch(`${apiBase}/api/agents/${id}`, { 
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
+                method: 'DELETE'
             });
             if (res.ok) {
                 await fetchAgents();
@@ -68,5 +64,74 @@ export function useAgents() {
         return false;
     };
 
-    return { agents, loading, error, approveAgent, deleteAgent, refreshAgents: fetchAgents };
+    const controlService = async (agentId: string, service: string, action: string) => {
+        try {
+            const res = await fetch(`${apiBase}/api/control`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    agent_id: agentId,
+                    service,
+                    action
+                })
+            });
+            if (res.ok) {
+                await fetchAgents(); // Refresh to get updated status
+                return true;
+            }
+        } catch (e) {
+            console.error('Failed to control service', e);
+        }
+        return false;
+    };
+
+    const getServiceConfig = async (agentId: string, service: string) => {
+        try {
+            const res = await fetch(`${apiBase}/api/control`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agent_id: agentId, service, action: 'service_get_config' })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                return data.output; // The response from agent is {status, output, error}
+            }
+        } catch (e) {
+            console.error('Failed to get service config', e);
+        }
+        return null;
+    };
+
+    const updateServiceConfig = async (agentId: string, service: string, content: string) => {
+        try {
+            const res = await fetch(`${apiBase}/api/control`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    agent_id: agentId, 
+                    service, 
+                    action: 'service_update_config',
+                    options: { content }
+                })
+            });
+            return res.ok;
+        } catch (e) {
+            console.error('Failed to update service config', e);
+        }
+        return false;
+    };
+
+    return { 
+        agents, 
+        loading, 
+        error, 
+        approveAgent, 
+        deleteAgent, 
+        controlService,
+        getServiceConfig,
+        updateServiceConfig,
+        refreshAgents: fetchAgents 
+    };
 }

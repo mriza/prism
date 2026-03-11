@@ -4,11 +4,12 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext.tsx'
+import { ThemeProvider } from './contexts/ThemeContext.tsx'
 
 // Global Fetch Interceptor to attach JWT
 const originalFetch = window.fetch;
 window.fetch = async (...args) => {
-    let [resource, config] = args;
+    const [resource, config] = args;
     const token = localStorage.getItem('prism_token');
     
     // Don't intercept login requests to avoid circular logic
@@ -16,15 +17,15 @@ window.fetch = async (...args) => {
         return originalFetch(resource, config);
     }
 
+    const newConfig = { ...config };
     if (token) {
-        config = config || {};
-        config.headers = {
-            ...config.headers,
+        newConfig.headers = {
+            ...(newConfig.headers || {}),
             'Authorization': `Bearer ${token}`
         };
     }
     
-    const response = await originalFetch(resource, config);
+    const response = await originalFetch(resource, newConfig);
     
     // Auto-logout on 401 Unauthorized (optional but good practice)
     if (response.status === 401 && !window.location.pathname.includes('/login')) {
@@ -37,10 +38,12 @@ window.fetch = async (...args) => {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AuthProvider>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   </StrictMode>,
 )

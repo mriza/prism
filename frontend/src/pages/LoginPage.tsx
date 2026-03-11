@@ -15,7 +15,8 @@ export function LoginPage() {
     // Redirect if already authenticated
     useEffect(() => {
         if (isAuthenticated) {
-            const from = (location.state as any)?.from?.pathname || "/";
+            const state = location.state as { from?: { pathname: string } } | null;
+            const from = state?.from?.pathname || "/";
             navigate(from, { replace: true });
         }
     }, [isAuthenticated, navigate, location]);
@@ -41,12 +42,16 @@ export function LoginPage() {
             const data = await res.json();
             if (data.token) {
                 login(data.token);
-                // The useEffect will handle the navigation
+                // Navigate immediately
+                const state = location.state as { from?: { pathname: string } } | null;
+                const from = state?.from?.pathname || "/";
+                navigate(from, { replace: true });
             } else {
                 throw new Error('No token received');
             }
-        } catch (err: any) {
-            setError(err.message || 'Failed to login');
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to login';
+            setError(message);
         } finally {
             setLoading(false);
         }
@@ -61,12 +66,19 @@ export function LoginPage() {
                             <ShieldAlert size={32} className="text-primary" />
                         </div>
                         <h2 className="text-3xl font-black tracking-tight">PRISM</h2>
-                        <p className="text-neutral-content mt-1">Universal Fleet Control</p>
+                        <p className="text-neutral-content mt-1 text-xs font-bold uppercase tracking-[0.2em] opacity-40">Universal Fleet Control</p>
                     </div>
 
                     {error && (
-                        <div className="alert alert-error shadow-sm mb-4">
-                            <span>{error}</span>
+                        <div className="alert alert-error shadow-sm mb-4 py-3 rounded-xl border border-error/20">
+                            <span className="text-xs font-bold uppercase tracking-wide">{error}</span>
+                        </div>
+                    )}
+
+                    {isAuthenticated && (
+                        <div className="alert alert-success shadow-sm mb-6 py-4 rounded-xl border border-success/20 flex flex-col items-center gap-3">
+                            <span className="text-xs font-bold uppercase tracking-wide">You are logged in</span>
+                            <button onClick={() => navigate('/')} className="btn btn-sm btn-ghost bg-success/10 hover:bg-success/20">Go to Dashboard</button>
                         </div>
                     )}
 

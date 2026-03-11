@@ -56,6 +56,21 @@ sshpass -e scp -o StrictHostKeyChecking=no prism_deploy.tar.gz ${VM_USER}@${VM_I
 
 # Extract and Restart Services on VM
 sshpass -e ssh -o StrictHostKeyChecking=no ${VM_USER}@${VM_IP} << EOF
+    # Detect OS on remote (escaped \$ to run on remote)
+    remote_os=\$(grep -E "^ID=" /etc/os-release | cut -d= -f2 | tr -d '"')
+    echo "Detected remote OS: \$remote_os"
+
+    case "\$remote_os" in
+        ubuntu|debian)
+            NGINX_CONF="/etc/nginx/sites-available/default"
+            NGINX_LINK="/etc/nginx/sites-enabled/default"
+            ;;
+        fedora|rocky|almalinux|rhel)
+            NGINX_CONF="/etc/nginx/conf.d/prism.conf"
+            NGINX_LINK=""
+            ;;
+    esac
+
     sudo -S <<< "$VM_PASS" mkdir -p $DST_DIR/server $DST_DIR/agent $DST_DIR/frontend
     
     echo "Extracting payload..."
@@ -70,18 +85,16 @@ sshpass -e ssh -o StrictHostKeyChecking=no ${VM_USER}@${VM_IP} << EOF
     sudo -S <<< "$VM_PASS" chmod +x $DST_DIR/server/prism-server
     sudo -S <<< "$VM_PASS" chmod +x $DST_DIR/agent/prism-agent
     
-    echo "Fixing permissions for prism user..."
+    echo "Fixing permissions for $VM_USER user..."
     sudo -S <<< "$VM_PASS" chown -R $VM_USER:$VM_USER $DST_DIR
     sudo -S <<< "$VM_PASS" chmod -R 775 $DST_DIR
     
-    echo "Configuring Nginx Reverse Proxy..."
-    sudo -S <<< "$VM_PASS" tee /etc/nginx/sites-available/default > /dev/null << 'NGINX'
+    echo "Configuring Nginx Reverse Proxy (\$NGINX_CONF)..."
+    sudo -S <<< "$VM_PASS" tee \$NGINX_CONF > /dev/null << 'NGINX'
 server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
+    listen 80;
     root /opt/prism/frontend/dist;
     index index.html;
-    server_name _;
     
     # Static files routing
     location / {
@@ -108,11 +121,22 @@ server {
 }
 NGINX
 
-    # Ensure only the default site is enabled to prevent conflicts
-    echo "Linking Nginx sites..."
-    sudo -S <<< "$VM_PASS" rm -f /etc/nginx/sites-enabled/*
-    sudo -S <<< "$VM_PASS" ln -s /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
+    if [ -n "\$NGINX_LINK" ]; then
+        echo "Linking Nginx sites..."
+        sudo -S <<< "$VM_PASS" rm -f /etc/nginx/sites-enabled/*
+        sudo -S <<< "$VM_PASS" ln -s \$NGINX_CONF \$NGINX_LINK
+    fi
     
+    # Open ports based on firewall type
+    if command -v ufw >/dev/null; then
+        sudo -S <<< "$VM_PASS" ufw allow 80/tcp
+        sudo -S <<< "$VM_PASS" ufw allow 65432/tcp
+    elif command -v firewall-cmd >/dev/null; then
+        sudo -S <<< "$VM_PASS" firewall-cmd --permanent --add-port=80/tcp
+        sudo -S <<< "$VM_PASS" firewall-cmd --permanent --add-port=65432/tcp
+        sudo -S <<< "$VM_PASS" firewall-cmd --reload
+    fi
+
     echo "Restarting services..."
     sudo -S <<< "$VM_PASS" systemctl restart prism-server || echo "Failed to restart server"
     sudo -S <<< "$VM_PASS" systemctl restart prism-agent || echo "Failed to restart agent"

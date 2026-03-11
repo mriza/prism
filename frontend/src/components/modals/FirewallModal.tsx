@@ -169,6 +169,7 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
                                 placeholder="e.g. 8080"
                                 value={newPort}
                                 onChange={e => setNewPort(e.target.value)}
+                                className="w-full"
                             />
                         </div>
                         <div className="w-full sm:w-[100px]">
@@ -249,9 +250,9 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
                                                     <span className={twMerge(
                                                         clsx(
                                                             "badge badge-xs font-black uppercase text-[9px] px-2 py-2 border leading-none shadow-sm",
-                                                            isAllow ? "bg-success/10 text-success border-success/20" : 
-                                                            isDeny ? "bg-error/10 text-error border-error/20" : 
-                                                            "bg-warning/10 text-warning border-warning/20"
+                                                            isAllow ? "bg-success/10 text-success border-success/20" :
+                                                                isDeny ? "bg-error/10 text-error border-error/20" :
+                                                                    "bg-warning/10 text-warning border-warning/20"
                                                         )
                                                     )}>
                                                         {parsed.action}

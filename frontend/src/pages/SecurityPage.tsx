@@ -5,6 +5,7 @@ import { ShieldAlert, ShieldCheck, Server } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { FirewallRulesModal } from '../components/security/FirewallRulesModal';
+import { Input } from '../components/ui/Fields';
 
 export function SecurityPage() {
     const { agents, loading, error } = useAgents();
@@ -23,7 +24,7 @@ export function SecurityPage() {
 
     const activeFirewalls = registeredServers.filter(s => {
         const firewalls = s.services?.filter(svc => ['ufw', 'firewalld', 'iptables', 'nftables'].includes(svc.name));
-        const activeFw = firewalls?.find(fw => (fw as any).metrics?.is_active === 1) || firewalls?.[0];
+        const activeFw = firewalls?.find(fw => (fw as { metrics?: { is_active: number } }).metrics?.is_active === 1) || firewalls?.[0];
         return activeFw?.status === 'running';
     }).length;
 
@@ -58,13 +59,12 @@ export function SecurityPage() {
     
     const globalAlerts = registeredServers.reduce((acc, server) => {
         const cs = server.services?.find(svc => svc.name === 'crowdsec');
-        // @ts-ignore - metrics is dynamically added via protocol extensions
-        const active = cs?.metrics?.active_decisions || 0;
+        const active = (cs as { metrics?: { active_decisions: number } })?.metrics?.active_decisions || 0;
         return acc + active;
     }, 0);
 
     // CrowdSec Decisions Explorer
-    const [decisions, setDecisions] = useState<any[]>([]);
+    const [decisions, setDecisions] = useState<{ id: string, agent_id: string, agent_name: string, value: string, scenario: string, duration: string }[]>([]);
     const [loadingDecisions, setLoadingDecisions] = useState(false);
     const [unbanningIp, setUnbanningIp] = useState<string | null>(null);
 
@@ -91,7 +91,7 @@ export function SecurityPage() {
         if (registeredServers.some(s => s.status === 'online')) {
             fetchDecisions();
         }
-    }, [agents]);
+    }, [registeredServers, fetchDecisions]);
 
     const handleGlobalUnban = async (ip: string) => {
         if (!confirm(`Are you sure you want to globally unban ${ip}?`)) return;
@@ -192,42 +192,41 @@ export function SecurityPage() {
                 </div>
 
                 {user?.role !== 'user' && (
-                    <div className="card bg-base-200 border border-error/20 shadow-sm p-6 mt-4">
-                        <form onSubmit={handleGlobalBan} className="flex flex-col md:flex-row gap-4 justify-between items-center">
-                            <div className="flex-1">
-                                <h3 className="font-bold text-error flex items-center gap-2">
-                                    Global Banishment
-                                </h3>
-                                <p className="text-sm text-neutral-content mb-3">Ban an IP Address across all connected servers simultaneously.</p>
-                                
-                                <div className="flex flex-wrap gap-3">
-                                    <input 
-                                        type="text" 
-                                        placeholder="IP Address (e.g. 192.168.1.100)" 
-                                        className="input input-sm input-bordered w-full max-w-xs"
-                                        value={banIp}
-                                        onChange={e => setBanIp(e.target.value)}
-                                        required
-                                    />
-                                    <input 
-                                        type="text" 
-                                        placeholder="Duration (e.g. 4h, 7d)" 
-                                        className="input input-sm input-bordered w-24"
-                                        value={banDuration}
-                                        onChange={e => setBanDuration(e.target.value)}
-                                    />
-                                    <input 
-                                        type="text" 
-                                        placeholder="Reason (Optional)" 
-                                        className="input input-sm input-bordered w-full max-w-xs"
-                                        value={banReason}
-                                        onChange={e => setBanReason(e.target.value)}
-                                    />
+                    <div className="card bg-base-200 border border-error/10 shadow-sm p-6 mt-6">
+                        <form onSubmit={handleGlobalBan} className="space-y-6">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                <div className="space-y-1">
+                                    <h3 className="font-bold text-error flex items-center gap-2">
+                                        Global Banishment
+                                    </h3>
+                                    <p className="text-sm text-neutral-content/60">Ban an IP Address across all connected servers simultaneously.</p>
                                 </div>
+                                <button type="submit" className="btn btn-error btn-sm md:btn-md" disabled={banning || !banIp}>
+                                    {banning ? <span className="loading loading-spinner loading-sm"></span> : 'Ban IP Globally'}
+                                </button>
                             </div>
-                            <button type="submit" className="btn btn-error" disabled={banning || !banIp}>
-                                {banning ? <span className="loading loading-spinner loading-sm"></span> : 'Ban IP Globally'}
-                            </button>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <Input 
+                                    label="IP Address"
+                                    placeholder="e.g. 192.168.1.100" 
+                                    value={banIp}
+                                    onChange={e => setBanIp(e.target.value)}
+                                    required
+                                />
+                                <Input 
+                                    label="Duration"
+                                    placeholder="e.g. 4h, 7d" 
+                                    value={banDuration}
+                                    onChange={e => setBanDuration(e.target.value)}
+                                />
+                                <Input 
+                                    label="Reason"
+                                    placeholder="Global ban from dashboard" 
+                                    value={banReason}
+                                    onChange={e => setBanReason(e.target.value)}
+                                />
+                            </div>
                         </form>
                     </div>
                 )}
@@ -329,7 +328,7 @@ export function SecurityPage() {
                             ) : (
                                 registeredServers.map(server => {
                                     const allFws = server.services?.filter(s => ['ufw', 'firewalld', 'iptables', 'nftables'].includes(s.name)) || [];
-                                    const activeFw = allFws.find(s => (s as any).metrics?.is_active === 1) || allFws[0];
+                                    const activeFw = allFws.find(s => (s as { metrics?: { is_active: number } }).metrics?.is_active === 1) || allFws[0];
                                     const csSvc = server.services?.find(s => s.name === 'crowdsec');
                                     
                                     return (

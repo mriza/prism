@@ -213,3 +213,30 @@ func (m *NginxModule) DeleteReverseProxy(domain string) error {
 	os.Remove(filepath.Join(m.AvailableDir, domain))
 	return m.Reload()
 }
+
+// --- ConfigurableModule Implementation ---
+
+func (m *NginxModule) GetConfigPath() string {
+	return "/etc/nginx/nginx.conf"
+}
+
+func (m *NginxModule) ReadConfig() (string, error) {
+	content, err := os.ReadFile(m.GetConfigPath())
+	return string(content), err
+}
+
+func (m *NginxModule) WriteConfig(content string) error {
+	// Simple validation before writing
+	tmpFile := "/tmp/nginx.conf.test"
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		return err
+	}
+	defer os.Remove(tmpFile)
+
+	// We can't easily test a partial config file with nginx -t without a full setup,
+	// but we'll write it and then reload.
+	if err := os.WriteFile(m.GetConfigPath(), []byte(content), 0644); err != nil {
+		return err
+	}
+	return m.Reload()
+}

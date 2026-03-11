@@ -33,6 +33,12 @@ type ServiceModule interface {
 	Configure(config map[string]interface{}) error
 }
 
+type ConfigurableModule interface {
+	GetConfigPath() string
+	ReadConfig() (string, error)
+	WriteConfig(content string) error
+}
+
 type DatabaseModule interface {
 	ListDatabases() ([]string, error)
 	CreateDatabase(name string) error
@@ -47,12 +53,13 @@ type RabbitMQModule interface {
 	DeleteVHost(name string) error
 
 	ListUsers() ([]RabbitUser, error)
-	CreateUser(name, password, tags string) error
+	CreateUser(name, password, role, target string) error
 	DeleteUser(name string) error
 	SetPermissions(vhost, user, conf, write, read string) error
 
 	ListBindings(vhost string) ([]string, error)
 	CreateBinding(vhost, sourceExchange, destinationQueue, routingKey string) error
+	SyncBindings(bindings []map[string]interface{}) error
 }
 
 type WebServerModule interface {
@@ -135,6 +142,18 @@ type CrowdSecModule interface {
 	AddDecision(ip, duration, reason, decType string) error
 	DeleteDecision(id string) error
 	DeleteDecisionByIP(ip string) error
+}
+
+type MQTTModule interface {
+	ListUsers() ([]string, error)
+	CreateUser(username, password string) error
+	DeleteUser(username string) error
+}
+
+type FTPModule interface {
+	ListUsers() ([]string, error)
+	CreateUser(username, password, rootPath string, quota int, quotaEnabled bool) error
+	DeleteUser(username string) error
 }
 
 // MetricGatherer can be implemented by modules to report quantitative statistics.

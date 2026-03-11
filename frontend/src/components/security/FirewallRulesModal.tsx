@@ -188,14 +188,14 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
                 )}
 
                 {/* Add Rule Form */}
-                <div className="bg-base-200/50 p-5 rounded-xl border border-white/5 mb-6 shrink-0 transition-all focus-within:ring-2 focus-within:ring-primary/20 shadow-inner">
-                    <form onSubmit={handleAddRule} className="flex gap-4 items-end">
-                        <div className="form-control flex-1">
-                            <label className="label pb-2 pt-0.5">
-                                <span className="label-text text-[11px] font-extrabold uppercase tracking-[0.15em] text-neutral-content/80">Action</span>
+                <div className="bg-base-200/50 p-6 rounded-xl border border-white/5 mb-8 shrink-0 shadow-inner">
+                    <form onSubmit={handleAddRule} className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+                        <div className="form-control gap-1.5">
+                            <label className="flex px-0.5">
+                                <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-neutral-content/60">Action</span>
                             </label>
                             <select 
-                                className="select select-bordered w-full bg-base-100 transition-colors focus:border-primary" 
+                                className="select select-bordered w-full bg-base-100 border-white/5 hover:border-white/10 transition-colors" 
                                 value={newAction} 
                                 onChange={e => setNewAction(e.target.value)}
                             >
@@ -203,26 +203,26 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
                                 <option value="deny">DENY</option>
                             </select>
                         </div>
-                        <div className="form-control flex-1">
-                            <label className="label pb-2 pt-0.5">
-                                <span className="label-text text-[11px] font-extrabold uppercase tracking-[0.15em] text-neutral-content/80">Port</span>
+                        <div className="form-control md:col-span-1 min-w-[140px] gap-1.5">
+                            <label className="flex px-0.5">
+                                <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-neutral-content/60">Port</span>
                             </label>
                             <input 
                                 type="number" 
                                 min="1" max="65535"
                                 placeholder="8080"
-                                className="input input-bordered w-full bg-base-100 transition-colors focus:border-primary placeholder:text-neutral-content/30 text-lg font-mono font-bold py-6" 
+                                className="input input-bordered w-full bg-base-100 border-white/5 hover:border-white/10 text-lg font-mono font-bold transition-colors" 
                                 value={newPort} 
                                 onChange={e => setNewPort(e.target.value)}
                                 required
                             />
                         </div>
-                        <div className="form-control flex-1">
-                            <label className="label pb-2 pt-0.5">
-                                <span className="label-text text-[11px] font-extrabold uppercase tracking-[0.15em] text-neutral-content/80">Protocol</span>
+                        <div className="form-control gap-1.5">
+                            <label className="flex px-0.5">
+                                <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-neutral-content/60">Protocol</span>
                             </label>
                             <select 
-                                className="select select-bordered w-full bg-base-100 transition-colors focus:border-primary" 
+                                className="select select-bordered w-full bg-base-100 border-white/5 hover:border-white/10 transition-colors" 
                                 value={newProtocol} 
                                 onChange={e => setNewProtocol(e.target.value)}
                             >
@@ -232,10 +232,10 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
                         </div>
                         <button 
                             type="submit" 
-                            className="btn btn-primary px-8 h-[48px] font-bold tracking-wide shadow-lg"
+                            className="btn btn-primary w-full h-[3rem] font-bold"
                             disabled={submitting || !newPort}
                         >
-                            {submitting ? <span className="loading loading-spinner loading-xs"></span> : 'Add Rule'}
+                            {submitting ? <span className="loading loading-spinner loading-sm"></span> : 'Add Rule'}
                         </button>
                     </form>
                 </div>

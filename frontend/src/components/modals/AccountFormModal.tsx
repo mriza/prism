@@ -5,7 +5,7 @@ import { Modal } from '../ui/Modal';
 import { Input, Select } from '../ui/Fields';
 import { Button } from '../ui/Button';
 import { ServiceTypeIcon } from '../ui/ServiceTypeIcon';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2 } from 'lucide-react';
 import { useAgents } from '../../hooks/useAgents';
 
 type AccountDraft = Omit<ServiceAccount, 'id' | 'createdAt'>;
@@ -26,11 +26,13 @@ const defaultDraft = (projectId?: string): AccountDraft => ({
     host: 'localhost',
     port: undefined,
     database: '',
+    databases: [],
     username: '',
     password: '',
     role: '',
     targetEntity: '',
     vhost: '/',
+    bindings: [],
     endpoint: '',
     accessKey: '',
     secretKey: '',
@@ -55,6 +57,24 @@ const DEFAULT_PORTS: Partial<Record<ServiceType, number>> = {
     'security-crowdsec': 8080,
 };
 
+const SERVICE_NAME_MAP: Partial<Record<ServiceType, string[]>> = {
+    mongodb: ['mongodb', 'mongod'],
+    mysql: ['mysql', 'mariadb'],
+    postgresql: ['postgresql', 'postgres'],
+    rabbitmq: ['rabbitmq'],
+    'mqtt-mosquitto': ['mosquitto'],
+    's3-minio': ['minio'],
+    's3-garage': ['garage'],
+    'ftp-vsftpd': ['vsftpd'],
+    'ftp-sftpgo': ['sftpgo'],
+    'web-caddy': ['caddy'],
+    'web-nginx': ['nginx'],
+    pm2: ['pm2'],
+    supervisor: ['supervisor'],
+    systemd: ['systemd'],
+    'security-crowdsec': ['crowdsec'],
+};
+
 export function AccountFormModal({ isOpen, onClose, onSave, projectId, initial }: Props) {
     const [step, setStep] = useState<1 | 2>(initial ? 2 : 1);
     const [draft, setDraft] = useState<AccountDraft>(initial ?? defaultDraft(projectId));
@@ -63,8 +83,25 @@ export function AccountFormModal({ isOpen, onClose, onSave, projectId, initial }
     const set = (key: keyof AccountDraft, value: unknown) =>
         setDraft(d => ({ ...d, [key]: value }));
 
+    const getMatchingAgents = (type: ServiceType) => {
+        const names = SERVICE_NAME_MAP[type] || [];
+        return agents.filter(a => 
+            (a.status === 'approved' || a.status === 'online' || a.status === 'offline') &&
+            a.services.some(s => names.includes(s.name))
+        );
+    };
+
     const selectType = (t: ServiceType) => {
-        setDraft(d => ({ ...d, type: t, port: DEFAULT_PORTS[t] }));
+        const matches = getMatchingAgents(t);
+        const autoAgent = matches.length === 1 ? matches[0] : null;
+
+        setDraft(d => ({ 
+            ...d, 
+            type: t, 
+            port: DEFAULT_PORTS[t],
+            agentId: autoAgent ? autoAgent.id : '',
+            host: autoAgent ? (autoAgent.hostname || 'localhost') : 'localhost'
+        }));
         setStep(2);
     };
 
@@ -74,10 +111,29 @@ export function AccountFormModal({ isOpen, onClose, onSave, projectId, initial }
         onClose();
     };
 
+    const matchingAgents = getMatchingAgents(draft.type);
+
     const agentOptions = [
-        { value: '', label: '— Select agent —' },
-        ...agents.map(a => ({ value: a.id, label: a.id })),
+        { value: '', label: matchingAgents.length === 0 ? 'No compatible servers found' : '— Select Service Instance —' },
+        ...matchingAgents.map(a => ({ 
+            value: a.id, 
+            label: `${SERVICE_TYPE_LABELS[draft.type]} on ${a.name || a.id} (${a.hostname})` 
+        })),
     ];
+
+    const handleAgentChange = (agentId: string) => {
+        const agent = agents.find(a => a.id === agentId);
+        if (agent) {
+            setDraft(d => ({ 
+                ...d, 
+                agentId,
+                host: agent.hostname || 'localhost',
+                port: d.port || DEFAULT_PORTS[d.type]
+            }));
+        } else {
+            set('agentId', agentId);
+        }
+    };
 
     return (
         <Modal
@@ -134,10 +190,15 @@ export function AccountFormModal({ isOpen, onClose, onSave, projectId, initial }
                             <Input label="Display Name" value={draft.name} onChange={e => set('name', e.target.value)} placeholder="e.g. main-db" autoFocus />
                         </div>
                         <Select
-                            label="Agent (Server)"
+                            label="Service Instance"
                             value={draft.agentId}
-                            onChange={e => set('agentId', e.target.value)}
+                            onChange={e => handleAgentChange(e.target.value)}
                             options={agentOptions}
+                            description={matchingAgents.length === 0 
+                                ? `No compatible ${SERVICE_TYPE_LABELS[draft.type]} servers were found.` 
+                                : matchingAgents.length === 1 
+                                    ? `Automatically selected the only compatible server found.`
+                                    : `Multiple servers found running ${SERVICE_TYPE_LABELS[draft.type]}. Please select one.`}
                         />
                         {draft.projectId !== undefined ? (
                             <Input label="Project ID" value={draft.projectId ?? ''} readOnly className="bg-base-300/50 text-neutral-content/60" />
@@ -156,8 +217,54 @@ export function AccountFormModal({ isOpen, onClose, onSave, projectId, initial }
                                     </div>
                                     <Input label="Port" type="number" value={draft.port ?? ''} onChange={e => set('port', Number(e.target.value) || undefined)} placeholder={String(DEFAULT_PORTS[draft.type])} />
                                 </div>
-                                <div className="md:col-span-2">
-                                    <Input label="Database" value={draft.database ?? ''} onChange={e => set('database', e.target.value)} placeholder="my_database" />
+                                <div className="md:col-span-2 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-bold text-neutral-content/60 uppercase tracking-wider">Databases</label>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            className="h-7 text-[10px] gap-1 hover:bg-primary/10 hover:text-primary transition-all"
+                                            onClick={() => {
+                                                const dbs = draft.databases || [];
+                                                set('databases', [...dbs, '']);
+                                            }}
+                                        >
+                                            <Plus size={12} /> Add Database
+                                        </Button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {(draft.databases && draft.databases.length > 0) ? draft.databases.map((db, idx) => (
+                                            <div key={idx} className="flex gap-2 animate-slide-in">
+                                                <div className="flex-1">
+                                                    <Input 
+                                                        value={db} 
+                                                        onChange={e => {
+                                                            const newDbs = [...(draft.databases || [])];
+                                                            newDbs[idx] = e.target.value;
+                                                            set('databases', newDbs);
+                                                            // Also set primary 'database' for compatibility with older parts
+                                                            if (idx === 0) set('database', e.target.value);
+                                                        }} 
+                                                        placeholder="database_name" 
+                                                    />
+                                                </div>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    className="px-2 text-error/60 hover:text-error hover:bg-error/10"
+                                                    onClick={() => {
+                                                        const newDbs = draft.databases?.filter((_, i) => i !== idx);
+                                                        set('databases', newDbs);
+                                                    }}
+                                                >
+                                                    <Trash2 size={16} />
+                                                </Button>
+                                            </div>
+                                        )) : (
+                                            <div className="text-xs text-neutral-content/40 py-4 text-center border border-dashed border-white/5 rounded-xl bg-base-300/20">
+                                                No databases defined. Click "Add Database" to start.
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 <Input label="Username" value={draft.username ?? ''} onChange={e => set('username', e.target.value)} />
                                 <Input label="Password" type="password" value={draft.password ?? ''} onChange={e => set('password', e.target.value)} />
@@ -200,7 +307,86 @@ export function AccountFormModal({ isOpen, onClose, onSave, projectId, initial }
                                     <Input label="Port" type="number" value={draft.port ?? ''} onChange={e => set('port', Number(e.target.value) || undefined)} placeholder="5672" />
                                 </div>
                                 <div className="md:col-span-2">
-                                    <Input label="VHost" value={draft.vhost ?? ''} onChange={e => set('vhost', e.target.value)} placeholder="/" />
+                                    <Input 
+                                        label="VHost" 
+                                        value={draft.vhost ?? ''} 
+                                        onChange={e => set('vhost', e.target.value)} 
+                                        placeholder="/" 
+                                        description="Virtual Host name. Multiple accounts can share the same VHost with different users."
+                                    />
+                                </div>
+                                <div className="md:col-span-2 space-y-4 mt-2">
+                                    <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                                        <label className="text-[10px] font-bold text-neutral-content/40 uppercase tracking-[0.15em]">MQTT/Queue Bindings</label>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            className="h-7 text-[10px] px-3 gap-1.5 hover:bg-primary/20 hover:text-primary transition-all border border-white/5 hover:border-primary/30"
+                                            onClick={() => {
+                                                const bindings = draft.bindings || [];
+                                                set('bindings', [...bindings, { vhost: draft.vhost || '/', sourceExchange: 'amq.topic', destinationQueue: '', routingKey: '' }]);
+                                            }}
+                                        >
+                                            <Plus size={12} strokeWidth={3} /> Add Binding
+                                        </Button>
+                                    </div>
+                                    <div className="space-y-6">
+                                        {(draft.bindings && draft.bindings.length > 0) ? draft.bindings.map((b, idx) => (
+                                            <div key={idx} className="p-6 rounded-2xl bg-base-300/40 border border-white/5 space-y-5 animate-slide-in relative group hover:border-primary/20 transition-all">
+                                                <button 
+                                                    onClick={() => {
+                                                        const newB = draft.bindings?.filter((_, i) => i !== idx);
+                                                        set('bindings', newB);
+                                                    }}
+                                                    className="absolute top-2 right-2 p-1 text-neutral-content/20 hover:text-error transition-colors"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <Input 
+                                                        label="VHost" 
+                                                        value={b.vhost} 
+                                                        onChange={e => {
+                                                            const newB = [...(draft.bindings || [])];
+                                                            newB[idx] = { ...newB[idx], vhost: e.target.value };
+                                                            set('bindings', newB);
+                                                        }} 
+                                                    />
+                                                    <Input 
+                                                        label="Exchange" 
+                                                        value={b.sourceExchange} 
+                                                        onChange={e => {
+                                                            const newB = [...(draft.bindings || [])];
+                                                            newB[idx] = { ...newB[idx], sourceExchange: e.target.value };
+                                                            set('bindings', newB);
+                                                        }} 
+                                                    />
+                                                    <Input 
+                                                        label="Queue" 
+                                                        value={b.destinationQueue} 
+                                                        onChange={e => {
+                                                            const newB = [...(draft.bindings || [])];
+                                                            newB[idx] = { ...newB[idx], destinationQueue: e.target.value };
+                                                            set('bindings', newB);
+                                                        }} 
+                                                    />
+                                                    <Input 
+                                                        label="Routing Key" 
+                                                        value={b.routingKey} 
+                                                        onChange={e => {
+                                                            const newB = [...(draft.bindings || [])];
+                                                            newB[idx] = { ...newB[idx], routingKey: e.target.value };
+                                                            set('bindings', newB);
+                                                        }} 
+                                                    />
+                                                </div>
+                                            </div>
+                                        )) : (
+                                            <div className="text-xs text-neutral-content/40 py-4 text-center border border-dashed border-white/5 rounded-xl bg-base-300/20">
+                                                No bindings defined. Useful for MQTT-to-Queue routing.
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 <Input label="Username" value={draft.username ?? ''} onChange={e => set('username', e.target.value)} />
                                 <Input label="Password" type="password" value={draft.password ?? ''} onChange={e => set('password', e.target.value)} />
@@ -234,6 +420,20 @@ export function AccountFormModal({ isOpen, onClose, onSave, projectId, initial }
                                 <Input label="Password" type="password" value={draft.password ?? ''} onChange={e => set('password', e.target.value)} />
                                 <div className="md:col-span-2">
                                     <Input label="Root Path" value={draft.rootPath ?? ''} onChange={e => set('rootPath', e.target.value)} placeholder="/home/user" />
+                                </div>
+                                <div className="md:col-span-2 grid grid-cols-2 gap-4">
+                                    <Input label="Quota (MB)" type="number" value={draft.quota ?? ''} onChange={e => set('quota', Number(e.target.value) || undefined)} placeholder="1024" disabled={!draft.quotaEnabled} />
+                                    <div className="flex items-end pb-2">
+                                        <label className="label cursor-pointer justify-start gap-3">
+                                            <input 
+                                                type="checkbox" 
+                                                className="checkbox checkbox-primary" 
+                                                checked={draft.quotaEnabled ?? false} 
+                                                onChange={e => set('quotaEnabled', e.target.checked)} 
+                                            />
+                                            <span className="label-text">Enable Quota</span>
+                                        </label>
+                                    </div>
                                 </div>
                             </>
                         )}

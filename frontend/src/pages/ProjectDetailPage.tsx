@@ -10,7 +10,6 @@ import { ServiceTypeIcon } from '../components/ui/ServiceTypeIcon';
 import { SERVICE_TYPE_LABELS } from '../types';
 import { Plus, ArrowLeft, Pencil, Trash2, Server, KeyRound, Copy, Check, Play, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import type { ServiceAccount } from '../types';
 
 export function ProjectDetailPage() {
@@ -157,103 +156,170 @@ export function ProjectDetailPage() {
                                             {a.agentId && <div className="badge badge-neutral badge-xs py-2 px-2 gap-1"><Server size={10} /> {a.agentId}</div>}
                                         </div>
 
-                                        {a.type === 'mongodb' && a.username && a.password && a.host && a.database && (
-                                            <div className="pt-1">
+                                        {/* Connection Info / Credentials Blocks */}
+                                        <div className="pt-2 grid grid-cols-1 gap-2">
+                                            {/* Database URI (Mongo/MySQL/Postgre) */}
+                                            {(a.type === 'mongodb' || a.type === 'mysql' || a.type === 'postgresql') && a.username && a.password && a.host && (
                                                 <div className="flex items-center gap-1 max-w-xl bg-black/30 border border-white/5 rounded-md p-1 pl-3">
                                                     <code className="text-[10px] text-success flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-mono py-1">
-                                                        mongodb://{a.username}:{showPasswords[a.id] ? a.password : '••••••••'}@{a.host}:{a.port || 27017}/{a.database}
+                                                        {a.type === 'mongodb' 
+                                                            ? `mongodb://${a.username}:${showPasswords[a.id] ? a.password : '••••••••'}@${a.host}:${a.port || 27017}/${a.database}`
+                                                            : `${a.type}://${a.username}:${showPasswords[a.id] ? a.password : '••••••••'}@${a.host}:${a.port}/${a.database}`
+                                                        }
                                                     </code>
                                                     <div className="flex gap-1 pr-1">
                                                         <button
                                                             onClick={() => togglePassword(a.id)}
                                                             className="btn btn-ghost btn-square btn-xs text-neutral-content hover:text-base-content"
-                                                            title={showPasswords[a.id] ? "Hide Password" : "Show Password"}
                                                         >
                                                             {showPasswords[a.id] ? <EyeOff size={13} /> : <Eye size={13} />}
                                                         </button>
                                                         <button
                                                             onClick={async () => {
-                                                                const uri = `mongodb://${encodeURIComponent(a.username!)}:${encodeURIComponent(a.password!)}@${a.host}:${a.port || 27017}/${encodeURIComponent(a.database!)}`;
+                                                                const uri = a.type === 'mongodb'
+                                                                    ? `mongodb://${encodeURIComponent(a.username!)}:${encodeURIComponent(a.password!)}@${a.host}:${a.port || 27017}/${encodeURIComponent(a.database!)}`
+                                                                    : `${a.type}://${encodeURIComponent(a.username!)}:${encodeURIComponent(a.password!)}@${a.host}:${a.port}/${encodeURIComponent(a.database!)}`;
                                                                 await navigator.clipboard.writeText(uri);
                                                                 setCopiedId(a.id);
                                                                 setTimeout(() => setCopiedId(null), 2000);
                                                             }}
-                                                            className={twMerge(
-                                                                clsx(
-                                                                    "btn btn-ghost btn-square btn-xs",
-                                                                    copiedId === a.id ? "text-success" : "text-neutral-content hover:text-base-content"
-                                                                )
-                                                            )}
-                                                            title="Copy Connection String"
+                                                            className={clsx("btn btn-ghost btn-square btn-xs", copiedId === a.id ? "text-success" : "text-neutral-content")}
                                                         >
                                                             {copiedId === a.id ? <Check size={13} /> : <Copy size={13} />}
                                                         </button>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        )}
+                                            )}
+
+                                            {/* S3 Credentials */}
+                                            {(a.type === 's3-minio' || a.type === 's3-garage') && a.accessKey && (
+                                                <div className="flex items-center gap-3 text-[11px] font-mono bg-base-300/50 p-3 rounded-xl border border-white/5">
+                                                    <div className="flex-1 space-y-1">
+                                                        <div className="flex justify-between border-b border-white/5 pb-1">
+                                                            <span className="opacity-40 uppercase">Endpoint</span>
+                                                            <span className="text-white">{a.endpoint || a.host}</span>
+                                                        </div>
+                                                        <div className="flex justify-between border-b border-white/5 pb-1">
+                                                            <span className="opacity-40 uppercase">AccessKey</span>
+                                                            <code className="text-primary">{a.accessKey}</code>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span className="opacity-40 uppercase">SecretKey</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <code className="text-success">{showPasswords[a.id] ? a.secretKey : '••••••••••••••••'}</code>
+                                                                <button onClick={() => togglePassword(a.id)} className="opacity-20 hover:opacity-100 transition-opacity">
+                                                                    {showPasswords[a.id] ? <EyeOff size={10} /> : <Eye size={10} />}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* MQTT/FTP Credentials */}
+                                            {(a.type === 'mqtt-mosquitto' || a.type === 'ftp-vsftpd') && a.username && (
+                                                <div className="flex items-center gap-1 max-w-xl bg-black/20 border border-white/5 rounded-md p-1 pl-3">
+                                                    <span className="text-[10px] opacity-40 uppercase mr-2 font-bold">{a.type === 'mqtt-mosquitto' ? 'MQTT' : 'FTP'}</span>
+                                                    <code className="text-[10px] text-neutral-content flex-1 font-mono">
+                                                        {a.username} : {showPasswords[a.id] ? a.password : '••••••••'}
+                                                    </code>
+                                                    <button onClick={() => togglePassword(a.id)} className="btn btn-ghost btn-xs text-neutral-content">
+                                                        {showPasswords[a.id] ? <EyeOff size={12} /> : <Eye size={12} />}
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {user?.role !== 'user' && (
                                         <div className="flex items-center justify-end gap-2 shrink-0 md:ml-4 pt-4 md:pt-0 border-t md:border-t-0 border-white/5">
-                                            {(a.type === 'mongodb' || a.type === 'mysql' || a.type === 'postgresql') && (
-                                                <>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="secondary"
-                                                        icon={<Play size={13} />}
-                                                        disabled={provisioningId === a.id || !a.agentId}
-                                                        onClick={async () => {
-                                                            if (!a.agentId) return;
+                                            {/* Logic for manual provisioning/sync */}
+                                            {(() => {
+                                                const isDb = a.type === 'mongodb' || a.type === 'mysql' || a.type === 'postgresql';
+                                                const isStorage = a.type === 's3-minio' || a.type === 's3-garage';
+                                                const isWeb = a.type === 'web-caddy' || a.type === 'web-nginx';
+                                                const isFTP = a.type === 'ftp-vsftpd';
+                                                const handleProvision = async () => {
+                                                    setProvisioningId(a.id);
+                                                    let action = '';
+                                                    let options: Record<string, unknown> = {};
+                                                    const isMongo = a.type === 'mongodb';
+                                                    
+                                                    if (isDb) {
+                                                        action = 'db_create_user';
+                                                        const fallbackRole = isMongo ? 'readWrite' : 'ALL PRIVILEGES';
+                                                        options = {
+                                                            username: isMongo ? `${a.username}@${a.database}` : a.username,
+                                                            password: a.password,
+                                                            role: a.role || fallbackRole,
+                                                            target: a.targetEntity
+                                                        };
+                                                    } else if (a.type === 'rabbitmq') {
+                                                        action = 'db_sync';
+                                                        options = { bindings: a.bindings };
+                                                    } else if (a.type === 'mqtt-mosquitto') {
+                                                        action = 'mq_create_user';
+                                                        options = { username: a.username, password: a.password };
+                                                    } else if (isStorage) {
+                                                        action = 'storage_create_bucket';
+                                                        options = { name: a.bucket };
+                                                        // Also create user
+                                                        await provisionAccount(a.agentId!, 'storage_create_user', { access_key: a.accessKey, secret_key: a.secretKey });
+                                                    } else if (isWeb) {
+                                                        action = 'proxy_create';
+                                                        options = { domain: a.endpoint, port: Number(a.port) };
+                                                    } else if (isFTP) {
+                                                        action = 'ftp_create_user';
+                                                        options = { username: a.username, password: a.password, root_path: a.rootPath };
+                                                    }
 
-                                                            let fallbackRole = '';
-                                                            if (a.type === 'mongodb') fallbackRole = 'readWrite';
-                                                            if (a.type === 'mysql' || a.type === 'postgresql') fallbackRole = 'ALL PRIVILEGES';
+                                                    if (action) {
+                                                        const ok = await provisionAccount(a.agentId!, action, options);
+                                                        if (ok) alert('Successfully provisioned on server.');
+                                                        else alert('Failed to provision on server.');
+                                                    }
+                                                    setProvisioningId(null);
+                                                };
 
-                                                            setProvisioningId(a.id);
-                                                            const ok = await provisionAccount(a.agentId, 'db_create_user', {
-                                                                username: a.type === 'mongodb' ? `${a.username}@${a.database}` : a.username,
-                                                                password: a.password,
-                                                                role: a.role || fallbackRole,
-                                                                target: a.targetEntity
-                                                            });
-                                                            setProvisioningId(null);
-                                                            if (ok) alert('Successfully provisioned account on server.');
-                                                            else alert('Failed to provision account on server.');
-                                                        }}
-                                                        className="h-8 min-h-0 px-3"
-                                                    >
-                                                        {provisioningId === a.id ? '...' : 'Provision'}
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        icon={<RefreshCw size={13} />}
-                                                        disabled={provisioningId === a.id || !a.agentId}
-                                                        onClick={async () => {
-                                                            if (!a.agentId) return;
-
-                                                            let fallbackRole = '';
-                                                            if (a.type === 'mongodb') fallbackRole = 'readWrite';
-                                                            if (a.type === 'mysql' || a.type === 'postgresql') fallbackRole = 'ALL PRIVILEGES';
-
-                                                            setProvisioningId(a.id);
-                                                            const ok = await provisionAccount(a.agentId, 'db_update_privileges', {
-                                                                username: a.type === 'mongodb' ? `${a.username}@${a.database}` : a.username,
-                                                                role: a.role || fallbackRole,
-                                                                target: a.targetEntity
-                                                            });
-                                                            setProvisioningId(null);
-                                                            if (ok) alert('Successfully updated privileges on server.');
-                                                            else alert('Failed to update privileges on server.');
-                                                        }}
-                                                        className="h-8 min-h-0 px-3"
-                                                        title="Sync modifications to the target entity or role selection to the server."
-                                                    >
-                                                        Update
-                                                    </Button>
-                                                </>
-                                            )}
+                                                return (
+                                                    <>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="secondary"
+                                                            icon={<Play size={13} />}
+                                                            disabled={provisioningId === a.id}
+                                                            onClick={handleProvision}
+                                                            className="h-8 min-h-0 px-3"
+                                                        >
+                                                            {provisioningId === a.id ? '...' : 'Provision'}
+                                                        </Button>
+                                                        {isDb && (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                icon={<RefreshCw size={13} />}
+                                                                disabled={provisioningId === a.id}
+                                                                onClick={async () => {
+                                                                    setProvisioningId(a.id);
+                                                                    const isMongo = a.type === 'mongodb';
+                                                                    const fallbackRole = isMongo ? 'readWrite' : 'ALL PRIVILEGES';
+                                                                    const ok = await provisionAccount(a.agentId!, 'db_update_privileges', {
+                                                                        username: isMongo ? `${a.username}@${a.database}` : a.username,
+                                                                        role: a.role || fallbackRole,
+                                                                        target: a.targetEntity
+                                                                    });
+                                                                    setProvisioningId(null);
+                                                                    if (ok) alert('Successfully updated privileges.');
+                                                                    else alert('Failed to update privileges.');
+                                                                }}
+                                                                className="h-8 min-h-0 px-3"
+                                                            >
+                                                                Sync
+                                                            </Button>
+                                                        )}
+                                                    </>
+                                                );
+                                            })()}
                                             <button
                                                 onClick={() => setEditAccount(a)}
                                                 className="btn btn-ghost btn-square btn-sm text-neutral-content hover:text-primary"

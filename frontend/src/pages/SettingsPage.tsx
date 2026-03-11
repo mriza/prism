@@ -1,4 +1,5 @@
-import { Settings } from 'lucide-react';
+import { Settings, Folder } from 'lucide-react';
+import { Input } from '../components/ui/Fields';
 
 export function SettingsPage() {
     return (
@@ -24,18 +25,44 @@ export function SettingsPage() {
                                 <h2 className="font-bold text-base">Hub Connection</h2>
                             </div>
                             
-                            <div className="form-control w-full max-w-md">
-                                <label className="label py-1">
-                                    <span className="label-text text-[10px] font-bold uppercase tracking-widest text-neutral-content/60">Hub URL</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    defaultValue="http://localhost:65432"
-                                    className="input input-bordered bg-base-300 focus:input-primary transition-all font-mono text-sm"
+                            <Input
+                                label="Hub URL"
+                                defaultValue="http://localhost:65432"
+                                description="The primary endpoint for communicating with the PRISM hub"
+                                className="bg-base-300 font-mono text-sm max-w-md"
+                            />
+                        </div>
+
+                        {/* FTP Server (vsftpd) */}
+                        <div className="flex-1 min-w-[280px] space-y-4">
+                            <div className="flex items-center gap-2 group">
+                                <div className="p-1.5 rounded-lg bg-secondary/10 text-secondary group-hover:bg-secondary group-hover:text-secondary-content transition-colors">
+                                    <Folder size={16} />
+                                </div>
+                                <h2 className="font-bold text-base">FTP Server (vsftpd)</h2>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-4 max-w-md">
+                                <Input
+                                    label="Default Root Path Template"
+                                    defaultValue="/var/ftp/virtual_users/{username}"
+                                    description="Template used for new account home directories"
+                                    className="bg-base-300 font-mono text-sm"
                                 />
-                                <label className="label">
-                                    <span className="label-text-alt text-neutral-content/60">The primary endpoint for communicating with the PRISM hub</span>
-                                </label>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <Input
+                                        label="System User"
+                                        defaultValue="ftpuser"
+                                        description="Local account for mapping"
+                                        className="bg-base-300 text-sm"
+                                    />
+                                    <Input
+                                        label="PAM Service"
+                                        defaultValue="vsftpd.virtual"
+                                        description="PAM config filename"
+                                        className="bg-base-300 text-sm"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>

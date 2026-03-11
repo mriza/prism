@@ -57,6 +57,13 @@ func (m *GarageModule) ListBuckets() ([]string, error) {
 }
 
 func (m *GarageModule) CreateBucket(name string) error {
+	// Check if exists in list
+	buckets, _ := m.ListBuckets()
+	for _, b := range buckets {
+		if b == name {
+			return nil
+		}
+	}
 	return exec.Command("garage", "bucket", "create", name).Run()
 }
 
