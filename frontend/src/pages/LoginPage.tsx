@@ -1,13 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { ShieldAlert } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 export function LoginPage() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const { login } = useAuth();
+    const { login, isAuthenticated } = useAuth();
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    // Redirect if already authenticated
+    useEffect(() => {
+        if (isAuthenticated) {
+            const from = (location.state as any)?.from?.pathname || "/";
+            navigate(from, { replace: true });
+        }
+    }, [isAuthenticated, navigate, location]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -30,6 +41,7 @@ export function LoginPage() {
             const data = await res.json();
             if (data.token) {
                 login(data.token);
+                // The useEffect will handle the navigation
             } else {
                 throw new Error('No token received');
             }

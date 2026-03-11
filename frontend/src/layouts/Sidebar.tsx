@@ -8,10 +8,12 @@ import {
     Zap,
     AppWindow,
     ShieldCheck,
-    Users
+    Users,
+    LogOut
 } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const navItems = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -24,7 +26,8 @@ const navItems = [
 ];
 
 export function Sidebar() {
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
+    const navigate = useNavigate();
     return (
         <aside className="menu bg-base-200 text-base-content min-h-full w-64 p-4 border-r border-white/5 flex flex-col gap-4">
             {/* Brand */}
@@ -88,8 +91,20 @@ export function Sidebar() {
             </ul>
 
             {/* Footer */}
-            <div className="opacity-40 text-xs font-mono uppercase tracking-widest text-center py-4 border-t border-white/10 mx-2">
-                v0.1.0-alpha
+            <div className="mt-auto px-2 pb-4 space-y-4">
+                <button 
+                    onClick={() => {
+                        logout();
+                        navigate('/login');
+                    }}
+                    className="flex items-center gap-3 w-full py-3 px-4 text-error hover:bg-error/10 transition-colors rounded-xl font-bold"
+                >
+                    <LogOut size={18} />
+                    Logout
+                </button>
+                <div className="opacity-40 text-xs font-mono uppercase tracking-widest text-center py-4 border-t border-white/10">
+                    v0.1.0-alpha
+                </div>
             </div>
         </aside>
     );
