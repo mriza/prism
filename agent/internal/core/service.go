@@ -33,6 +33,11 @@ type ServiceModule interface {
 	Configure(config map[string]interface{}) error
 }
 
+type ServiceSettings interface {
+	GetSettings() (map[string]interface{}, error)
+	UpdateSettings(settings map[string]interface{}) error
+}
+
 type ConfigurableModule interface {
 	GetConfigPath() string
 	ReadConfig() (string, error)
@@ -59,7 +64,13 @@ type RabbitMQModule interface {
 
 	ListBindings(vhost string) ([]string, error)
 	CreateBinding(vhost, sourceExchange, destinationQueue, routingKey string) error
+	DeclareExchange(vhost, name, kind string) error
+	DeclareQueue(vhost, name string) error
 	SyncBindings(bindings []map[string]interface{}) error
+	
+	// New methods for listing exchanges and queues
+	ListExchanges(vhost string) ([]string, error)
+	ListQueues(vhost string) ([]string, error)
 }
 
 type WebServerModule interface {
@@ -107,6 +118,26 @@ type ProxyInfo struct {
 	Domain   string `json:"domain"`
 	Upstream string `json:"upstream"`
 	Enabled  bool   `json:"enabled"`
+}
+
+// ProcessInfo represents a sub-process managed by a process manager (PM2, Systemd, Supervisor).
+type ProcessInfo struct {
+	ID        string            `json:"id"`
+	Name      string            `json:"name"`
+	Status    string            `json:"status"`
+	CPU       float64           `json:"cpu"`
+	Memory    uint64            `json:"memory"`
+	Uptime    int64             `json:"uptime"`
+	Ports     []int             `json:"ports"`
+	Metadata  map[string]string `json:"metadata"`
+}
+
+// ProcessManager is implemented by modules that manage multiple sub-processes.
+type ProcessManager interface {
+	ListProcesses() ([]ProcessInfo, error)
+	StartProcess(id string) error
+	StopProcess(id string) error
+	RestartProcess(id string) error
 }
 
 // PM2App represents a process managed by PM2.

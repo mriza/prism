@@ -240,3 +240,116 @@ func (m *NginxModule) WriteConfig(content string) error {
 	}
 	return m.Reload()
 }
+
+// --- ServiceSettings Implementation ---
+
+func (m *NginxModule) GetSettings() (map[string]interface{}, error) {
+	settings := make(map[string]interface{})
+
+	// Read the default site for port, docroot, and SSL config
+	defaultPath := filepath.Join(m.AvailableDir, "default")
+	if _, err := os.Stat(defaultPath); err == nil {
+		content, _ := os.ReadFile(defaultPath)
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			// Port (skip IPv6 and SSL lines for the plain HTTP port)
+			if strings.HasPrefix(line, "listen") && !strings.Contains(line, "[::]") && !strings.Contains(line, "ssl") {
+				parts := strings.Fields(line)
+				if len(parts) >= 2 {
+					settings["port"] = strings.TrimSuffix(parts[1], ";")
+				}
+			}
+			// Document root
+			if strings.HasPrefix(line, "root ") {
+				parts := strings.Fields(line)
+				if len(parts) >= 2 {
+					settings["docroot"] = strings.TrimSuffix(parts[1], ";")
+				}
+			}
+			// SSL certificate
+			if strings.HasPrefix(line, "ssl_certificate ") && !strings.Contains(line, "_key") {
+				parts := strings.Fields(line)
+				if len(parts) >= 2 {
+					settings["ssl_cert"] = strings.TrimSuffix(parts[1], ";")
+				}
+			}
+			// SSL certificate key
+			if strings.HasPrefix(line, "ssl_certificate_key ") {
+				parts := strings.Fields(line)
+				if len(parts) >= 2 {
+					settings["ssl_key"] = strings.TrimSuffix(parts[1], ";")
+				}
+			}
+		}
+	}
+
+	// Defaults if missing
+	if _, ok := settings["port"]; !ok {
+		settings["port"] = "80"
+	}
+
+	return settings, nil
+}
+
+func (m *NginxModule) UpdateSettings(settings map[string]interface{}) error {
+	defaultPath := filepath.Join(m.AvailableDir, "default")
+	if _, err := os.Stat(defaultPath); err != nil {
+		// No default site to update
+		return m.Reload()
+	}
+
+	content, err := os.ReadFile(defaultPath)
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(string(content), "\n")
+	changed := false
+
+	if port, ok := settings["port"].(string); ok && port != "" {
+		for i, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "listen") && !strings.Contains(trimmed, "[::]") && !strings.Contains(trimmed, "ssl") {
+				lines[i] = fmt.Sprintf("        listen %s;", port)
+				changed = true
+			}
+		}
+	}
+
+	if root, ok := settings["docroot"].(string); ok && root != "" {
+		for i, line := range lines {
+			if strings.HasPrefix(strings.TrimSpace(line), "root ") {
+				lines[i] = fmt.Sprintf("        root %s;", root)
+				changed = true
+			}
+		}
+	}
+
+	if cert, ok := settings["ssl_cert"].(string); ok && cert != "" {
+		for i, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "ssl_certificate ") && !strings.Contains(trimmed, "_key") {
+				lines[i] = fmt.Sprintf("        ssl_certificate %s;", cert)
+				changed = true
+			}
+		}
+	}
+
+	if key, ok := settings["ssl_key"].(string); ok && key != "" {
+		for i, line := range lines {
+			if strings.HasPrefix(strings.TrimSpace(line), "ssl_certificate_key ") {
+				lines[i] = fmt.Sprintf("        ssl_certificate_key %s;", key)
+				changed = true
+			}
+		}
+	}
+
+	if changed {
+		if err := os.WriteFile(defaultPath, []byte(strings.Join(lines, "\n")), 0644); err != nil {
+			return err
+		}
+	}
+
+	return m.Reload()
+}

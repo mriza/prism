@@ -94,7 +94,7 @@ func (m *MySQLModule) CreateUser(name, password, role, target string) error {
 		host = parts[1]
 	}
 
-	if !isValidIdentifier(name) || !isValidIdentifier(host) {
+	if !isValidIdentifier(name) || !isValidHost(host) {
 		return fmt.Errorf("invalid username or host")
 	}
 
@@ -124,7 +124,7 @@ func (m *MySQLModule) UpdatePrivileges(name, role, target string) error {
 		host = parts[1]
 	}
 
-	if !isValidIdentifier(name) || !isValidIdentifier(host) {
+	if !isValidIdentifier(name) || !isValidHost(host) {
 		return fmt.Errorf("invalid username or host")
 	}
 
@@ -144,8 +144,31 @@ func (m *MySQLModule) UpdatePrivileges(name, role, target string) error {
 	return cmd.Run()
 }
 
+// isValidIdentifier checks that a database/user name contains only safe characters.
 func isValidIdentifier(s string) bool {
-	// ... existing implementation
+	if s == "" || len(s) > 64 {
+		return false
+	}
+	for _, r := range s {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') || r == '_') {
+			return false
+		}
+	}
+	return true
+}
+
+// isValidHost checks that a MySQL host value is safe (%, localhost, IP, hostname).
+func isValidHost(s string) bool {
+	if s == "" || len(s) > 255 {
+		return false
+	}
+	for _, r := range s {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') || r == '_' || r == '-' || r == '.' || r == '%') {
+			return false
+		}
+	}
 	return true
 }
 
@@ -165,4 +188,111 @@ func (m *MySQLModule) WriteConfig(content string) error {
 		return err
 	}
 	return m.Restart()
+}
+
+// --- ServiceSettings Implementation ---
+
+func (m *MySQLModule) GetSettings() (map[string]interface{}, error) {
+	content, err := m.ReadConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	settings := make(map[string]interface{})
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) < 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		val := strings.TrimSpace(parts[1])
+
+		switch key {
+		case "port":
+			settings["port"] = val
+		case "socket":
+			settings["socket"] = val
+		case "datadir":
+			settings["datadir"] = val
+		case "log_error":
+			settings["log_error"] = val
+		}
+	}
+
+	// Defaults if missing
+	if _, ok := settings["port"]; !ok {
+		settings["port"] = "3306"
+	}
+	return settings, nil
+}
+
+func (m *MySQLModule) UpdateSettings(settings map[string]interface{}) error {
+	content, err := m.ReadConfig()
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(content, "\n")
+	newSettings := make(map[string]string)
+	for k, v := range settings {
+		if val, ok := v.(string); ok && val != "" {
+			newSettings[k] = val
+		}
+	}
+
+	// Track which settings were updated
+	updated := make(map[string]bool)
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		parts := strings.SplitN(trimmed, "=", 2)
+		if len(parts) < 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+
+		if newVal, ok := newSettings[key]; ok {
+			lines[i] = fmt.Sprintf("%s = %s", key, newVal)
+			updated[key] = true
+		}
+	}
+
+	// Add missing settings to [mysqld] section
+	var resultLines []string
+	mysqldFound := false
+
+	for _, line := range lines {
+		resultLines = append(resultLines, line)
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "[mysqld]" {
+			mysqldFound = true
+			// Inject missing settings immediately after [mysqld]
+			for key, val := range newSettings {
+				if !updated[key] {
+					resultLines = append(resultLines, fmt.Sprintf("%s = %s", key, val))
+					updated[key] = true
+				}
+			}
+		} else if strings.HasPrefix(trimmed, "[") {
+			// Section changed
+		}
+	}
+
+	if !mysqldFound {
+		resultLines = append(resultLines, "[mysqld]")
+		for key, val := range newSettings {
+			if !updated[key] {
+				resultLines = append(resultLines, fmt.Sprintf("%s = %s", key, val))
+			}
+		}
+	}
+
+	return m.WriteConfig(strings.Join(resultLines, "\n"))
 }

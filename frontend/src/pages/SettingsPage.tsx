@@ -1,79 +1,122 @@
-import { Settings, Folder } from 'lucide-react';
-import { Input } from '../components/ui/Fields';
+import { useAppConfig } from '../contexts/AppConfigContext';
+import { 
+    Card, 
+    Space, 
+    Typography, 
+    theme, 
+    Row, 
+    Col, 
+    Input, 
+    Slider,
+    Alert,
+    Tag
+} from 'antd';
+import {
+    SettingOutlined,
+    SyncOutlined,
+    RocketOutlined,
+    GlobalOutlined
+} from '@ant-design/icons';
+import { PageContainer } from '../components/PageContainer';
+
+const { Text, Paragraph } = Typography;
 
 export function SettingsPage() {
+    const { config, updateConfig } = useAppConfig();
+    const { token } = theme.useToken();
+
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold">Settings</h1>
-                    <p className="text-neutral-content text-sm">
-                        Application configuration
-                    </p>
-                </div>
-            </div>
+        <PageContainer
+            title="System Settings"
+            description="Configure global application logic, infrastructure polling intervals, and service defaults."
+        >
+            <div style={{ maxWidth: '1200px' }}>
+                <Row gutter={[24, 24]}>
+                    <Col xs={24} lg={12}>
+                        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                            {/* Infrastructure Core */}
+                            <Card 
+                                title={<Space><SettingOutlined /> <Text strong style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px' }}>Infrastructure Core</Text></Space>}
+                                style={{ borderRadius: '20px', border: `1px solid ${token.colorBorderSecondary}` }}
+                            >
+                                <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                                    <div>
+                                        <Text strong style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>Hub Endpoint URL</Text>
+                                        <Input 
+                                            defaultValue="http://localhost:65432" 
+                                            prefix={<GlobalOutlined style={{ color: token.colorTextDisabled }} />}
+                                            placeholder="http://api.prism.internal"
+                                            size="large"
+                                            style={{ fontFamily: 'monospace', borderRadius: '10px' }}
+                                        />
+                                        <Text type="secondary" style={{ fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                                            The primary API coordinator for all fleet communications.
+                                        </Text>
+                                    </div>
+                                </Space>
+                            </Card>
+                        </Space>
+                    </Col>
 
-            <div className="card bg-base-200 border border-white/5 shadow-sm">
-                <div className="card-body p-6">
-                    <div className="flex flex-wrap gap-8">
-                        {/* Hub connection */}
-                        <div className="flex-1 min-w-[280px] space-y-4">
-                            <div className="flex items-center gap-2 group">
-                                <div className="p-1.5 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-content transition-colors">
-                                    <Settings size={16} />
-                                </div>
-                                <h2 className="font-bold text-base">Hub Connection</h2>
-                            </div>
-                            
-                            <Input
-                                label="Hub URL"
-                                defaultValue="http://localhost:65432"
-                                description="The primary endpoint for communicating with the PRISM hub"
-                                className="bg-base-300 font-mono text-sm max-w-md"
+                    <Col xs={24} lg={12}>
+                        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                            {/* Telemetry & Sync */}
+                            <Card 
+                                title={<Space><SyncOutlined /> <Text strong style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px' }}>Telemetry & Sync</Text></Space>}
+                                style={{ borderRadius: '20px', border: `1px solid ${token.colorBorderSecondary}` }}
+                            >
+                                <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                                    {/* Agent Heartbeat */}
+                                    <div style={{ backgroundColor: token.colorFillAlter, padding: '20px', borderRadius: '16px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                            <Text strong style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Infrastructure Heartbeat</Text>
+                                            <Tag color="blue" style={{ borderRadius: '6px', fontFamily: 'monospace', fontWeight: 800 }}>{config.heartbeatInterval / 1000}s</Tag>
+                                        </div>
+                                        <Slider 
+                                            min={5} 
+                                            max={60} 
+                                            step={5} 
+                                            value={config.heartbeatInterval / 1000} 
+                                            onChange={(val) => updateConfig({ heartbeatInterval: val * 1000 })}
+                                        />
+                                        <Paragraph type="secondary" style={{ fontSize: '11px', marginTop: '12px', marginBottom: 0, fontStyle: 'italic' }}>
+                                            Frequency of agent status reporting. Lower values provide fresher data but increase network overhead.
+                                        </Paragraph>
+                                    </div>
+
+                                    {/* UI Refresh Rate */}
+                                    <div style={{ backgroundColor: `${token.colorInfoBg}40`, padding: '20px', borderRadius: '16px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                            <Text strong style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>UI Refresh Interval</Text>
+                                            <Tag color="cyan" style={{ borderRadius: '6px', fontFamily: 'monospace', fontWeight: 800 }}>{config.uiRefreshRate / 1000}s</Tag>
+                                        </div>
+                                        <Slider 
+                                            min={2} 
+                                            max={30} 
+                                            step={1} 
+                                            value={config.uiRefreshRate / 1000} 
+                                            onChange={(val) => updateConfig({ uiRefreshRate: val * 1000 })}
+                                        />
+                                        <Paragraph type="secondary" style={{ fontSize: '11px', marginTop: '12px', marginBottom: 0, fontStyle: 'italic' }}>
+                                            Frequency of dashboard updates. Controls the visual "freshness" of the current interface.
+                                        </Paragraph>
+                                    </div>
+                                </Space>
+                            </Card>
+
+                            <Alert
+                                message={<Space><RocketOutlined style={{ color: token.colorPrimary }} /> <Text strong style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Autonomous Engine Active</Text></Space>}
+                                description={<Text type="secondary" style={{ fontSize: '11px' }}>Adaptive AI Engine is monitoring these parameters globally to ensure infrastructure stability.</Text>}
+                                type="info"
+                                showIcon={false}
+                                style={{ borderRadius: '16px', border: `1px solid ${token.colorPrimaryBorder}`, backgroundColor: `${token.colorPrimary}05` }}
                             />
-                        </div>
-
-                        {/* FTP Server (vsftpd) */}
-                        <div className="flex-1 min-w-[280px] space-y-4">
-                            <div className="flex items-center gap-2 group">
-                                <div className="p-1.5 rounded-lg bg-secondary/10 text-secondary group-hover:bg-secondary group-hover:text-secondary-content transition-colors">
-                                    <Folder size={16} />
-                                </div>
-                                <h2 className="font-bold text-base">FTP Server (vsftpd)</h2>
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-4 max-w-md">
-                                <Input
-                                    label="Default Root Path Template"
-                                    defaultValue="/var/ftp/virtual_users/{username}"
-                                    description="Template used for new account home directories"
-                                    className="bg-base-300 font-mono text-sm"
-                                />
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Input
-                                        label="System User"
-                                        defaultValue="ftpuser"
-                                        description="Local account for mapping"
-                                        className="bg-base-300 text-sm"
-                                    />
-                                    <Input
-                                        label="PAM Service"
-                                        defaultValue="vsftpd.virtual"
-                                        description="PAM config filename"
-                                        className="bg-base-300 text-sm"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div className="mt-8 pt-6 border-t border-white/5 flex items-center gap-2 text-sm text-neutral-content/50 italic">
-                        <div className="w-1.5 h-1.5 rounded-full bg-neutral-content/30" />
-                        More settings coming soon.
-                    </div>
-                </div>
+                        </Space>
+                    </Col>
+                </Row>
             </div>
-        </div>
+        </PageContainer>
     );
 }
 
+export default SettingsPage;

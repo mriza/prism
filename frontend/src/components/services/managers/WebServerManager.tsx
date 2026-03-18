@@ -1,160 +1,364 @@
-import { useState, useEffect } from 'react'
-import { Globe, Plus, Trash2, Power, Layout, FileCode } from 'lucide-react'
-import { clsx } from 'clsx'
+import { useState, useEffect } from 'react';
+import {
+    Button,
+    Space,
+    Typography,
+    theme,
+    Alert,
+    Divider,
+    Card,
+    Table,
+    Input,
+    Row,
+    Col,
+    Tag,
+    Badge,
+    Form,
+    message
+} from 'antd';
+import {
+    GlobalOutlined,
+    PlusOutlined,
+    DeleteOutlined,
+    LinkOutlined,
+    ReloadOutlined,
+    SettingOutlined,
+    SafetyCertificateOutlined
+} from '@ant-design/icons';
+
+const { Text } = Typography;
 
 interface WebServerManagerProps {
-    sendCommand: (action: string, options?: Record<string, unknown>) => Promise<any> // eslint-disable-line @typescript-eslint/no-explicit-any
-    serviceName: string
+    sendCommand: (action: string, options?: Record<string, unknown>) => Promise<any>;
+    serviceName: string;
 }
 
 export function WebServerManager({ sendCommand, serviceName }: WebServerManagerProps) {
-    const [sites, setSites] = useState<string[]>([])
-    const [loading, setLoading] = useState(false)
+    const [sites, setSites] = useState<string[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [settings, setSettings] = useState<Record<string, any>>({});
+    const [loadingSettings, setLoadingSettings] = useState(false);
+    const [updatingSettings, setUpdatingSettings] = useState(false);
+    const [proxyPort, setProxyPort] = useState('');
+    const [form] = Form.useForm();
+    const { token } = theme.useToken();
 
-    const fetchSites = async () => {
-        setLoading(true)
-        try {
-            const data = await sendCommand('web_list_sites')
-            if (data && data.message) setSites(JSON.parse(data.message))
-        } catch (e) {
-            console.error("Failed to fetch sites", e)
-        } finally {
-            setLoading(false)
-        }
-    }
+    const isNginx = serviceName === 'nginx' || serviceName === 'web-nginx';
 
     useEffect(() => {
-        fetchSites()
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+        fetchSites();
+        if (isNginx) loadSettings();
+    }, []);
+
+    const fetchSites = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const data = await sendCommand('web_list_sites');
+            if (data?.success) {
+                const list = typeof data.output === 'string' ? JSON.parse(data.output) : (data.output ?? []);
+                setSites(Array.isArray(list) ? list : []);
+            } else {
+                setError(data?.error || 'Failed to list sites');
+            }
+        } catch (err: any) {
+            setError(err.message || 'Connection failed');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadSettings = async () => {
+        setLoadingSettings(true);
+        try {
+            const res = await sendCommand('service_get_settings');
+            if (res?.success) {
+                const data = typeof res.output === 'string' ? JSON.parse(res.output) : (res.output ?? {});
+                setSettings(data);
+                form.setFieldsValue(data);
+            }
+        } catch (err: any) {
+            console.error('Failed to load settings:', err);
+        } finally {
+            setLoadingSettings(false);
+        }
+    };
+
+    const handleUpdateSettings = async (values: any) => {
+        setUpdatingSettings(true);
+        try {
+            const res = await sendCommand('service_update_settings', values);
+            if (res?.success) {
+                message.success('Settings saved and nginx reloaded');
+                loadSettings();
+            } else {
+                message.error(res?.error || 'Failed to update settings');
+            }
+        } catch {
+            message.error('Failed to update settings');
+        } finally {
+            setUpdatingSettings(false);
+        }
+    };
+
+    const handleCreateProxy = async (domain: string, port: string) => {
+        if (!domain || !port) {
+            setError('Domain and port are required');
+            return;
+        }
+        const portNum = parseInt(port);
+        if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+            setError('Invalid port number');
+            return;
+        }
+        setActionLoading('create');
+        try {
+            const data = await sendCommand('proxy_create', { domain, port: portNum });
+            if (data?.success) {
+                fetchSites();
+                setProxyPort('');
+            } else {
+                setError(data?.error || 'Failed to create proxy');
+            }
+        } catch (err: any) {
+            setError(err.message || 'Command failed');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handleDeleteSite = async (name: string) => {
+        setActionLoading(`delete-${name}`);
+        try {
+            const data = await sendCommand('web_delete_site', { name });
+            if (data?.success) {
+                fetchSites();
+            } else {
+                setError(data?.error || 'Failed to delete site');
+            }
+        } catch (err: any) {
+            setError(err.message || 'Command failed');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const columns = [
+        {
+            title: 'Virtual Host / Site',
+            key: 'site',
+            render: (_: any, record: { name: string }) => {
+                const site = record.name;
+                const parts = site.match(/^(.+) \((.+)\)$/);
+                const name = parts ? parts[1] : site;
+                const status = parts ? parts[2] : 'unknown';
+                return (
+                    <Space direction="vertical" size={0}>
+                        <Text strong>{name}</Text>
+                        <Tag style={{ borderRadius: '4px', border: 'none', fontSize: '10px', backgroundColor: token.colorFillAlter }}>
+                            {status}
+                        </Tag>
+                    </Space>
+                );
+            }
+        },
+        {
+            title: 'Status',
+            key: 'status',
+            render: (_: any, record: { name: string }) => {
+                const isDown = record.name.includes('offline') || record.name.includes('down');
+                return <Badge status={isDown ? 'error' : 'success'} text={isDown ? 'Halt' : 'Active'} />;
+            }
+        },
+        {
+            title: 'Actions',
+            key: 'actions',
+            align: 'right' as const,
+            render: (_: any, record: { name: string }) => {
+                const siteName = record.name.split(' ')[0];
+                return (
+                    <Button
+                        size="small"
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={() => handleDeleteSite(siteName)}
+                        loading={actionLoading === `delete-${siteName}`}
+                    >
+                        Delete
+                    </Button>
+                );
+            }
+        }
+    ];
+
+    const dataSource = sites.map((s, i) => ({ key: i, name: s }));
 
     return (
-        <div className={clsx("space-y-8 animate-in fade-in duration-500", loading && "opacity-50 pointer-events-none")}>
-            {/* Sites List */}
-            <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                        <Globe size={16} />
-                    </div>
-                    <h3 className="text-sm font-black uppercase tracking-widest leading-none">Managed Virtual Hosts</h3>
-                </div>
+        <div style={{ padding: '4px 0' }}>
+            {error && (
+                <Alert message={error} type="error" showIcon closable onClose={() => setError(null)} style={{ marginBottom: '24px', borderRadius: '12px' }} />
+            )}
 
-                {sites.length > 0 ? (
-                    <div className="grid grid-cols-1 gap-3">
-                        {sites.map(site => {
-                            const parts = site.match(/^(.+) \((.+)\)$/);
-                            const name = parts ? parts[1] : site;
-                            const status = parts ? parts[2] : 'unknown';
-                            const isEnabled = status === 'enabled';
-
-                            return (
-                                <div key={site} className="flex items-center justify-between p-4 bg-base-200 rounded-2xl border border-white/5 shadow-sm group hover:border-primary/30 transition-all">
-                                    <div className="flex items-center gap-4">
-                                        <div className={clsx(
-                                            "p-2.5 rounded-xl border flex items-center justify-center transition-colors",
-                                            isEnabled ? "bg-success/10 border-success/20 text-success" : "bg-base-300 border-white/5 text-neutral-content/40"
-                                        )}>
-                                            <Layout size={18} />
-                                        </div>
-                                        <div>
-                                            <div className="font-bold text-sm text-base-content leading-tight mb-1">{name}</div>
-                                            <div className={clsx(
-                                                "badge badge-xs font-black uppercase tracking-widest p-1.5",
-                                                isEnabled ? "badge-success" : "badge-ghost opacity-40"
-                                            )}>
-                                                {status}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={async () => {
-                                                await sendCommand(isEnabled ? 'web_disable_site' : 'web_enable_site', { name });
-                                                fetchSites();
-                                            }}
-                                            className={clsx(
-                                                "btn btn-sm btn-square rounded-xl transition-all",
-                                                isEnabled ? "btn-warning bg-warning/10 border-warning/20 text-warning hover:bg-warning hover:text-warning-content" : "btn-success bg-success/10 border-success/20 text-success hover:bg-success hover:text-success-content"
-                                            )}
-                                            title={isEnabled ? 'Disable Site' : 'Enable Site'}
-                                        >
-                                            <Power size={14} />
-                                        </button>
-                                        <button
-                                            onClick={async () => {
-                                                if (confirm(`Are you sure you want to delete site "${name}"?`)) {
-                                                    await sendCommand('web_delete_site', { name });
-                                                    fetchSites();
-                                                }
-                                            }}
-                                            className="btn btn-sm btn-square btn-ghost rounded-xl text-neutral-content/30 hover:text-error hover:bg-error/10"
-                                            title="Delete Site"
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                    </div>
+            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                <Card
+                    style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter }}
+                    bodyStyle={{ padding: '20px' }}
+                >
+                    <Row gutter={24} align="middle">
+                        <Col span={16}>
+                            <Space size="middle">
+                                <div style={{
+                                    padding: '10px',
+                                    borderRadius: '12px',
+                                    backgroundColor: `${token.colorPrimary}15`,
+                                    color: token.colorPrimary,
+                                    fontSize: '20px',
+                                    display: 'flex'
+                                }}>
+                                    <GlobalOutlined />
                                 </div>
-                            );
-                        })}
-                    </div>
-                ) : (
-                    <div className="py-12 text-center bg-base-200/50 rounded-2xl border border-dashed border-white/10 italic text-neutral-content/40 text-sm">
-                        No sites discovered for this server instance.
-                    </div>
+                                <div>
+                                    <Text strong style={{ fontSize: '15px', display: 'block' }}>Gateway Management ({serviceName})</Text>
+                                    <Text type="secondary" style={{ fontSize: '12px' }}>Configure reverse proxy entries and virtual hosts.</Text>
+                                </div>
+                            </Space>
+                        </Col>
+                        <Col span={8} style={{ textAlign: 'right' }}>
+                            <Button icon={<ReloadOutlined spin={loading} />} onClick={fetchSites} style={{ borderRadius: '8px' }}>Refresh State</Button>
+                        </Col>
+                    </Row>
+                </Card>
+
+                {/* Nginx-specific settings — Caddy handles these automatically */}
+                {isNginx && (
+                    <>
+                        <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '0 0 16px 0' }}>
+                            <Space>
+                                <SettingOutlined style={{ opacity: 0.5 }} />
+                                <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Default Site Configuration</Text>
+                            </Space>
+                        </Divider>
+
+                        <Card
+                            loading={loadingSettings}
+                            style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}
+                            bodyStyle={{ padding: '24px' }}
+                        >
+                            <Form
+                                form={form}
+                                layout="vertical"
+                                onFinish={handleUpdateSettings}
+                                initialValues={settings}
+                            >
+                                <Row gutter={[16, 16]}>
+                                    <Col span={8}>
+                                        <Form.Item
+                                            name="port"
+                                            label={<Text strong style={{ fontSize: '12px' }}>HTTP Port</Text>}
+                                            help="Port for HTTP connections (default: 80)"
+                                        >
+                                            <Input placeholder="80" style={{ borderRadius: '8px' }} />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={16}>
+                                        <Form.Item
+                                            name="docroot"
+                                            label={<Text strong style={{ fontSize: '12px' }}>Document Root</Text>}
+                                            help="Path to website files directory"
+                                        >
+                                            <Input placeholder="/var/www/html" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={12}>
+                                        <Form.Item
+                                            name="ssl_cert"
+                                            label={<Space><SafetyCertificateOutlined /><Text strong style={{ fontSize: '12px' }}>SSL Certificate Path</Text></Space>}
+                                            help="Path to TLS/SSL certificate file (.crt or .pem)"
+                                        >
+                                            <Input placeholder="/etc/ssl/certs/server.crt" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={12}>
+                                        <Form.Item
+                                            name="ssl_key"
+                                            label={<Space><SafetyCertificateOutlined /><Text strong style={{ fontSize: '12px' }}>SSL Key Path</Text></Space>}
+                                            help="Path to TLS/SSL private key file"
+                                        >
+                                            <Input placeholder="/etc/ssl/private/server.key" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
+                                <Button
+                                    type="primary"
+                                    htmlType="submit"
+                                    loading={updatingSettings}
+                                    icon={<SettingOutlined />}
+                                    style={{ borderRadius: '8px' }}
+                                >
+                                    Save & Reload Nginx
+                                </Button>
+                            </Form>
+                        </Card>
+                    </>
                 )}
-            </div>
 
-            {/* Add New Site Form */}
-            <div className="p-6 bg-base-200/50 rounded-2xl border border-white/5 space-y-5 shadow-lg relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-8 opacity-5 -mr-4 -mt-4 text-primary group-hover:scale-110 transition-transform duration-500">
-                    <FileCode size={80} />
-                </div>
-                
-                <div className="flex items-center gap-2 border-b border-white/5 pb-4">
-                    <Plus size={16} className="text-primary" />
-                    <h4 className="text-[10px] font-black text-neutral-content/60 uppercase tracking-[0.2em]">Deploy New Configuration</h4>
-                </div>
+                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '0 0 16px 0' }}>
+                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Active Virtual Hosts</Text>
+                </Divider>
 
-                <div className="space-y-4 relative z-10">
-                    <div className="space-y-1.5">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-neutral-content/40 ml-1">Domain Name / Identifier</label>
-                        <input 
-                            id="newSiteName" 
-                            type="text" 
-                            placeholder="e.g. app.prism.io" 
-                            className="input input-sm w-full bg-base-300 border-white/5 focus:border-primary/30 font-mono text-xs rounded-xl h-10" 
-                        />
-                    </div>
-                    
-                    <div className="space-y-1.5">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-neutral-content/40 ml-1">Configuration Content</label>
-                        <textarea 
-                            id="newSiteContent" 
-                            rows={6} 
-                            placeholder={serviceName === 'caddy' ? "example.com {\n  reverse_proxy localhost:8080\n}" : "server {\n  listen 80;\n  server_name example.com;\n  location / {\n    proxy_pass http://localhost:8080;\n  }\n}"} 
-                            className="textarea textarea-sm w-full bg-base-300 border-white/5 focus:border-primary/30 text-xs font-mono leading-relaxed rounded-xl p-4 min-h-[120px]" 
-                        />
-                    </div>
-                    
-                    <button
-                        onClick={async () => {
-                            const nameEl = document.getElementById('newSiteName') as HTMLInputElement;
-                            const contentEl = document.getElementById('newSiteContent') as HTMLTextAreaElement;
-                            const name = nameEl.value;
-                            const content = contentEl.value;
-                            if (name && content) {
-                                await sendCommand('web_create_site', { name, content });
-                                nameEl.value = '';
-                                contentEl.value = '';
-                                fetchSites();
-                            }
-                        }}
-                        className="btn btn-sm btn-primary btn-block h-10 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-primary/10 mt-2"
-                    >
-                        Deploy Configuration
-                    </button>
-                </div>
-            </div>
+                <Table
+                    columns={columns}
+                    dataSource={dataSource}
+                    loading={loading}
+                    pagination={false}
+                    size="small"
+                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '12px', overflow: 'hidden' }}
+                />
+
+                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
+                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Add Reverse Proxy</Text>
+                </Divider>
+
+                <Card style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                    <Row gutter={12}>
+                        <Col flex="auto">
+                            <Input
+                                placeholder="Domain (e.g. app.example.com)"
+                                prefix={<LinkOutlined style={{ opacity: 0.3 }} />}
+                                style={{ borderRadius: '8px', height: '40px' }}
+                                id="new-site-domain"
+                            />
+                        </Col>
+                        <Col style={{ width: '140px' }}>
+                            <Input
+                                placeholder="Upstream port"
+                                type="number"
+                                min={1}
+                                max={65535}
+                                value={proxyPort}
+                                onChange={(e) => setProxyPort(e.target.value)}
+                                style={{ borderRadius: '8px', height: '40px' }}
+                            />
+                        </Col>
+                        <Col>
+                            <Button
+                                type="primary"
+                                icon={<PlusOutlined />}
+                                loading={actionLoading === 'create'}
+                                onClick={() => {
+                                    const input = document.getElementById('new-site-domain') as HTMLInputElement;
+                                    handleCreateProxy(input.value, proxyPort);
+                                }}
+                                style={{ borderRadius: '8px', height: '40px', fontWeight: 600, padding: '0 24px' }}
+                            >
+                                Provision Route
+                            </Button>
+                        </Col>
+                    </Row>
+                </Card>
+            </Space>
         </div>
-    )
+    );
 }

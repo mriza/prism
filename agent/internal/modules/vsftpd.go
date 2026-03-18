@@ -183,8 +183,15 @@ func (m *VsftpdModule) updateVirtualUsersFile(username, password string) error {
 	return err
 }
 
-func (m *VsftpdModule) setupUserDirectory(path string, quotaMB int, enabled bool) error {
-	// ... existing implementation
+func (m *VsftpdModule) setupUserDirectory(rootPath string, _ int, _ bool) error {
+	if rootPath == "" {
+		return nil
+	}
+	if err := os.MkdirAll(rootPath, 0755); err != nil {
+		return fmt.Errorf("failed to create user directory %s: %w", rootPath, err)
+	}
+	// Set ownership to the ftpuser system account
+	exec.Command("chown", "ftpuser:ftpuser", rootPath).Run()
 	return nil
 }
 
@@ -204,4 +211,85 @@ func (m *VsftpdModule) WriteConfig(content string) error {
 		return err
 	}
 	return m.Restart()
+}
+
+// --- ServiceSettings Implementation ---
+
+func (m *VsftpdModule) GetSettings() (map[string]interface{}, error) {
+	content, err := m.ReadConfig()
+	if err != nil {
+		return map[string]interface{}{
+			"port":             "21",
+			"anonymous_enable": "NO",
+			"local_enable":     "YES",
+			"write_enable":     "YES",
+		}, nil
+	}
+
+	settings := make(map[string]interface{})
+	lines := strings.Split(content, "\n")
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		parts := strings.SplitN(trimmed, "=", 2)
+		if len(parts) >= 2 {
+			key := strings.TrimSpace(parts[0])
+			val := strings.TrimSpace(parts[1])
+			switch key {
+			case "listen_port":
+				settings["port"] = val
+			case "anonymous_enable":
+				settings["anonymous_enable"] = val
+			case "local_enable":
+				settings["local_enable"] = val
+			case "write_enable":
+				settings["write_enable"] = val
+			case "chroot_local_user":
+				settings["chroot_local_user"] = val
+			}
+		}
+	}
+
+	if _, ok := settings["port"]; !ok {
+		settings["port"] = "21"
+	}
+	return settings, nil
+}
+
+func (m *VsftpdModule) UpdateSettings(settings map[string]interface{}) error {
+	content, err := m.ReadConfig()
+	var lines []string
+	if err != nil {
+		lines = []string{}
+	} else {
+		lines = strings.Split(content, "\n")
+	}
+
+	updates := map[string]string{
+		"listen_port":       "port",
+		"anonymous_enable":  "anonymous_enable",
+		"local_enable":      "local_enable",
+		"write_enable":      "write_enable",
+		"chroot_local_user": "chroot_local_user",
+	}
+
+	for configKey, settingsKey := range updates {
+		if val, ok := settings[settingsKey].(string); ok {
+			updated := false
+			for i, line := range lines {
+				if strings.HasPrefix(strings.TrimSpace(line), configKey+"=") {
+					lines[i] = fmt.Sprintf("%s=%s", configKey, val)
+					updated = true
+					break
+				}
+			}
+			if !updated {
+				lines = append(lines, fmt.Sprintf("%s=%s", configKey, val))
+			}
+		}
+	}
+
+	return m.WriteConfig(strings.Join(lines, "\n"))
 }

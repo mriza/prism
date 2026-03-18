@@ -1,247 +1,473 @@
-import { useState, useEffect } from 'react'
-import { HardDrive, X, Plus, Key, ShieldCheck, Eye, EyeOff, AlertCircle } from 'lucide-react'
-import { clsx } from 'clsx'
+import { useState, useEffect } from 'react';
+import {
+    Button,
+    Space,
+    Typography,
+    theme,
+    Alert,
+    Divider,
+    Card,
+    Input,
+    Row,
+    Col,
+    Form,
+    message,
+    Table,
+    Badge,
+    Statistic
+} from 'antd';
+import {
+    HddOutlined,
+    PlusOutlined,
+    DeleteOutlined,
+    CloudServerOutlined,
+    FolderOpenOutlined,
+    SearchOutlined,
+    ReloadOutlined,
+    SettingOutlined,
+    UserOutlined,
+    KeyOutlined,
+    DashboardOutlined
+} from '@ant-design/icons';
+
+const { Text } = Typography;
 
 interface StorageManagerProps {
-    sendCommand: (action: string, options?: Record<string, unknown>) => Promise<any> // eslint-disable-line @typescript-eslint/no-explicit-any
+    sendCommand: (action: string, options?: Record<string, unknown>) => Promise<any>;
 }
 
 interface StorageUser {
-    access_key: string;
-    secret_key?: string;
+    accessKey: string;
+    secretKey?: string;
+    status?: string;
 }
 
 export function StorageManager({ sendCommand }: StorageManagerProps) {
-    const [buckets, setBuckets] = useState<string[]>([])
-    const [storageUsers, setStorageUsers] = useState<StorageUser[]>([])
-    const [createdUser, setCreatedUser] = useState<StorageUser | null>(null)
-    const [loading, setLoading] = useState(false)
-    const [showSecret, setShowSecret] = useState(false)
-
-    const fetchStorageData = async () => {
-        setLoading(true)
-        try {
-            const b = await sendCommand('storage_list_buckets')
-            if (b?.message) setBuckets(JSON.parse(b.message))
-
-            const u = await sendCommand('storage_list_users')
-            if (u?.message) setStorageUsers(JSON.parse(u.message))
-        } catch (e) {
-            console.error("Failed to fetch storage data", e)
-        } finally {
-            setLoading(false)
-        }
-    }
+    const [buckets, setBuckets] = useState<string[]>([]);
+    const [users, setUsers] = useState<StorageUser[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [settings, setSettings] = useState<Record<string, any>>({});
+    const [loadingSettings, setLoadingSettings] = useState(false);
+    const [updatingSettings, setUpdatingSettings] = useState(false);
+    const [form] = Form.useForm();
+    const [metrics, setMetrics] = useState<Record<string, number>>({});
+    const { token } = theme.useToken();
 
     useEffect(() => {
-        fetchStorageData()
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+        fetchData();
+        loadSettings();
+    }, []);
 
-    const handleCreateBucket = async () => {
-        const input = document.getElementById('newBucket') as HTMLInputElement;
-        const val = input.value;
-        if (val) {
-            const res = await sendCommand('storage_create_bucket', { name: val });
-            if (res) {
-                input.value = '';
-                fetchStorageData();
+    const fetchData = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const bucketRes = await sendCommand('storage_list_buckets');
+            if (bucketRes?.success) {
+                const list = typeof bucketRes.output === 'string' ? JSON.parse(bucketRes.output) : (bucketRes.output ?? []);
+                setBuckets(Array.isArray(list) ? list : []);
             }
-        }
-    }
 
-    const handleCreateUser = async () => {
-        const userEl = document.getElementById('storeUser') as HTMLInputElement;
-        const passEl = document.getElementById('storePass') as HTMLInputElement;
-        const user = userEl.value;
-        const pass = passEl.value;
-        if (user) {
-            const res = await sendCommand('storage_create_user', { access_key: user, secret_key: pass });
-            if (res && res.message) {
-                setCreatedUser(JSON.parse(res.message));
-                fetchStorageData();
-                userEl.value = '';
-                passEl.value = '';
-                setShowSecret(true); // Auto show secret for new user
+            const userRes = await sendCommand('storage_list_users');
+            if (userRes?.success) {
+                const userList = typeof userRes.output === 'string' ? JSON.parse(userRes.output) : (userRes.output ?? []);
+                setUsers(Array.isArray(userList) ? userList : []);
             }
+
+            const factsRes = await sendCommand('get_facts');
+            if (factsRes?.success) {
+                try {
+                    const facts = typeof factsRes.output === 'string' ? JSON.parse(factsRes.output) : (factsRes.output ?? {});
+                    if (facts && typeof facts === 'object') setMetrics(facts);
+                } catch { /* ignore */ }
+            }
+        } catch (err: any) {
+            setError(err.message || 'Failed to fetch storage data');
+        } finally {
+            setLoading(false);
         }
-    }
+    };
+
+    const loadSettings = async () => {
+        setLoadingSettings(true);
+        try {
+            const res = await sendCommand('service_get_settings');
+            if (res?.success) {
+                const data = typeof res.output === 'string' ? JSON.parse(res.output) : (res.output ?? {});
+                setSettings(data);
+                form.setFieldsValue(data);
+            }
+        } catch (err: any) {
+            console.error('Failed to load settings:', err);
+        } finally {
+            setLoadingSettings(false);
+        }
+    };
+
+    const handleUpdateSettings = async (values: any) => {
+        setUpdatingSettings(true);
+        try {
+            const res = await sendCommand('service_update_settings', values);
+            if (res?.success) {
+                message.success('Settings updated successfully');
+                loadSettings();
+            } else {
+                message.error(res?.error || 'Failed to update settings');
+            }
+        } catch {
+            message.error('Failed to update settings');
+        } finally {
+            setUpdatingSettings(false);
+        }
+    };
+
+    const handleCreateBucket = async (bucketName: string) => {
+        if (!bucketName) return;
+        const res = await sendCommand('storage_create_bucket', { name: bucketName });
+        if (res?.success) {
+            message.success('Bucket created successfully');
+            fetchData();
+        } else {
+            setError(res?.error || 'Failed to create bucket');
+        }
+    };
+
+    const handleDeleteBucket = async (bucketName: string) => {
+        const res = await sendCommand('storage_delete_bucket', { name: bucketName });
+        if (res?.success) {
+            message.success('Bucket deleted successfully');
+            fetchData();
+        } else {
+            setError(res?.error || 'Failed to delete bucket');
+        }
+    };
+
+    const handleCreateUser = async (values: any) => {
+        const res = await sendCommand('storage_create_user', {
+            access_key: values.access_key,
+            secret_key: values.secret_key || ''
+        });
+        if (res?.success) {
+            message.success('User created successfully');
+            fetchData();
+        }
+    };
+
+    const handleDeleteUser = async (accessKey: string) => {
+        const res = await sendCommand('storage_delete_user', { access_key: accessKey });
+        if (res?.success) {
+            message.success('User deleted successfully');
+            fetchData();
+        }
+    };
+
+    const bucketColumns = [
+        {
+            title: 'Bucket Name',
+            dataIndex: 'name',
+            key: 'name',
+            render: (name: string) => (
+                <Space>
+                    <FolderOpenOutlined style={{ color: token.colorPrimary }} />
+                    <Text strong>{name}</Text>
+                </Space>
+            )
+        },
+        {
+            title: 'Status',
+            key: 'status',
+            render: () => (
+                <Badge status="success" text={<Text style={{ fontSize: '12px' }}>Active</Text>} />
+            )
+        },
+        {
+            title: 'Actions',
+            key: 'actions',
+            align: 'right' as const,
+            render: (_: any, record: { name: string }) => (
+                <Button
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => handleDeleteBucket(record.name)}
+                >
+                    Delete
+                </Button>
+            )
+        }
+    ];
+
+    const userColumns = [
+        {
+            title: 'Access Key',
+            dataIndex: 'accessKey',
+            key: 'accessKey',
+            render: (key: string) => (
+                <Space>
+                    <KeyOutlined style={{ color: token.colorPrimary }} />
+                    <Text code>{key}</Text>
+                </Space>
+            )
+        },
+        {
+            title: 'Secret Key',
+            key: 'secretKey',
+            render: (_: any, record: StorageUser) => (
+                <Text type="secondary">{record.secretKey ? '••••••••' : 'N/A'}</Text>
+            )
+        },
+        {
+            title: 'Status',
+            key: 'status',
+            render: () => (
+                <Badge status="success" text={<Text style={{ fontSize: '12px' }}>Active</Text>} />
+            )
+        },
+        {
+            title: 'Actions',
+            key: 'actions',
+            align: 'right' as const,
+            render: (_: any, record: StorageUser) => (
+                <Button
+                    size="small"
+                    danger
+                    type="text"
+                    icon={<DeleteOutlined />}
+                    onClick={() => handleDeleteUser(record.accessKey)}
+                />
+            )
+        }
+    ];
+
+    const dataSource = buckets.map(b => ({ key: b, name: b }));
 
     return (
-        <div className={clsx("space-y-8 animate-in fade-in duration-500", loading && "opacity-50 pointer-events-none")}>
-            {/* Buckets */}
-            <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-info/10 text-info">
-                        <HardDrive size={16} />
-                    </div>
-                    <h3 className="text-sm font-black uppercase tracking-widest leading-none">Storage Buckets</h3>
-                </div>
+        <div style={{ padding: '4px 0' }}>
+            {error && (
+                <Alert message={error} type="error" showIcon style={{ marginBottom: '24px', borderRadius: '12px' }} />
+            )}
 
-                <div className="bg-base-300/30 rounded-2xl border border-white/5 p-4 shadow-inner space-y-4">
-                    <div className="flex flex-wrap gap-2 min-h-[40px]">
-                        {buckets.length > 0 ? buckets.map(b => (
-                            <div key={b} className="badge badge-lg bg-base-100 border-white/5 text-[11px] font-bold font-mono py-4 px-4 shadow-sm flex items-center gap-2 group hover:border-info/30 transition-colors">
-                                <HardDrive size={12} className="text-info/50 group-hover:text-info transition-colors" />
-                                {b}
-                                <button 
-                                    onClick={async () => {
-                                        if (confirm(`Are you sure you want to delete bucket "${b}"?`)) {
-                                            await sendCommand('storage_delete_bucket', { name: b })
-                                            fetchStorageData()
-                                        }
-                                    }} 
-                                    className="text-neutral-content/30 hover:text-error transition-colors ml-1 p-0.5 rounded-md hover:bg-error/10"
-                                >
-                                    <X size={12} />
-                                </button>
-                            </div>
-                        )) : (
-                            <div className="flex items-center justify-center w-full italic text-neutral-content/30 text-xs py-2">
-                                No storage buckets found.
-                            </div>
-                        )}
-                    </div>
-                    
-                    <div className="flex gap-2">
-                        <input 
-                            type="text" 
-                            placeholder="e.g. static-assets" 
-                            id="newBucket" 
-                            className="input input-sm bg-base-100 border-white/5 focus:border-info/30 flex-1 font-mono text-xs rounded-xl" 
-                            onKeyDown={(e) => e.key === 'Enter' && handleCreateBucket()}
-                        />
-                        <button 
-                            onClick={handleCreateBucket} 
-                            className="btn btn-sm btn-info rounded-xl px-4 font-black uppercase tracking-widest text-[10px]"
-                        >
-                            <Plus size={14} className="mr-1" />
-                            Create
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Users */}
-            <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-success/10 text-success">
-                        <Key size={16} />
-                    </div>
-                    <h3 className="text-sm font-black uppercase tracking-widest leading-none">Access Keys</h3>
-                </div>
-
-                <div className="rounded-2xl border border-white/5 overflow-hidden bg-base-300/30 shadow-sm ring-1 ring-white/5">
-                    <div className="overflow-x-auto">
-                        <table className="table table-sm w-full">
-                            <thead>
-                                <tr className="bg-base-300/50 text-[10px] uppercase font-black tracking-[0.15em] text-neutral-content/40 border-b border-white/5 leading-none h-10">
-                                    <th className="pl-6">Access Key (UID)</th>
-                                    <th className="pr-6 text-right w-20">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {storageUsers.length > 0 ? storageUsers.map((u, idx) => (
-                                    <tr key={idx} className="hover:bg-white/[0.02] transition-colors border-b border-white/5 group last:border-0 h-11">
-                                        <td className="pl-6 font-mono font-bold text-xs text-base-content/80">{u.access_key}</td>
-                                        <td className="pr-6 text-right">
-                                            <button 
-                                                onClick={async () => {
-                                                    if (confirm(`Are you sure you want to delete keys for user "${u.access_key}"?`)) {
-                                                        await sendCommand('storage_delete_user', { access_key: u.access_key })
-                                                        fetchStorageData()
-                                                    }
-                                                }}
-                                                className="btn btn-ghost btn-xs btn-square text-neutral-content/30 hover:text-error hover:bg-error/10"
-                                            >
-                                                <X size={14} />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                )) : (
-                                    <tr>
-                                        <td colSpan={2} className="py-8 text-center italic text-neutral-content/30 text-xs">
-                                            No access keys found.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {/* Created User Credentials Display */}
-                {createdUser && (
-                    <div className="alert alert-success bg-success/5 border-success/20 rounded-2xl p-5 shadow-lg animate-in slide-in-from-top-4 duration-300">
-                        <div className="w-full space-y-4">
-                            <div className="flex items-center justify-between border-b border-success/10 pb-3">
-                                <div className="flex items-center gap-2">
-                                    <ShieldCheck className="text-success h-5 w-5" />
-                                    <h4 className="font-black text-[11px] uppercase tracking-widest text-success">Credentials Generated</h4>
+            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                {/* Header Info */}
+                <Card
+                    style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter }}
+                    bodyStyle={{ padding: '20px' }}
+                >
+                    <Row gutter={24} align="middle">
+                        <Col span={16}>
+                            <Space size="middle">
+                                <div style={{
+                                    padding: '10px',
+                                    borderRadius: '12px',
+                                    backgroundColor: `${token.colorPrimary}15`,
+                                    color: token.colorPrimary,
+                                    fontSize: '20px',
+                                    display: 'flex'
+                                }}>
+                                    <HddOutlined />
                                 </div>
-                                <button onClick={() => setCreatedUser(null)} className="btn btn-ghost btn-xs btn-circle hover:bg-success/10 text-success/60">
-                                    <X size={14} />
-                                </button>
-                            </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-1.5 p-3 rounded-xl bg-base-300 border border-white/5 shadow-inner">
-                                    <label className="text-[9px] font-black uppercase tracking-widest text-neutral-content/40 block">Access Key ID</label>
-                                    <span className="font-mono text-xs text-white break-all select-all selection:bg-success/30">{createdUser.access_key}</span>
+                                <div>
+                                    <Text strong style={{ fontSize: '15px', display: 'block' }}>Object Storage Management</Text>
+                                    <Text type="secondary" style={{ fontSize: '12px' }}>Provision buckets and manage data lifecycle.</Text>
                                 </div>
-                                <div className="space-y-1.5 p-3 rounded-xl bg-base-300 border border-white/5 shadow-inner relative group">
-                                    <label className="text-[9px] font-black uppercase tracking-widest text-neutral-content/40 block">Secret Access Key</label>
-                                    <div className="flex items-center justify-between gap-2">
-                                        <span className={clsx(
-                                            "font-mono text-xs break-all select-all selection:bg-success/30",
-                                            showSecret ? "text-white" : "text-neutral-content/10 blur-[2px] pointer-events-none"
-                                        )}>
-                                            {createdUser.secret_key}
-                                        </span>
-                                        <button 
-                                            onClick={() => setShowSecret(!showSecret)}
-                                            className="btn btn-ghost btn-xs btn-square text-neutral-content/40 hover:text-success hover:bg-success/10"
-                                        >
-                                            {showSecret ? <EyeOff size={14} /> : <Eye size={14} />}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div className="flex items-center gap-2 px-1 text-[10px] text-success/60 italic">
-                                <AlertCircle size={10} />
-                                <span>Save these credentials now. They will not be shown again.</span>
-                            </div>
-                        </div>
-                    </div>
+                            </Space>
+                        </Col>
+                        <Col span={8} style={{ textAlign: 'right' }}>
+                            <Space>
+                                <Button icon={<ReloadOutlined spin={loading} />} onClick={fetchData} style={{ borderRadius: '8px' }}>Refresh</Button>
+                                <Button icon={<CloudServerOutlined />} style={{ borderRadius: '8px' }}>Storage Nodes</Button>
+                            </Space>
+                        </Col>
+                    </Row>
+                </Card>
+
+                {/* Metrics */}
+                {Object.keys(metrics).length > 0 && (
+                    <Row gutter={16}>
+                        <Col span={8}>
+                            <Card style={{ borderRadius: '12px' }}>
+                                <Statistic
+                                    title="Total Buckets"
+                                    value={buckets.length}
+                                    prefix={<FolderOpenOutlined />}
+                                    valueStyle={{ fontSize: '20px' }}
+                                />
+                            </Card>
+                        </Col>
+                        <Col span={8}>
+                            <Card style={{ borderRadius: '12px' }}>
+                                <Statistic
+                                    title="Total Users"
+                                    value={users.length}
+                                    prefix={<UserOutlined />}
+                                    valueStyle={{ fontSize: '20px' }}
+                                />
+                            </Card>
+                        </Col>
+                        <Col span={8}>
+                            <Card style={{ borderRadius: '12px' }}>
+                                <Statistic
+                                    title="Total Objects"
+                                    value={metrics.total_objects || 0}
+                                    prefix={<DashboardOutlined />}
+                                    valueStyle={{ fontSize: '20px' }}
+                                />
+                            </Card>
+                        </Col>
+                    </Row>
                 )}
 
-                {/* Create Access Key Form */}
-                <div className="p-6 bg-base-200/50 rounded-2xl border border-white/5 space-y-5 shadow-lg">
-                    <div className="flex items-center gap-2 border-b border-white/5 pb-4">
-                        <Plus size={16} className="text-success" />
-                        <h4 className="text-[10px] font-black text-neutral-content/60 uppercase tracking-[0.2em]">Generate New Access Key</h4>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-neutral-content/40 ml-1">Access Key ID (Username)</label>
-                            <input id="storeUser" type="text" placeholder="e.g. backup-svc" className="input input-sm w-full bg-base-300 border-white/5 focus:border-success/30 font-mono text-xs rounded-xl h-10" />
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-neutral-content/40 ml-1">Custom Secret Key <span className="opacity-30">(Optional)</span></label>
-                            <input id="storePass" type="text" placeholder="Leave empty for auto-gen" className="input input-sm w-full bg-base-300 border-white/5 focus:border-success/30 font-mono text-xs rounded-xl h-10" />
-                        </div>
-                    </div>
+                {/* Settings Section */}
+                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '0 0 16px 0' }}>
+                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Service Settings</Text>
+                </Divider>
 
-                    <button 
-                        onClick={handleCreateUser} 
-                        className="btn btn-sm btn-success btn-block h-10 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-success/10 mt-2"
+                <Card
+                    loading={loadingSettings}
+                    style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}
+                    bodyStyle={{ padding: '24px' }}
+                >
+                    <Form
+                        form={form}
+                        layout="vertical"
+                        onFinish={handleUpdateSettings}
+                        initialValues={settings}
                     >
-                        Generate Access Credentials
-                    </button>
-                </div>
-            </div>
+                        <Row gutter={[16, 16]}>
+                            <Col span={16}>
+                                <Form.Item
+                                    name="endpoint"
+                                    label={<Text strong style={{ fontSize: '12px' }}>API Endpoint</Text>}
+                                    help="S3 API endpoint URL (e.g. http://localhost:9000)"
+                                >
+                                    <Input placeholder="http://localhost:9000" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                                </Form.Item>
+                            </Col>
+                            <Col span={8}>
+                                <Form.Item
+                                    name="access_key"
+                                    label={<Text strong style={{ fontSize: '12px' }}>Admin Access Key</Text>}
+                                    help="Administrator access key"
+                                >
+                                    <Input placeholder="minioadmin" style={{ borderRadius: '8px' }} />
+                                </Form.Item>
+                            </Col>
+                            <Col span={24}>
+                                <Form.Item
+                                    name="secret_key"
+                                    label={<Text strong style={{ fontSize: '12px' }}>Admin Secret Key</Text>}
+                                    help="Leave blank to keep current secret"
+                                >
+                                    <Input.Password placeholder="••••••••" style={{ borderRadius: '8px' }} />
+                                </Form.Item>
+                            </Col>
+                        </Row>
+                        <Button
+                            type="primary"
+                            htmlType="submit"
+                            loading={updatingSettings}
+                            icon={<SettingOutlined />}
+                            style={{ borderRadius: '8px' }}
+                        >
+                            Save Settings
+                        </Button>
+                    </Form>
+                </Card>
+
+                {/* Buckets Section */}
+                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
+                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Active Buckets</Text>
+                </Divider>
+
+                <Table
+                    columns={bucketColumns}
+                    dataSource={dataSource}
+                    loading={loading}
+                    pagination={false}
+                    size="small"
+                    style={{
+                        border: `1px solid ${token.colorBorderSecondary}`,
+                        borderRadius: '12px',
+                        overflow: 'hidden'
+                    }}
+                />
+
+                <Card style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                    <Row gutter={16}>
+                        <Col flex="auto">
+                            <Input
+                                placeholder="Enter bucket name..."
+                                prefix={<SearchOutlined style={{ opacity: 0.3 }} />}
+                                style={{ borderRadius: '8px', height: '40px' }}
+                                id="new-bucket-name"
+                            />
+                        </Col>
+                        <Col>
+                            <Button
+                                type="primary"
+                                icon={<PlusOutlined />}
+                                onClick={() => {
+                                    const input = document.getElementById('new-bucket-name') as HTMLInputElement;
+                                    handleCreateBucket(input.value);
+                                }}
+                                style={{ borderRadius: '8px', height: '40px', fontWeight: 600, padding: '0 24px' }}
+                            >
+                                Provision Bucket
+                            </Button>
+                        </Col>
+                    </Row>
+                </Card>
+
+                {/* Users Section */}
+                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
+                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Storage Users</Text>
+                </Divider>
+
+                <Table
+                    columns={userColumns}
+                    dataSource={users.map((u, i) => ({ ...u, key: i }))}
+                    loading={loading}
+                    pagination={false}
+                    size="small"
+                    style={{
+                        border: `1px solid ${token.colorBorderSecondary}`,
+                        borderRadius: '12px',
+                        overflow: 'hidden'
+                    }}
+                />
+
+                <Card style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                    <Form
+                        layout="vertical"
+                        onFinish={handleCreateUser}
+                        style={{ width: '100%' }}
+                    >
+                        <Row gutter={16} align="middle">
+                            <Col flex="auto">
+                                <Space wrap style={{ width: '100%' }}>
+                                    <Form.Item name="access_key" label="Access Key" required style={{ marginBottom: 0 }}>
+                                        <Input placeholder="Enter access key" style={{ borderRadius: '8px', width: 200 }} />
+                                    </Form.Item>
+                                    <Form.Item name="secret_key" label="Secret Key" style={{ marginBottom: 0 }}>
+                                        <Input.Password placeholder="Leave empty to auto-generate" style={{ borderRadius: '8px', width: 250 }} />
+                                    </Form.Item>
+                                </Space>
+                            </Col>
+                            <Col>
+                                <Button
+                                    type="primary"
+                                    htmlType="submit"
+                                    icon={<PlusOutlined />}
+                                    style={{ borderRadius: '8px', marginTop: '19px' }}
+                                >
+                                    Create User
+                                </Button>
+                            </Col>
+                        </Row>
+                    </Form>
+                </Card>
+            </Space>
         </div>
-    )
+    );
 }
