@@ -4,6 +4,9 @@ type User struct {
 	ID        string `json:"id"`
 	Username  string `json:"username"`
 	Password  string `json:"-"` // never serialize password
+	FullName  string `json:"fullName"`
+	Email     string `json:"email"`
+	Phone     string `json:"phone"`
 	Role      string `json:"role"` // admin, manager, user
 	CreatedAt string `json:"createdAt"`
 }
@@ -64,5 +67,20 @@ type Agent struct {
 	OSInfo    string `json:"osInfo"`
 	Status    string `json:"status"` // pending, approved, rejected
 	LastSeen  string `json:"lastSeen"`
+	CreatedAt string `json:"createdAt"`
+}
+
+type Setting struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+type Event struct {
+	ID        string `json:"id"`
+	AgentID   string `json:"agentId"`
+	AgentName string `json:"agentName"`
+	Type      string `json:"type"`
+	Service   string `json:"service"`
+	Status    string `json:"status"`
+	Message   string `json:"message"`
 	CreatedAt string `json:"createdAt"`
 }

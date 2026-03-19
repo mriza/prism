@@ -129,10 +129,32 @@ func (m *PostgresModule) UpdatePrivileges(name, role, target string) error {
 // --- ConfigurableModule Implementation ---
 
 func (m *PostgresModule) GetConfigPath() string {
-	// Common paths: /etc/postgresql/16/main/postgresql.conf (Debian) or /var/lib/pgsq/data/postgresql.conf (RHEL)
-	// For now, return a generic path or detect. 
-	// Let's assume a standard location or the one most likely to be edited.
-	return "/etc/postgresql/16/main/postgresql.conf" 
+	// Try to detect version from installed PostgreSQL
+	if out, err := exec.Command("pg_lsclusters", "--no-header").Output(); err == nil {
+		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			fields := strings.Fields(line)
+			if len(fields) >= 2 {
+				candidate := fmt.Sprintf("/etc/postgresql/%s/main/postgresql.conf", fields[0])
+				if _, err := os.Stat(candidate); err == nil {
+					return candidate
+				}
+			}
+		}
+	}
+	// Glob for any installed version
+	for _, ver := range []string{"17", "16", "15", "14", "13", "12"} {
+		p := fmt.Sprintf("/etc/postgresql/%s/main/postgresql.conf", ver)
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	// RHEL/generic fallback
+	for _, p := range []string{"/var/lib/pgsql/data/postgresql.conf", "/var/lib/postgresql/data/postgresql.conf"} {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return "/etc/postgresql/16/main/postgresql.conf"
 }
 
 func (m *PostgresModule) ReadConfig() (string, error) {
@@ -145,4 +167,115 @@ func (m *PostgresModule) WriteConfig(content string) error {
 		return err
 	}
 	return m.Restart()
+}
+
+// --- ServiceSettings Implementation ---
+
+func (m *PostgresModule) GetSettings() (map[string]interface{}, error) {
+	settings := map[string]interface{}{
+		"port": "5432",
+		"bind": "localhost",
+	}
+
+	content, err := m.ReadConfig()
+	if err != nil {
+		return settings, nil
+	}
+
+	hbaPath := ""
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "#") || line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) < 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		val := strings.TrimSpace(strings.Split(parts[1], "#")[0]) // strip inline comments
+		val = strings.Trim(val, "' \"")
+
+		switch key {
+		case "port":
+			settings["port"] = val
+		case "listen_addresses":
+			settings["bind"] = val
+		case "data_directory":
+			settings["data_directory"] = val
+		case "hba_file":
+			hbaPath = val
+		}
+	}
+
+	// Read pg_hba.conf for acl_rules
+	if hbaPath == "" {
+		// Derive from config path
+		dir := strings.TrimSuffix(m.GetConfigPath(), "postgresql.conf")
+		hbaPath = dir + "pg_hba.conf"
+	}
+	if hbaContent, err := os.ReadFile(hbaPath); err == nil {
+		settings["acl_rules"] = string(hbaContent)
+	}
+
+	return settings, nil
+}
+
+func (m *PostgresModule) UpdateSettings(settings map[string]interface{}) error {
+	content, err := m.ReadConfig()
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(content, "\n")
+	updated := make(map[string]bool)
+
+	// Handle standard settings
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		parts := strings.SplitN(trimmed, "=", 2)
+		if len(parts) < 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+
+		if newVal, ok := settings[key].(string); ok && newVal != "" {
+			lines[i] = fmt.Sprintf("%s = '%s'", key, newVal)
+			updated[key] = true
+		}
+	}
+
+	// Add missing settings
+	for _, key := range []string{"port", "data_directory", "hba_file", "ident_file"} {
+		if newVal, ok := settings[key].(string); ok && newVal != "" && !updated[key] {
+			lines = append(lines, fmt.Sprintf("%s = '%s'", key, newVal))
+		}
+	}
+
+	// Handle ACL Rules (pg_hba.conf)
+	if aclRules, ok := settings["acl_rules"].(string); ok && aclRules != "" {
+		hbaPath, _ := settings["hba_file"].(string)
+		if hbaPath == "" {
+			// Try to find it from existing config if not in settings
+			for _, line := range lines {
+				if strings.HasPrefix(strings.TrimSpace(line), "hba_file") {
+					parts := strings.SplitN(line, "=", 2)
+					if len(parts) >= 2 {
+						hbaPath = strings.Trim(strings.TrimSpace(parts[1]), "'\";")
+						break
+					}
+				}
+			}
+		}
+		if hbaPath != "" {
+			if err := os.WriteFile(hbaPath, []byte(aclRules), 0640); err != nil {
+				return fmt.Errorf("failed to write hba_file: %v", err)
+			}
+		}
+	}
+
+	return m.WriteConfig(strings.Join(lines, "\n"))
 }

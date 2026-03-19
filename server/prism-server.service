@@ -4,9 +4,9 @@ After=network.target
 
 [Service]
 Type=simple
-User=mriza
-WorkingDirectory=/home/mriza/prism/server
-ExecStart=/home/mriza/prism/server/prism-server
+User=prism
+WorkingDirectory=/opt/prism/server
+ExecStart=/opt/prism/server/prism-server
 Restart=always
 RestartSec=5
 Environment=PORT=65432

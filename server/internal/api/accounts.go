@@ -103,8 +103,36 @@ func HandleAccounts(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			// 1.3 RabbitMQ Bindings Sync
+			// 1.3 RabbitMQ Advanced Provisioning (Exchanges, Queues, Bindings)
 			if a.Type == "rabbitmq" {
+				// Ensure Queues and Exchanges exist for each binding
+				for _, b := range a.Bindings {
+					if b.VHost != "" {
+						if b.SourceExchange != "" {
+							sendInternalControlCommand(a.AgentID, "rabbitmq", "rabbitmq_create_exchange", map[string]interface{}{
+								"vhost": b.VHost,
+								"name":  b.SourceExchange,
+								"type":  "topic",
+							})
+						}
+						if b.DestinationQueue != "" {
+							sendInternalControlCommand(a.AgentID, "rabbitmq", "rabbitmq_create_queue", map[string]interface{}{
+								"vhost": b.VHost,
+								"name":  b.DestinationQueue,
+							})
+						}
+						if b.SourceExchange != "" && b.DestinationQueue != "" {
+							sendInternalControlCommand(a.AgentID, "rabbitmq", "db_create_binding", map[string]interface{}{
+								"vhost":            b.VHost,
+								"sourceExchange":   b.SourceExchange,
+								"destinationQueue": b.DestinationQueue,
+								"routingKey":       b.RoutingKey,
+							})
+						}
+					}
+				}
+
+				// Final sync
 				err := sendInternalControlCommand(a.AgentID, "rabbitmq", "db_sync", map[string]interface{}{
 					"bindings": a.Bindings,
 				})
@@ -254,6 +282,33 @@ func HandleAccountDetail(w http.ResponseWriter, r *http.Request) {
 
 			// Sync Bindings for RabbitMQ
 			if a.Type == "rabbitmq" {
+				// Ensure Queues and Exchanges exist for each binding
+				for _, b := range a.Bindings {
+					if b.VHost != "" {
+						if b.SourceExchange != "" {
+							sendInternalControlCommand(a.AgentID, "rabbitmq", "rabbitmq_create_exchange", map[string]interface{}{
+								"vhost": b.VHost,
+								"name":  b.SourceExchange,
+								"type":  "topic",
+							})
+						}
+						if b.DestinationQueue != "" {
+							sendInternalControlCommand(a.AgentID, "rabbitmq", "rabbitmq_create_queue", map[string]interface{}{
+								"vhost": b.VHost,
+								"name":  b.DestinationQueue,
+							})
+						}
+						if b.SourceExchange != "" && b.DestinationQueue != "" {
+							sendInternalControlCommand(a.AgentID, "rabbitmq", "db_create_binding", map[string]interface{}{
+								"vhost":            b.VHost,
+								"sourceExchange":   b.SourceExchange,
+								"destinationQueue": b.DestinationQueue,
+								"routingKey":       b.RoutingKey,
+							})
+						}
+					}
+				}
+
 				err := sendInternalControlCommand(a.AgentID, "rabbitmq", "db_sync", map[string]interface{}{
 					"bindings": a.Bindings,
 				})

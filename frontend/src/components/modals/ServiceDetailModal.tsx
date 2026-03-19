@@ -1,24 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
-    Modal, 
-    Tabs, 
-    Button, 
-    Space, 
-    Typography, 
-    theme, 
-    Alert, 
-    Row, 
-    Col, 
-    Card, 
-    Statistic, 
-    Table, 
+    Modal,
+    Tabs,
+    Button,
+    Space,
+    Typography,
+    theme,
+    Row,
+    Col,
+    Card,
+    Statistic,
+    Table,
     Input,
     Badge,
     Tag,
     Tooltip,
     Divider,
     Form,
+    Descriptions,
     message
 } from 'antd';
 import { 
@@ -29,7 +29,6 @@ import {
     PlayCircleOutlined, 
     StopOutlined, 
     ReloadOutlined, 
-    SaveOutlined,
     DashboardOutlined,
     HddOutlined,
     ClockCircleOutlined,
@@ -45,7 +44,7 @@ import { useAccounts } from '../../hooks/useAccounts';
 import { useProjects } from '../../hooks/useProjects';
 import { Link } from 'react-router-dom';
 
-const { Text, Title, Paragraph } = Typography;
+const { Text, Title } = Typography;
 const { TextArea } = Input;
 
 interface ProcessInfo {
@@ -104,16 +103,10 @@ export function ServiceDetailModal({
     status,
     metrics
 }: ServiceDetailModalProps) {
-    const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState('info');
     const [processes, setProcesses] = useState<ProcessInfo[]>([]);
     const [loadingProcesses, setLoadingProcesses] = useState(false);
-    
-    // Config state
-    const [config, setConfig] = useState<string>('');
-    const [loadingConfig, setLoadingConfig] = useState(false);
-    const [savingConfig, setSavingConfig] = useState(false);
-    
+
     // Shared action state
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const { token: authToken } = useAuth();
@@ -132,12 +125,11 @@ export function ServiceDetailModal({
     const [settings, setSettings] = useState<Record<string, any>>({});
     const [loadingSettings, setLoadingSettings] = useState(false);
     const [updatingSettings, setUpdatingSettings] = useState(false);
+    const [form] = Form.useForm();
 
-    const { 
-        getServiceConfig, 
-        updateServiceConfig, 
-        controlService, 
-        listSubProcesses, 
+    const {
+        controlService,
+        listSubProcesses,
         controlSubProcess,
         listStorageBuckets,
         createStorageBucket,
@@ -145,10 +137,27 @@ export function ServiceDetailModal({
         listStorageUsers,
         getServiceSettings,
         updateServiceSettings,
-        importServiceResources
     } = useAgents();
 
     const [importLoading, setImportLoading] = useState(false);
+
+    // Fields shown per service type in the overview read-only table
+    const SETTINGS_DISPLAY_FIELDS: Record<string, string[]> = {
+        'web-nginx':       ['port', 'docroot', 'ssl_cert', 'ssl_key'],
+        'web-caddy':       ['port'],
+        'mysql':           ['port', 'socket', 'datadir', 'log_error'],
+        'postgresql':      ['port', 'bind', 'data_directory', 'acl_rules'],
+        'mongodb':         ['port', 'bind', 'dbpath', 'logpath'],
+        'rabbitmq':        ['port', 'bind', 'management_port', 'admin_username', 'enabled_plugins'],
+        'mqtt-mosquitto':  ['port', 'bind', 'persistence', 'persistence_location'],
+        'cache-valkey':    ['port', 'bind', 'maxmemory', 'maxmemory_policy', 'appendonly', 'appendfsync', 'dir'],
+        's3-minio':        ['endpoint', 'access_key'],
+        's3-garage':       ['endpoint', 'access_key'],
+        'ftp-vsftpd':      ['port', 'anonymous_enable', 'local_enable', 'write_enable', 'local_root'],
+        'ftp-sftpgo':      ['port', 'bind_address', 'log_level', 'data_provider_type'],
+        'pm2':             ['instances', 'max_memory_restart', 'out_file', 'error_file'],
+        'supervisor':      ['logfile', 'logfile_maxbytes', 'logfile_backups', 'nodaemon', 'minfds'],
+    };
 
     const { accounts } = useAccounts();
     const { projects } = useProjects();
@@ -159,8 +168,8 @@ export function ServiceDetailModal({
 
     useEffect(() => {
         if (isOpen) {
-            if (activeTab === 'info') loadSettings();
-            if (activeTab === 'config') loadConfig();
+            // Load settings on open (for overview read-only display) and when config tab is active
+            if (activeTab === 'info' || activeTab === 'config') loadSettings();
             if (activeTab === 'processes') loadProcesses();
             if (activeTab === 'activity') loadServiceLogs();
             if (activeTab === 'storage') {
@@ -171,11 +180,13 @@ export function ServiceDetailModal({
     }, [isOpen, activeTab, agentId, serviceName]);
 
     const loadSettings = async () => {
-        if (!['mysql', 'postgresql', 'web-nginx', 'web-caddy', 'mongodb', 'rabbitmq', 'mqtt-mosquitto', 'ftp-vsftpd'].includes(serviceType)) return;
         setLoadingSettings(true);
         try {
             const data = await getServiceSettings(agentId, serviceName);
-            if (data) setSettings(data);
+            if (data) {
+                setSettings(data);
+                form.setFieldsValue(data);
+            }
         } finally {
             setLoadingSettings(false);
         }
@@ -195,12 +206,14 @@ export function ServiceDetailModal({
 
     const handleImportService = async () => {
         setImportLoading(true);
-        const result = await importServiceResources(agentId, serviceType);
+        const data = await getServiceSettings(agentId, serviceName);
         setImportLoading(false);
-        if (result && result.success) {
-            message.success(result.message);
+        if (data) {
+            setSettings(data);
+            form.setFieldsValue(data);
+            message.success('Configuration imported from server');
         } else {
-            message.error('Failed to import resources from server');
+            message.error('Failed to import configuration from server');
         }
     };
 
@@ -279,32 +292,7 @@ export function ServiceDetailModal({
         setActionLoading(null);
     };
 
-    const loadConfig = async () => {
-        setLoadingConfig(true);
-        setError(null);
-        try {
-            const data = await getServiceConfig(agentId, serviceName);
-            if (data !== null) {
-                setConfig(data);
-            } else {
-                setError('Failed to load configuration file or service does not support remote configuration.');
-            }
-        } finally {
-            setLoadingConfig(false);
-        }
-    };
-
-    const handleSaveConfig = async () => {
-        setSavingConfig(true);
-        setError(null);
-        const success = await updateServiceConfig(agentId, serviceName, config);
-        if (!success) {
-            setError('Failed to save configuration.');
-        }
-        setSavingConfig(false);
-    };
-
-    const handleControl = async (action: string) => {
+const handleControl = async (action: string) => {
         setActionLoading(action);
         await controlService(agentId, serviceName, action);
         setActionLoading(null);
@@ -406,382 +394,56 @@ export function ServiceDetailModal({
             children: (
                 <div style={{ padding: '24px 0' }}>
                     <Row gutter={[24, 24]}>
-                        {['mysql', 'postgresql', 'web-nginx', 'web-caddy', 'mongodb', 'rabbitmq', 'mqtt-mosquitto', 'ftp-vsftpd'].includes(serviceType) && (
+                        {/* ===== SERVICE DESCRIPTION ===== */}
+                        <Col span={24}>
+                            <Card style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                                <Space direction="vertical" size={4}>
+                                    <Text strong>About this Service</Text>
+                                    <Text type="secondary">{({
+                                        'web-nginx': 'Nginx is a high-performance HTTP and reverse proxy server, widely used for serving static files, load balancing, and TLS termination.',
+                                        'web-caddy': 'Caddy is a modern, automatic HTTPS web server with built-in TLS certificate management via Let\'s Encrypt.',
+                                        'mysql': 'MySQL is a widely-used relational database management system known for reliability and ease of use in web applications.',
+                                        'postgresql': 'PostgreSQL is a powerful open-source relational database with advanced features including full-text search, JSON support, and ACID compliance.',
+                                        'mongodb': 'MongoDB is a document-oriented NoSQL database designed for scalability and developer flexibility using JSON-like documents.',
+                                        'rabbitmq': 'RabbitMQ is a message broker that implements the AMQP protocol, enabling reliable asynchronous messaging between services.',
+                                        'mqtt-mosquitto': 'Eclipse Mosquitto is a lightweight MQTT broker designed for IoT and machine-to-machine communication.',
+                                        'cache-valkey': 'Valkey is an open-source in-memory data structure store used as a cache, message broker, and session store.',
+                                        's3-minio': 'MinIO is a high-performance S3-compatible object storage server suitable for storing unstructured data at scale.',
+                                        's3-garage': 'Garage is a lightweight S3-compatible distributed object storage system designed for self-hosting.',
+                                        'ftp-vsftpd': 'vsftpd is a secure and fast FTP server for Unix-like systems, supporting both anonymous and local user access.',
+                                        'ftp-sftpgo': 'SFTPGo is a fully featured and highly configurable SFTP/FTP/WebDAV server with optional REST API and web UI.',
+                                        'pm2': 'PM2 is a production process manager for Node.js applications with a built-in load balancer and monitoring capabilities.',
+                                        'supervisor': 'Supervisor is a client/server system for monitoring and controlling processes on UNIX-like operating systems.',
+                                        'systemd': 'systemd is the system and service manager for Linux, providing dependency management and parallel startup of services.',
+                                        'firewall': 'Firewall service manages network traffic rules to protect the server from unauthorized access.',
+                                        'security-crowdsec': 'CrowdSec is a collaborative security engine that detects and blocks malicious behaviors using crowd-sourced intelligence.',
+                                    } as Record<string, string>)[serviceType] || 'Managed service running on this server.'}</Text>
+                                </Space>
+                            </Card>
+                        </Col>
+
+                        {/* ===== CURRENT SETTINGS (READ-ONLY) ===== */}
+                        {Object.keys(settings).length > 0 && (
                             <Col span={24}>
-                                <Card 
-                                    title={<Space><SettingOutlined /> Service Settings</Space>}
-                                    loading={loadingSettings}
-                                    style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}`, marginBottom: '24px' }}
-                                    extra={
-                                        <Space>
-                                            <Button 
-                                                icon={<CloudDownloadOutlined />} 
-                                                onClick={handleImportService} 
-                                                loading={importLoading}
-                                            >
-                                                Import from Server
-                                            </Button>
-                                            <Button 
-                                                type="link" 
-                                                icon={<ReloadOutlined />} 
-                                                onClick={loadSettings}
-                                                disabled={loadingSettings}
-                                            >
-                                                Refresh
-                                            </Button>
-                                        </Space>
-                                    }
+                                <Card
+                                    title={<Space><SettingOutlined /> Current Settings</Space>}
+                                    style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}
                                 >
-                                    <Form
-                                        layout="vertical"
-                                        initialValues={settings}
-                                        onFinish={handleUpdateSettings}
-                                    >
-                                        <Row gutter={[16, 16]}>
-                                            {/* ===== PORT CONFIGURATION FOR ALL SERVICES ===== */}
-                                            <Col span={12}>
-                                                <Form.Item
-                                                    name="port"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Listen Port</Text>}
-                                                    help="Port number this service listens on."
+                                    <Descriptions column={2} bordered size="small">
+                                        {(SETTINGS_DISPLAY_FIELDS[serviceType] || Object.keys(settings))
+                                            .filter(k => settings[k] !== undefined && settings[k] !== '')
+                                            .map(k => (
+                                                <Descriptions.Item
+                                                    key={k}
+                                                    label={<Text style={{ fontSize: '12px', textTransform: 'capitalize' }}>{k.replace(/_/g, ' ')}</Text>}
                                                 >
-                                                    <Input placeholder="e.g. 3306" style={{ borderRadius: '8px' }} />
-                                                </Form.Item>
-                                            </Col>
-
-                                            {/* ===== BIND ADDRESS FOR NETWORK SERVICES ===== */}
-                                            {['mongodb', 'cache-valkey', 'mysql', 'postgresql', 'rabbitmq', 'mqtt-mosquitto'].includes(serviceType) && (
-                                                <Col span={12}>
-                                                    <Form.Item
-                                                        name="bind"
-                                                        label={<Text strong style={{ fontSize: '12px' }}>Bind Address</Text>}
-                                                        help="IP address to bind to (0.0.0.0 for all interfaces)."
-                                                    >
-                                                        <Input placeholder="0.0.0.0" style={{ borderRadius: '8px' }} />
-                                                    </Form.Item>
-                                                </Col>
-                                            )}
-
-                                            {/* ===== PATH CONFIGURATION FOR WEB SERVERS ===== */}
-                                            {serviceType === 'web-nginx' && (
-                                                <>
-                                                    <Col span={12}>
-                                                        <Form.Item
-                                                            name="docroot"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Document Root</Text>}
-                                                            help="Path to website files directory."
-                                                        >
-                                                            <Input placeholder="/var/www/html" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                    <Col span={12}>
-                                                        <Form.Item
-                                                            name="ssl_cert"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>SSL Certificate Path</Text>}
-                                                            help="Path to TLS/SSL certificate file (.crt or .pem)."
-                                                        >
-                                                            <Input placeholder="/etc/ssl/certs/server.crt" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                    <Col span={24}>
-                                                        <Form.Item
-                                                            name="ssl_key"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>SSL Key Path</Text>}
-                                                            help="Path to TLS/SSL private key file."
-                                                        >
-                                                            <Input placeholder="/etc/ssl/private/server.key" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                </>
-                                            )}
-
-                                            {/* ===== DATABASE SERVICES ===== */}
-                                            {serviceType === 'mysql' && (
-                                                <>
-                                                    <Col span={12}>
-                                                        <Form.Item
-                                                            name="socket"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Socket Path</Text>}
-                                                            help="Path to MySQL socket file."
-                                                        >
-                                                            <Input placeholder="/var/run/mysqld/mysqld.sock" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                    <Col span={12}>
-                                                        <Form.Item
-                                                            name="datadir"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Data Directory</Text>}
-                                                            help="Path to database files."
-                                                        >
-                                                            <Input placeholder="/var/lib/mysql" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                    <Col span={24}>
-                                                        <Form.Item
-                                                            name="log_error"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Error Log Path</Text>}
-                                                            help="Path to error log file."
-                                                        >
-                                                            <Input placeholder="/var/log/mysql/error.log" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                </>
-                                            )}
-
-                                            {serviceType === 'postgresql' && (
-                                                <>
-                                                    <Col span={12}>
-                                                        <Form.Item
-                                                            name="data_directory"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Data Directory</Text>}
-                                                            help="Path to PostgreSQL data directory."
-                                                        >
-                                                            <Input placeholder="/var/lib/postgresql/data" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                    <Col span={24}>
-                                                        <Form.Item
-                                                            name="acl_rules"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>ACL Rules (pg_hba.conf)</Text>}
-                                                            help="Host-based authentication rules. Format: TYPE DATABASE USER ADDRESS METHOD"
-                                                        >
-                                                            <TextArea 
-                                                                rows={6} 
-                                                                placeholder={`# TYPE  DATABASE        USER            ADDRESS                 METHOD
-local   all             postgres                                peer
-local   all             all                                     peer
-host    all             all             127.0.0.1/32            scram-sha-256
-host    all             all             ::1/128                 scram-sha-256`}
-                                                                style={{ borderRadius: '8px', fontFamily: 'monospace' }}
-                                                            />
-                                                        </Form.Item>
-                                                    </Col>
-                                                </>
-                                            )}
-
-                                            {serviceType === 'mongodb' && (
-                                                <>
-                                                    <Col span={12}>
-                                                        <Form.Item
-                                                            name="dbpath"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Data Path</Text>}
-                                                            help="Path to database files."
-                                                        >
-                                                            <Input placeholder="/var/lib/mongodb" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                    <Col span={12}>
-                                                        <Form.Item
-                                                            name="logpath"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Log Path</Text>}
-                                                            help="Path to log file."
-                                                        >
-                                                            <Input placeholder="/var/log/mongodb/mongod.log" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                </>
-                                            )}
-
-                                            {/* ===== CACHE SERVICES ===== */}
-                                            {serviceType === 'cache-valkey' && (
-                                                <>
-                                                    <Col span={12}>
-                                                        <Form.Item
-                                                            name="maxmemory"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Max Memory</Text>}
-                                                            help="Maximum memory Valkey can use (e.g. 256mb, 1gb)."
-                                                        >
-                                                            <Input placeholder="256mb" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                    <Col span={12}>
-                                                        <Form.Item
-                                                            name="maxmemory_policy"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Eviction Policy</Text>}
-                                                            help={<span>Policy for evicting keys. See <a href="https://valkey.io/topics/lru-cache/" target="_blank" rel="noopener noreferrer">docs</a>.</span>}
-                                                        >
-                                                            <Input placeholder="allkeys-lru" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                    <Col span={12}>
-                                                        <Form.Item
-                                                            name="appendonly"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Append Only File</Text>}
-                                                            help="Enable AOF persistence (yes/no)."
-                                                        >
-                                                            <Input placeholder="yes" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                    <Col span={12}>
-                                                        <Form.Item
-                                                            name="appendfsync"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Append Fsync</Text>}
-                                                            help="How often to fsync the AOF file (always/everysec/no)."
-                                                        >
-                                                            <Input placeholder="everysec" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                    <Col span={24}>
-                                                        <Form.Item
-                                                            name="dir"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Working Directory</Text>}
-                                                            help="Path where Valkey saves RDB/AOF files."
-                                                        >
-                                                            <Input placeholder="/var/lib/valkey" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                </>
-                                            )}
-
-                                            {/* ===== MESSAGE QUEUES ===== */}
-                                            {serviceType === 'rabbitmq' && (
-                                                <>
-                                                    <Col span={12}>
-                                                        <Form.Item
-                                                            name="management_port"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Management Port</Text>}
-                                                            help="Port for web management interface."
-                                                        >
-                                                            <Input placeholder="15672" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                    <Col span={24}>
-                                                        <Form.Item
-                                                            name="admin_username"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Admin Username</Text>}
-                                                            help="Default administrator username."
-                                                        >
-                                                            <Input placeholder="admin" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                    <Col span={24}>
-                                                        <Form.Item
-                                                            name="admin_password"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Admin Password</Text>}
-                                                            help="Leave blank to keep current password."
-                                                        >
-                                                            <Input.Password placeholder="••••••••" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                    <Col span={24}>
-                                                        <Form.Item
-                                                            name="enabled_plugins"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Enabled Plugins</Text>}
-                                                            help="Comma-separated list of enabled plugins."
-                                                        >
-                                                            <Input placeholder="rabbitmq_management,rabbitmq_peer_discovery_localnode" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                </>
-                                            )}
-
-                                            {serviceType === 'mqtt-mosquitto' && (
-                                                <>
-                                                    <Col span={12}>
-                                                        <Form.Item
-                                                            name="persistence"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Persistence</Text>}
-                                                            help="Enable message persistence (true/false)."
-                                                        >
-                                                            <Input placeholder="true" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                    <Col span={12}>
-                                                        <Form.Item
-                                                            name="persistence_location"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Persistence Path</Text>}
-                                                            help="Path to store persistent messages."
-                                                        >
-                                                            <Input placeholder="/var/lib/mosquitto/" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                </>
-                                            )}
-
-                                            {/* ===== STORAGE (S3) ===== */}
-                                            {['s3-minio', 's3-garage'].includes(serviceType) && (
-                                                <>
-                                                    <Col span={16}>
-                                                        <Form.Item
-                                                            name="endpoint"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>API Endpoint</Text>}
-                                                            help="S3 API endpoint URL (e.g. http://localhost:9000)."
-                                                        >
-                                                            <Input placeholder="http://localhost:9000" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                    <Col span={8}>
-                                                        <Form.Item
-                                                            name="access_key"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Admin Access Key</Text>}
-                                                            help="Administrator access key."
-                                                        >
-                                                            <Input placeholder="minioadmin" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                    <Col span={24}>
-                                                        <Form.Item
-                                                            name="secret_key"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Admin Secret Key</Text>}
-                                                            help="Leave blank to keep current secret."
-                                                        >
-                                                            <Input.Password placeholder="••••••••" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                </>
-                                            )}
-
-                                            {/* ===== FTP SERVICES ===== */}
-                                            {serviceType === 'ftp-vsftpd' && (
-                                                <>
-                                                    <Col span={12}>
-                                                        <Form.Item
-                                                            name="anonymous_enable"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Anonymous Enable</Text>}
-                                                            help="Allow anonymous FTP login (YES/NO)."
-                                                        >
-                                                            <Input placeholder="NO" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                    <Col span={12}>
-                                                        <Form.Item
-                                                            name="local_enable"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Local Enable</Text>}
-                                                            help="Allow local users to login (YES/NO)."
-                                                        >
-                                                            <Input placeholder="YES" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                    <Col span={12}>
-                                                        <Form.Item
-                                                            name="write_enable"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Write Enable</Text>}
-                                                            help="Allow write operations (YES/NO)."
-                                                        >
-                                                            <Input placeholder="YES" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                    <Col span={12}>
-                                                        <Form.Item
-                                                            name="local_root"
-                                                            label={<Text strong style={{ fontSize: '12px' }}>Local Root</Text>}
-                                                            help="Path to FTP root directory."
-                                                        >
-                                                            <Input placeholder="/var/ftp" style={{ borderRadius: '8px' }} />
-                                                        </Form.Item>
-                                                    </Col>
-                                                </>
-                                            )}
-                                        </Row>
-                                        <Button
-                                            type="primary"
-                                            htmlType="submit"
-                                            loading={updatingSettings}
-                                            style={{ borderRadius: '8px', marginTop: '16px' }}
-                                        >
-                                            Save Settings
-                                        </Button>
-                                    </Form>
+                                                    <Text style={{ fontFamily: 'monospace', fontSize: '12px', wordBreak: 'break-all' }}>
+                                                        {String(settings[k])}
+                                                    </Text>
+                                                </Descriptions.Item>
+                                            ))
+                                        }
+                                    </Descriptions>
                                 </Card>
                             </Col>
                         )}
@@ -895,45 +557,519 @@ host    all             all             ::1/128                 scram-sha-256`}
             label: <Space><SettingOutlined /> Configuration</Space>,
             children: (
                 <div style={{ padding: '24px 0' }}>
-                    <div style={{ marginBottom: '24px' }}>
-                        {loadingConfig ? (
-                            <div style={{ textAlign: 'center', padding: '60px' }}>
-                                <SyncOutlined spin style={{ fontSize: '24px', color: token.colorPrimary }} />
-                                <Paragraph style={{ marginTop: '16px' }}>Fetching configuration...</Paragraph>
-                            </div>
-                        ) : (
-                            <TextArea 
-                                value={config}
-                                onChange={(e) => setConfig(e.target.value)}
-                                style={{ 
-                                    fontFamily: 'monospace', 
-                                    fontSize: '12px', 
-                                    height: '400px', 
-                                    borderRadius: '12px',
-                                    backgroundColor: token.colorFillAlter
-                                }}
-                                spellCheck={false}
-                            />
-                        )}
-                    </div>
-                    <Alert
-                        message="Configuration Policy"
-                        description="Updating the configuration will automatically reload the service to apply changes."
-                        type="info"
-                        showIcon
-                        style={{ borderRadius: '12px', marginBottom: '24px' }}
-                    />
-                    <Button 
-                        type="primary" 
-                        icon={<SaveOutlined />} 
-                        loading={savingConfig} 
-                        onClick={handleSaveConfig}
-                        block
-                        size="large"
-                        style={{ borderRadius: '12px', fontWeight: 600 }}
-                    >
-                        Deploy Configuration
-                    </Button>
+                    {['mysql', 'postgresql', 'web-nginx', 'web-caddy', 'mongodb', 'rabbitmq', 'mqtt-mosquitto', 'ftp-vsftpd', 'ftp-sftpgo', 's3-minio', 's3-garage', 'cache-valkey', 'pm2', 'supervisor'].includes(serviceType) ? (
+                        <Card
+                            title={<Space><SettingOutlined /> Service Settings</Space>}
+                            loading={loadingSettings}
+                            style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}
+                            extra={
+                                <Space>
+                                    <Button
+                                        icon={<CloudDownloadOutlined />}
+                                        onClick={handleImportService}
+                                        loading={importLoading}
+                                    >
+                                        Import from Server
+                                    </Button>
+                                    <Button
+                                        type="link"
+                                        icon={<ReloadOutlined />}
+                                        onClick={loadSettings}
+                                        disabled={loadingSettings}
+                                    >
+                                        Refresh
+                                    </Button>
+                                </Space>
+                            }
+                        >
+                            <Form
+                                form={form}
+                                layout="vertical"
+                                onFinish={handleUpdateSettings}
+                            >
+                                <Row gutter={[16, 16]}>
+                                    {/* ===== PORT CONFIGURATION FOR ALL SERVICES ===== */}
+                                    <Col span={12}>
+                                        <Form.Item
+                                            name="port"
+                                            label={<Text strong style={{ fontSize: '12px' }}>Listen Port</Text>}
+                                            help="Port number this service listens on."
+                                        >
+                                            <Input placeholder="e.g. 3306" style={{ borderRadius: '8px' }} />
+                                        </Form.Item>
+                                    </Col>
+
+                                    {/* ===== BIND ADDRESS FOR NETWORK SERVICES ===== */}
+                                    {['mongodb', 'cache-valkey', 'mysql', 'postgresql', 'rabbitmq', 'mqtt-mosquitto'].includes(serviceType) && (
+                                        <Col span={12}>
+                                            <Form.Item
+                                                name="bind"
+                                                label={<Text strong style={{ fontSize: '12px' }}>Bind Address</Text>}
+                                                help="IP address to bind to (0.0.0.0 for all interfaces)."
+                                            >
+                                                <Input placeholder="0.0.0.0" style={{ borderRadius: '8px' }} />
+                                            </Form.Item>
+                                        </Col>
+                                    )}
+
+                                    {/* ===== PATH CONFIGURATION FOR WEB SERVERS ===== */}
+                                    {serviceType === 'web-nginx' && (
+                                        <>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="docroot"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Document Root</Text>}
+                                                    help="Path to website files directory."
+                                                >
+                                                    <Input placeholder="/var/www/html" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="ssl_cert"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>SSL Certificate Path</Text>}
+                                                    help="Path to TLS/SSL certificate file (.crt or .pem)."
+                                                >
+                                                    <Input placeholder="/etc/ssl/certs/server.crt" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={24}>
+                                                <Form.Item
+                                                    name="ssl_key"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>SSL Key Path</Text>}
+                                                    help="Path to TLS/SSL private key file."
+                                                >
+                                                    <Input placeholder="/etc/ssl/private/server.key" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                                                </Form.Item>
+                                            </Col>
+                                        </>
+                                    )}
+
+                                    {/* ===== DATABASE SERVICES ===== */}
+                                    {serviceType === 'mysql' && (
+                                        <>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="socket"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Socket Path</Text>}
+                                                    help="Path to MySQL socket file."
+                                                >
+                                                    <Input placeholder="/var/run/mysqld/mysqld.sock" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="datadir"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Data Directory</Text>}
+                                                    help="Path to database files."
+                                                >
+                                                    <Input placeholder="/var/lib/mysql" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={24}>
+                                                <Form.Item
+                                                    name="log_error"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Error Log Path</Text>}
+                                                    help="Path to error log file."
+                                                >
+                                                    <Input placeholder="/var/log/mysql/error.log" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                        </>
+                                    )}
+
+                                    {serviceType === 'postgresql' && (
+                                        <>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="data_directory"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Data Directory</Text>}
+                                                    help="Path to PostgreSQL data directory."
+                                                >
+                                                    <Input placeholder="/var/lib/postgresql/data" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={24}>
+                                                <Form.Item
+                                                    name="acl_rules"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>ACL Rules (pg_hba.conf)</Text>}
+                                                    help="Host-based authentication rules. Format: TYPE DATABASE USER ADDRESS METHOD"
+                                                >
+                                                    <TextArea
+                                                        rows={6}
+                                                        placeholder={`# TYPE  DATABASE        USER            ADDRESS                 METHOD\nlocal   all             postgres                                peer\nlocal   all             all                                     peer\nhost    all             all             127.0.0.1/32            scram-sha-256\nhost    all             all             ::1/128                 scram-sha-256`}
+                                                        style={{ borderRadius: '8px', fontFamily: 'monospace' }}
+                                                    />
+                                                </Form.Item>
+                                            </Col>
+                                        </>
+                                    )}
+
+                                    {serviceType === 'mongodb' && (
+                                        <>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="dbpath"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Data Path</Text>}
+                                                    help="Path to database files."
+                                                >
+                                                    <Input placeholder="/var/lib/mongodb" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="logpath"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Log Path</Text>}
+                                                    help="Path to log file."
+                                                >
+                                                    <Input placeholder="/var/log/mongodb/mongod.log" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                        </>
+                                    )}
+
+                                    {/* ===== CACHE SERVICES ===== */}
+                                    {serviceType === 'cache-valkey' && (
+                                        <>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="maxmemory"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Max Memory</Text>}
+                                                    help="Maximum memory Valkey can use (e.g. 256mb, 1gb)."
+                                                >
+                                                    <Input placeholder="256mb" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="maxmemory_policy"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Eviction Policy</Text>}
+                                                    help={<span>Policy for evicting keys. See <a href="https://valkey.io/topics/lru-cache/" target="_blank" rel="noopener noreferrer">docs</a>.</span>}
+                                                >
+                                                    <Input placeholder="allkeys-lru" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="appendonly"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Append Only File</Text>}
+                                                    help="Enable AOF persistence (yes/no)."
+                                                >
+                                                    <Input placeholder="yes" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="appendfsync"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Append Fsync</Text>}
+                                                    help="How often to fsync the AOF file (always/everysec/no)."
+                                                >
+                                                    <Input placeholder="everysec" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={24}>
+                                                <Form.Item
+                                                    name="dir"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Working Directory</Text>}
+                                                    help="Path where Valkey saves RDB/AOF files."
+                                                >
+                                                    <Input placeholder="/var/lib/valkey" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                        </>
+                                    )}
+
+                                    {/* ===== MESSAGE QUEUES ===== */}
+                                    {serviceType === 'rabbitmq' && (
+                                        <>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="management_port"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Management Port</Text>}
+                                                    help="Port for web management interface."
+                                                >
+                                                    <Input placeholder="15672" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={24}>
+                                                <Form.Item
+                                                    name="admin_username"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Admin Username</Text>}
+                                                    help="Default administrator username."
+                                                >
+                                                    <Input placeholder="admin" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={24}>
+                                                <Form.Item
+                                                    name="admin_password"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Admin Password</Text>}
+                                                    help="Leave blank to keep current password."
+                                                >
+                                                    <Input.Password placeholder="••••••••" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={24}>
+                                                <Form.Item
+                                                    name="enabled_plugins"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Enabled Plugins</Text>}
+                                                    help="Comma-separated list of enabled plugins."
+                                                >
+                                                    <Input placeholder="rabbitmq_management,rabbitmq_peer_discovery_localnode" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                        </>
+                                    )}
+
+                                    {serviceType === 'mqtt-mosquitto' && (
+                                        <>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="persistence"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Persistence</Text>}
+                                                    help="Enable message persistence (true/false)."
+                                                >
+                                                    <Input placeholder="true" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="persistence_location"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Persistence Path</Text>}
+                                                    help="Path to store persistent messages."
+                                                >
+                                                    <Input placeholder="/var/lib/mosquitto/" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                        </>
+                                    )}
+
+                                    {/* ===== STORAGE (S3) ===== */}
+                                    {['s3-minio', 's3-garage'].includes(serviceType) && (
+                                        <>
+                                            <Col span={16}>
+                                                <Form.Item
+                                                    name="endpoint"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>API Endpoint</Text>}
+                                                    help="S3 API endpoint URL (e.g. http://localhost:9000)."
+                                                >
+                                                    <Input placeholder="http://localhost:9000" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={8}>
+                                                <Form.Item
+                                                    name="access_key"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Admin Access Key</Text>}
+                                                    help="Administrator access key."
+                                                >
+                                                    <Input placeholder="minioadmin" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={24}>
+                                                <Form.Item
+                                                    name="secret_key"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Admin Secret Key</Text>}
+                                                    help="Leave blank to keep current secret."
+                                                >
+                                                    <Input.Password placeholder="••••••••" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                        </>
+                                    )}
+
+                                    {/* ===== FTP SERVICES ===== */}
+                                    {serviceType === 'ftp-vsftpd' && (
+                                        <>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="anonymous_enable"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Anonymous Enable</Text>}
+                                                    help="Allow anonymous FTP login (YES/NO)."
+                                                >
+                                                    <Input placeholder="NO" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="local_enable"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Local Enable</Text>}
+                                                    help="Allow local users to login (YES/NO)."
+                                                >
+                                                    <Input placeholder="YES" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="write_enable"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Write Enable</Text>}
+                                                    help="Allow write operations (YES/NO)."
+                                                >
+                                                    <Input placeholder="YES" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="local_root"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Local Root</Text>}
+                                                    help="Path to FTP root directory."
+                                                >
+                                                    <Input placeholder="/var/ftp" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                        </>
+                                    )}
+
+                                    {serviceType === 'ftp-sftpgo' && (
+                                        <>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="port"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Listen Port</Text>}
+                                                    help="Port SFTPGo listens on (default: 2022 for SFTP, 8080 for HTTP)."
+                                                >
+                                                    <Input placeholder="2022" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="bind_address"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Bind Address</Text>}
+                                                    help="IP address to bind to (empty for all interfaces)."
+                                                >
+                                                    <Input placeholder="0.0.0.0" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="log_level"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Log Level</Text>}
+                                                    help="Logging verbosity (debug/info/warn/error)."
+                                                >
+                                                    <Input placeholder="info" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="data_provider_type"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Data Provider</Text>}
+                                                    help="Backend storage for user accounts (bolt/sqlite/mysql/postgresql)."
+                                                >
+                                                    <Input placeholder="bolt" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                        </>
+                                    )}
+
+                                    {/* ===== PROCESS MANAGERS ===== */}
+                                    {serviceType === 'pm2' && (
+                                        <>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="instances"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Default Instances</Text>}
+                                                    help="Number of instances for cluster mode (0 = max CPUs)."
+                                                >
+                                                    <Input placeholder="1" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="max_memory_restart"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Max Memory Restart</Text>}
+                                                    help="Restart apps exceeding this memory limit (e.g. 512M, 1G)."
+                                                >
+                                                    <Input placeholder="512M" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="out_file"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Output Log Path</Text>}
+                                                    help="Path to stdout log file."
+                                                >
+                                                    <Input placeholder="/root/.pm2/logs/app-out.log" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="error_file"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Error Log Path</Text>}
+                                                    help="Path to stderr log file."
+                                                >
+                                                    <Input placeholder="/root/.pm2/logs/app-error.log" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                                                </Form.Item>
+                                            </Col>
+                                        </>
+                                    )}
+
+                                    {serviceType === 'supervisor' && (
+                                        <>
+                                            <Col span={24}>
+                                                <Form.Item
+                                                    name="logfile"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Log File</Text>}
+                                                    help="Path to supervisor activity log."
+                                                >
+                                                    <Input placeholder="/var/log/supervisor/supervisord.log" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="logfile_maxbytes"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Max Log Size</Text>}
+                                                    help="Maximum log file size before rotation (e.g. 50MB)."
+                                                >
+                                                    <Input placeholder="50MB" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="logfile_backups"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Log Backups</Text>}
+                                                    help="Number of rotated log backups to keep."
+                                                >
+                                                    <Input placeholder="10" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="nodaemon"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>No Daemon</Text>}
+                                                    help="Run supervisord in foreground (true/false)."
+                                                >
+                                                    <Input placeholder="false" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item
+                                                    name="minfds"
+                                                    label={<Text strong style={{ fontSize: '12px' }}>Min File Descriptors</Text>}
+                                                    help="Minimum number of file descriptors for supervisord."
+                                                >
+                                                    <Input placeholder="1024" style={{ borderRadius: '8px' }} />
+                                                </Form.Item>
+                                            </Col>
+                                        </>
+                                    )}
+                                </Row>
+                                <Button
+                                    type="primary"
+                                    htmlType="submit"
+                                    loading={updatingSettings}
+                                    style={{ borderRadius: '8px', marginTop: '16px' }}
+                                >
+                                    Save Settings
+                                </Button>
+                            </Form>
+                        </Card>
+                    ) : (
+                        <Card style={{ textAlign: 'center', padding: '40px', border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter, borderRadius: '16px' }}>
+                            <Space direction="vertical" align="center">
+                                <SettingOutlined style={{ fontSize: '32px', opacity: 0.1 }} />
+                                <Text type="secondary" italic>No configurable settings available for this service type.</Text>
+                            </Space>
+                        </Card>
+                    )}
                 </div>
             )
         },
@@ -1107,16 +1243,7 @@ host    all             all             ::1/128                 scram-sha-256`}
             footer={null}
             style={{ borderRadius: '20px', overflow: 'hidden' }}
         >
-            {error && (
-                <Alert
-                    message={error}
-                    type="error"
-                    showIcon
-                    style={{ marginBottom: '24px', borderRadius: '12px' }}
-                />
-            )}
-
-            <Tabs 
+            <Tabs
                 activeKey={activeTab} 
                 onChange={setActiveTab} 
                 items={tabItems}

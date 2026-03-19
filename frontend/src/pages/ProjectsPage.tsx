@@ -1,12 +1,34 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useProjects } from '../hooks/useProjects';
 import { useAccounts } from '../hooks/useAccounts';
 import { useAuth } from '../contexts/AuthContext';
 import { ProjectFormModal } from '../components/modals/ProjectFormModal';
-import { Button } from '../components/ui/Button';
-import { Plus, FolderKanban, Pencil, Trash2, KeyRound, Search } from 'lucide-react';
+import { 
+    Row, 
+    Col, 
+    Card, 
+    Button, 
+    Input, 
+    Typography, 
+    Space, 
+    Empty, 
+    theme, 
+    Tooltip,
+    Divider
+} from 'antd';
+import { 
+    PlusOutlined, 
+    EditOutlined, 
+    DeleteOutlined, 
+    KeyOutlined, 
+    SearchOutlined, 
+    RocketOutlined 
+} from '@ant-design/icons';
 import type { Project } from '../types';
+import { PageContainer } from '../components/PageContainer';
+
+const { Text, Title, Paragraph } = Typography;
 
 export function ProjectsPage() {
     const { projects, createProject, updateProject, deleteProject } = useProjects();
@@ -15,6 +37,8 @@ export function ProjectsPage() {
     const [editing, setEditing] = useState<Project | null>(null);
     const [search, setSearch] = useState('');
     const { user } = useAuth();
+    const navigate = useNavigate();
+    const { token } = theme.useToken();
 
     const filtered = projects.filter(p =>
         p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -22,120 +46,117 @@ export function ProjectsPage() {
     );
 
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold">Projects</h1>
-                    <p className="text-neutral-content text-sm">
-                        Group your service accounts by project
-                    </p>
-                </div>
-                {user?.role !== 'user' && (
-                    <Button icon={<Plus size={16} />} onClick={() => setShowCreate(true)}>
+        <PageContainer 
+            title="Project Portfolio" 
+            description="Group and orchestrate your service accounts by logical project domains for unified management."
+            extra={
+                user?.role !== 'user' && (
+                    <Button 
+                        type="primary" 
+                        size="large" 
+                        icon={<PlusOutlined />} 
+                        onClick={() => setShowCreate(true)}
+                        style={{ borderRadius: '8px', fontWeight: 600 }}
+                    >
                         New Project
                     </Button>
-                )}
-            </div>
-
-            {/* Search */}
-            {projects.length > 0 && (
-                <div className="relative max-w-sm">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-content/50" />
-                    <input
-                        type="search"
-                        placeholder="Search projects…"
+                )
+            }
+        >
+            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                {/* Search */}
+                {projects.length > 0 && (
+                    <Input
+                        placeholder="Filter projects..."
+                        prefix={<SearchOutlined style={{ color: token.colorTextDisabled }} />}
                         value={search}
                         onChange={e => setSearch(e.target.value)}
-                        className="input input-bordered bg-base-200 focus:input-primary w-full pl-10"
+                        style={{ maxWidth: '400px', borderRadius: '10px' }}
+                        size="large"
                     />
-                </div>
-            )}
+                )}
 
-            {/* Empty state */}
-            {projects.length === 0 ? (
-                <div className="card bg-base-200 border border-white/5 border-dashed py-16 flex flex-col items-center justify-center gap-6">
-                    <div className="w-16 h-16 rounded-full bg-base-300 flex items-center justify-center text-neutral-content/40">
-                        <FolderKanban size={32} />
-                    </div>
-                    <div className="text-center space-y-1">
-                        <h3 className="text-lg font-semibold">No projects yet</h3>
-                        <p className="text-sm text-neutral-content max-w-xs">
-                            Create your first project to start organizing service accounts
-                        </p>
-                    </div>
-                    {user?.role !== 'user' && (
-                        <Button icon={<Plus size={16} />} onClick={() => setShowCreate(true)}>
-                            Create Project
-                        </Button>
-                    )}
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {filtered.map(p => {
-                        const accountCount = accountsByProject(p.id).length;
-                        return (
-                            <div
-                                key={p.id}
-                                className="card bg-base-200 border border-white/5 hover:border-primary/20 transition-all overflow-hidden group shadow-sm"
-                            >
-                                {/* Color strip */}
-                                <div className="h-1" style={{ background: p.color }} />
-
-                                <div className="p-6 space-y-4">
-                                    {/* Title row */}
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div className="space-y-1 flex-1">
-                                            <Link to={`/projects/${p.id}`}>
-                                                <h2 className="font-bold text-lg group-hover:text-primary transition-colors cursor-pointer line-clamp-1">
+                {/* Content Area */}
+                {projects.length === 0 ? (
+                    <Empty
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        description={
+                            <Space direction="vertical">
+                                <Text strong>Portfolio Empty</Text>
+                                <Text type="secondary">Create your first project to start grouping infrastructure assets.</Text>
+                            </Space>
+                        }
+                    />
+                ) : (
+                    <Row gutter={[24, 24]}>
+                        {filtered.map(p => {
+                            const accountCount = accountsByProject(p.id).length;
+                            const projectColor = p.color === 'primary' ? token.colorPrimary : 
+                                               p.color === 'secondary' ? '#722ed1' : 
+                                               p.color === 'accent' ? '#fa8c16' : token.colorPrimary;
+                            return (
+                                <Col xs={24} md={12} lg={8} key={p.id}>
+                                    <Card
+                                        hoverable
+                                        style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '16px' }}
+                                        bodyStyle={{ padding: '24px', display: 'flex', flexDirection: 'column', height: '100%' }}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                                            <Space align="center">
+                                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: projectColor }} />
+                                                <Title level={4} style={{ margin: 0, cursor: 'pointer' }} onClick={() => navigate(`/projects/${p.id}`)}>
                                                     {p.name}
-                                                </h2>
-                                            </Link>
-                                            {p.description && (
-                                                <p className="text-sm text-neutral-content line-clamp-2 leading-relaxed">
-                                                    {p.description}
-                                                </p>
+                                                </Title>
+                                            </Space>
+                                            
+                                            {user?.role !== 'user' && (
+                                                <Space size="small">
+                                                    <Tooltip title="Edit Project">
+                                                        <Button type="text" size="small" icon={<EditOutlined />} onClick={() => setEditing(p)} />
+                                                    </Tooltip>
+                                                    <Tooltip title="Delete Project">
+                                                        <Button type="text" size="small" danger icon={<DeleteOutlined />} onClick={() => { 
+                                                            if (confirm(`Authorize permanent deletion of project "${p.name}" and all associated assets?`)) { 
+                                                                deleteAccountsByProject(p.id); 
+                                                                deleteProject(p.id); 
+                                                            } 
+                                                        }} />
+                                                    </Tooltip>
+                                                </Space>
                                             )}
                                         </div>
-                                        {user?.role !== 'user' && (
-                                            <div className="flex gap-1">
-                                                <button
-                                                    onClick={() => setEditing(p)}
-                                                    className="btn btn-ghost btn-square btn-xs text-neutral-content hover:text-base-content"
-                                                    title="Edit"
-                                                >
-                                                    <Pencil size={14} />
-                                                </button>
-                                                <button
-                                                    onClick={() => { if (confirm(`Delete project "${p.name}" and all its accounts?`)) { deleteAccountsByProject(p.id); deleteProject(p.id); } }}
-                                                    className="btn btn-ghost btn-square btn-xs text-neutral-content hover:btn-error hover:text-error-content"
-                                                    title="Delete"
-                                                >
-                                                    <Trash2 size={14} />
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
 
-                                    <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                                        <div className="flex items-center gap-2 text-xs text-neutral-content font-medium">
-                                            <KeyRound size={14} />
-                                            <span>{accountCount} account{accountCount !== 1 ? 's' : ''}</span>
+                                        <Paragraph type="secondary" style={{ fontSize: '13px', minHeight: '40px' }} ellipsis={{ rows: 2 }}>
+                                            {p.description || <Text type="secondary" italic>No description provided</Text>}
+                                        </Paragraph>
+
+                                        <Divider style={{ margin: '16px 0' }} />
+
+                                        <Space style={{ marginBottom: '24px' }}>
+                                            <KeyOutlined style={{ color: token.colorTextDisabled }} />
+                                            <Text strong style={{ fontSize: '12px' }}>{accountCount} Assets</Text>
+                                        </Space>
+
+                                        <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <Text type="secondary" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                                ID {p.id.substring(0, 8)}
+                                            </Text>
+                                            <Button 
+                                                type="link" 
+                                                icon={<RocketOutlined />} 
+                                                onClick={() => navigate(`/projects/${p.id}`)}
+                                                style={{ display: 'flex', alignItems: 'center', fontWeight: 700, textTransform: 'uppercase', fontSize: '11px' }}
+                                            >
+                                                Orchestrate
+                                            </Button>
                                         </div>
-                                        <Link
-                                            to={`/projects/${p.id}`}
-                                            className="btn btn-ghost btn-xs text-neutral-content group-hover:text-primary"
-                                            style={{ color: p.color }}
-                                        >
-                                            View Details →
-                                        </Link>
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
+                                    </Card>
+                                </Col>
+                            );
+                        })}
+                    </Row>
+                )}
+            </Space>
 
             {/* Create modal */}
             <ProjectFormModal
@@ -153,7 +174,8 @@ export function ProjectsPage() {
                     initial={editing}
                 />
             )}
-        </div>
+        </PageContainer>
     );
 }
 
+export default ProjectsPage;

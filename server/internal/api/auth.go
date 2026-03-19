@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -22,6 +23,9 @@ type Claims struct {
 	UserID   string `json:"userId"`
 	Username string `json:"username"`
 	Role     string `json:"role"`
+	FullName string `json:"fullName"`
+	Email    string `json:"email"`
+	Phone    string `json:"phone"`
 	jwt.RegisteredClaims
 }
 
@@ -34,6 +38,9 @@ type LoginResponse struct {
 	Token    string `json:"token"`
 	Username string `json:"username"`
 	Role     string `json:"role"`
+	FullName string `json:"fullName"`
+	Email    string `json:"email"`
+	Phone    string `json:"phone"`
 }
 
 // HandleLogin authenticates a user and returns a JWT
@@ -47,7 +54,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-	
+
 	if r.Method == "OPTIONS" {
 		return
 	}
@@ -57,21 +64,46 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Apply rate limiting
+	ip := r.RemoteAddr
+	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+		ip = forwarded
+	}
+	if !LoginRateLimiter.Allow(ip) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Retry-After", "60")
+		w.WriteHeader(http.StatusTooManyRequests)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error":   "rate_limit_exceeded",
+			"message": "Too many login attempts. Please try again later.",
+		})
+		return
+	}
+
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
+	// Input validation
+	if req.Username == "" || req.Password == "" {
+		http.Error(w, "Username and password are required", http.StatusBadRequest)
+		return
+	}
+
 	// 1. Find User
 	user, err := db.GetUserByUsername(req.Username)
 	if err != nil || user == nil {
+		// Log failed attempt for security monitoring
+		log.Printf("Failed login attempt for user: %s from IP: %s", req.Username, ip)
 		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
 		return
 	}
 
 	// 2. Compare Password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+		log.Printf("Failed login attempt for user: %s from IP: %s", req.Username, ip)
 		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
 		return
 	}
@@ -82,6 +114,9 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		UserID:   user.ID,
 		Username: user.Username,
 		Role:     user.Role,
+		FullName: user.FullName,
+		Email:    user.Email,
+		Phone:    user.Phone,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -100,6 +135,9 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		Token:    tokenString,
 		Username: user.Username,
 		Role:     user.Role,
+		FullName: user.FullName,
+		Email:    user.Email,
+		Phone:    user.Phone,
 	})
 }
 

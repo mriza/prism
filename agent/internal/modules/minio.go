@@ -4,10 +4,12 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
-	"prism-agent/internal/core"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
+
+	"prism-agent/internal/core"
 )
 
 type MinIOModule struct {
@@ -126,4 +128,100 @@ func (m *MinIOModule) CreateUser(accessKey, secretKey string) (core.StorageUser,
 
 func (m *MinIOModule) DeleteUser(accessKey string) error {
 	return exec.Command("mc", "admin", "user", "remove", m.Alias, accessKey).Run()
+}
+
+// --- ServiceSettings Implementation ---
+
+func (m *MinIOModule) GetSettings() (map[string]interface{}, error) {
+	settings := map[string]interface{}{
+		"endpoint": "http://localhost:9000",
+	}
+
+	// Try mc alias ls (newer mc) then mc config host list (older mc)
+	for _, args := range [][]string{
+		{"alias", "ls", m.Alias, "--json"},
+		{"config", "host", "list", m.Alias, "--json"},
+	} {
+		out, err := exec.Command("mc", args...).Output()
+		if err != nil {
+			continue
+		}
+		// mc may return one JSON object or a JSON array
+		raw := strings.TrimSpace(string(out))
+		// Try single object
+		var entry struct {
+			URL       string `json:"url"`
+			AccessKey string `json:"accessKey"`
+			Alias     string `json:"alias"`
+		}
+		if err := json.Unmarshal([]byte(raw), &entry); err == nil && entry.URL != "" {
+			settings["endpoint"] = entry.URL
+			if entry.AccessKey != "" {
+				settings["access_key"] = entry.AccessKey
+			}
+			return settings, nil
+		}
+		// Try NDJSON (one JSON per line)
+		for _, line := range strings.Split(raw, "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			if err := json.Unmarshal([]byte(line), &entry); err == nil && entry.URL != "" {
+				settings["endpoint"] = entry.URL
+				if entry.AccessKey != "" {
+					settings["access_key"] = entry.AccessKey
+				}
+				return settings, nil
+			}
+		}
+		break
+	}
+
+	// Fallback: read from MinIO environment file
+	for _, envFile := range []string{"/etc/default/minio", "/etc/minio/config.env", "/opt/minio/config.env"} {
+		data, err := os.ReadFile(envFile)
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(data), "\n") {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "MINIO_ROOT_USER=") || strings.HasPrefix(line, "MINIO_ACCESS_KEY=") {
+				settings["access_key"] = strings.Trim(strings.SplitN(line, "=", 2)[1], `"' `)
+			}
+			if strings.HasPrefix(line, "MINIO_VOLUMES=") || strings.HasPrefix(line, "MINIO_OPTS=") {
+				// Extract port if present
+				val := strings.Trim(strings.SplitN(line, "=", 2)[1], `"' `)
+				if strings.Contains(val, "--address") {
+					// parse --address :9000 or --address 0.0.0.0:9000
+					parts := strings.Fields(val)
+					for i, p := range parts {
+						if p == "--address" && i+1 < len(parts) {
+							addr := parts[i+1]
+							if !strings.HasPrefix(addr, "http") {
+								addr = "http://" + addr
+							}
+							settings["endpoint"] = addr
+						}
+					}
+				}
+			}
+		}
+		break
+	}
+
+	return settings, nil
+}
+
+func (m *MinIOModule) UpdateSettings(settings map[string]interface{}) error {
+	endpoint, _ := settings["endpoint"].(string)
+	accessKey, _ := settings["access_key"].(string)
+	secretKey, _ := settings["secret_key"].(string)
+
+	if endpoint == "" {
+		endpoint = "http://localhost:9000"
+	}
+
+	// mc config host add <alias> <endpoint> <accessKey> <secretKey>
+	return exec.Command("mc", "config", "host", "add", m.Alias, endpoint, accessKey, secretKey).Run()
 }

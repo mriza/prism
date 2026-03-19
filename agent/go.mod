@@ -1,8 +1,10 @@
 module prism-agent
 
-go 1.25.7
+go 1.22
 
 require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/pelletier/go-toml/v2 v2.2.4
 )
+
+require github.com/google/uuid v1.6.0

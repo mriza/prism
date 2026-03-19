@@ -217,3 +217,68 @@ func (m *CaddyModule) WriteConfig(content string) error {
 	}
 	return m.Restart()
 }
+
+// --- ServiceSettings Implementation ---
+
+func (m *CaddyModule) GetSettings() (map[string]interface{}, error) {
+	settings := make(map[string]interface{})
+	content, err := os.ReadFile(m.GetConfigPath())
+	if err == nil {
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "root *") {
+				parts := strings.Fields(trimmed)
+				if len(parts) >= 3 {
+					settings["docroot"] = parts[2]
+				}
+			}
+			// Look for :80 or :443 or similar in site addresses
+			if (strings.Contains(trimmed, ":80") || strings.Contains(trimmed, ":443")) && strings.HasSuffix(trimmed, "{") {
+				parts := strings.Fields(trimmed)
+				if len(parts) >= 1 {
+					settings["port"] = parts[0]
+				}
+			}
+		}
+	}
+	
+	if _, ok := settings["port"]; !ok {
+		settings["port"] = ":80"
+	}
+
+	return settings, nil
+}
+
+func (m *CaddyModule) UpdateSettings(settings map[string]interface{}) error {
+	content, err := os.ReadFile(m.GetConfigPath())
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(string(content), "\n")
+	if root, ok := settings["docroot"].(string); ok {
+		updated := false
+		for i, line := range lines {
+			if strings.HasPrefix(strings.TrimSpace(line), "root *") {
+				lines[i] = fmt.Sprintf("  root * %s", root)
+				updated = true
+				break
+			}
+		}
+		if !updated {
+			// Try to insert after first {
+			for i, line := range lines {
+				if strings.Contains(line, "{") {
+					lines = append(lines[:i+1], append([]string{fmt.Sprintf("  root * %s", root)}, lines[i+1:]...)...)
+					break
+				}
+			}
+		}
+	}
+
+	if err := os.WriteFile(m.GetConfigPath(), []byte(strings.Join(lines, "\n")), 0644); err != nil {
+		return err
+	}
+	return m.Reload()
+}

@@ -1,21 +1,72 @@
-@import "tailwindcss";
-@plugin "daisyui" {
-  themes: corporate, business;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&display=swap');
+
+:root {
+  --font-sans: "Inter", "Outfit", ui-sans-serif, system-ui, sans-serif;
 }
 
-@theme {
-  --font-sans: "Inter", "Roboto", "Outfit", ui-sans-serif, system-ui, sans-serif;
+* {
+  box-sizing: border-box;
 }
 
 body {
+  margin: 0;
   font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #ffffff;
+  color: #1f2937;
 }
 
-/* Global contrast and spacing refinements */
-.label-text {
-  @apply mb-1.5 inline-block text-neutral-content/90 font-semibold;
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
 }
 
-.input, .select, .textarea {
-  @apply focus:ring-2 focus:ring-primary/30 transition-shadow;
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* Ant Design Global Overrides */
+.ant-layout {
+  background: transparent !important;
+}
+
+.ant-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  transition: all 0.3s ease;
+}
+
+.ant-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Typography refinements */
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: -0.02em !important;
+}
+
+/* Table refinements */
+.ant-table-thead > tr > th {
+  background: #fafafa !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  font-weight: 700 !important;
+  color: rgba(0, 0, 0, 0.45) !important;
 }

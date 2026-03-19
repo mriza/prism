@@ -125,3 +125,16 @@ func (m *UFWModule) DeleteRule(ruleID string) error {
 func (m *UFWModule) SetDefaultPolicy(policy, direction string) error {
 	return exec.Command("ufw", "default", policy, direction).Run()
 }
+
+// --- ServiceSettings Implementation ---
+
+func (m *UFWModule) GetSettings() (map[string]interface{}, error) {
+	status, _ := m.Status()
+	return map[string]interface{}{
+		"status": string(status),
+	}, nil
+}
+
+func (m *UFWModule) UpdateSettings(settings map[string]interface{}) error {
+	return nil
+}

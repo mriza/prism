@@ -1,11 +1,14 @@
 package modules
 
 import (
-	"prism-agent/internal/core"
+	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"strings"
+
+	"prism-agent/internal/core"
 )
 
 type RabbitMQModule struct {
@@ -164,6 +167,22 @@ func (m *RabbitMQModule) CreateBinding(vhost, sourceExchange, destinationQueue, 
 	return exec.Command("rabbitmqctl", "bind_queue", destinationQueue, sourceExchange, routingKey, "-p", vhost).Run()
 }
 
+func (m *RabbitMQModule) DeclareExchange(vhost, name, kind string) error {
+	if !isValidRMQIdentifier(vhost) || !isValidRMQIdentifier(name) || !isValidRMQIdentifier(kind) {
+		return fmt.Errorf("invalid exchange parameters")
+	}
+	// rabbitmqadmin declare exchange name=my-exchange type=direct -V my-vhost
+	return exec.Command("rabbitmqadmin", "declare", "exchange", "name="+name, "type="+kind, "-V", vhost).Run()
+}
+
+func (m *RabbitMQModule) DeclareQueue(vhost, name string) error {
+	if !isValidRMQIdentifier(vhost) || !isValidRMQIdentifier(name) {
+		return fmt.Errorf("invalid queue parameters")
+	}
+	// rabbitmqadmin declare queue name=my-queue -V my-vhost
+	return exec.Command("rabbitmqadmin", "declare", "queue", "name="+name, "-V", vhost).Run()
+}
+
 func (m *RabbitMQModule) ListBindings(vhost string) ([]string, error) {
 	out, err := exec.Command("rabbitmqctl", "list_bindings", "-p", vhost, "--quiet", "--no-table-headers").Output()
 	if err != nil {
@@ -183,10 +202,169 @@ func (m *RabbitMQModule) SyncBindings(bindings []map[string]interface{}) error {
 			continue
 		}
 
+		// 1. Ensure Queue and Exchange exist
+		m.DeclareQueue(vhost, queue)
+		m.DeclareExchange(vhost, exchange, "topic") // Default to topic for MQTT
+
+		// 2. Create Binding
 		err := m.CreateBinding(vhost, exchange, queue, rkey)
 		if err != nil {
 			log.Printf("Binding error for %s: %v", queue, err)
 		}
 	}
 	return nil
+}
+
+// --- ConfigurableModule Implementation ---
+
+func (m *RabbitMQModule) GetConfigPath() string {
+	return "/etc/rabbitmq/rabbitmq.conf"
+}
+
+func (m *RabbitMQModule) ReadConfig() (string, error) {
+	content, err := os.ReadFile(m.GetConfigPath())
+	return string(content), err
+}
+
+func (m *RabbitMQModule) WriteConfig(content string) error {
+	if err := os.WriteFile(m.GetConfigPath(), []byte(content), 0644); err != nil {
+		return err
+	}
+	return m.Restart()
+}
+
+// --- ServiceSettings Implementation ---
+
+func (m *RabbitMQModule) GetSettings() (map[string]interface{}, error) {
+	settings := map[string]interface{}{
+		"port":            "5672",
+		"management_port": "15672",
+		"admin_username":  "guest",
+	}
+
+	if content, err := m.ReadConfig(); err == nil {
+		for _, line := range strings.Split(content, "\n") {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "listeners.tcp.default") {
+				if parts := strings.SplitN(trimmed, "=", 2); len(parts) == 2 {
+					settings["port"] = strings.TrimSpace(parts[1])
+				}
+			}
+			if strings.HasPrefix(trimmed, "management.tcp.port") {
+				if parts := strings.SplitN(trimmed, "=", 2); len(parts) == 2 {
+					settings["management_port"] = strings.TrimSpace(parts[1])
+				}
+			}
+			if strings.HasPrefix(trimmed, "default_user") {
+				if parts := strings.SplitN(trimmed, "=", 2); len(parts) == 2 {
+					settings["admin_username"] = strings.TrimSpace(parts[1])
+				}
+			}
+		}
+	}
+
+	// Read enabled plugins from /etc/rabbitmq/enabled_plugins
+	pluginPaths := []string{"/etc/rabbitmq/enabled_plugins", "/var/lib/rabbitmq/enabled_plugins"}
+	for _, path := range pluginPaths {
+		if data, err := os.ReadFile(path); err == nil {
+			// Format: [rabbitmq_management,rabbitmq_peer_discovery_localnode].
+			raw := strings.TrimSpace(string(data))
+			raw = strings.Trim(raw, "[].")
+			settings["enabled_plugins"] = raw
+			break
+		}
+	}
+
+	return settings, nil
+}
+
+func (m *RabbitMQModule) UpdateSettings(settings map[string]interface{}) error {
+	content, err := m.ReadConfig()
+	var lines []string
+	if err != nil {
+		lines = []string{}
+	} else {
+		lines = strings.Split(content, "\n")
+	}
+
+	newSettings := map[string]string{
+		"listeners.tcp.default": "port",
+		"management.tcp.port":   "management_port",
+	}
+
+	for configKey, settingsKey := range newSettings {
+		if val, ok := settings[settingsKey].(string); ok && val != "" {
+			updated := false
+			for i, line := range lines {
+				if strings.HasPrefix(strings.TrimSpace(line), configKey) {
+					lines[i] = fmt.Sprintf("%s = %s", configKey, val)
+					updated = true
+					break
+				}
+			}
+			if !updated {
+				lines = append(lines, fmt.Sprintf("%s = %s", configKey, val))
+			}
+		}
+	}
+
+	return m.WriteConfig(strings.Join(lines, "\n"))
+}
+
+// ListExchanges returns all exchanges in a vhost
+func (m *RabbitMQModule) ListExchanges(vhost string) ([]string, error) {
+	// Use rabbitmqadmin or rabbitmqctl to list exchanges
+	cmd := exec.Command("rabbitmqadmin", "-V", vhost, "list", "exchanges", "--format", "json")
+	output, err := cmd.Output()
+	if err != nil {
+		// Fallback to rabbitmqctl
+		cmd = exec.Command("rabbitmqctl", "-p", vhost, "list_exchanges")
+		output, err = cmd.Output()
+		if err != nil {
+			return []string{}, nil // Return empty on error
+		}
+	}
+
+	var exchanges []string
+	if err := json.Unmarshal(output, &exchanges); err != nil {
+		// Parse plain text output
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			parts := strings.Fields(line)
+			if len(parts) >= 2 && parts[0] != "name" {
+				exchanges = append(exchanges, parts[0])
+			}
+		}
+	}
+	
+	return exchanges, nil
+}
+
+// ListQueues returns all queues in a vhost
+func (m *RabbitMQModule) ListQueues(vhost string) ([]string, error) {
+	// Use rabbitmqadmin or rabbitmqctl to list queues
+	cmd := exec.Command("rabbitmqadmin", "-V", vhost, "list", "queues", "--format", "json")
+	output, err := cmd.Output()
+	if err != nil {
+		// Fallback to rabbitmqctl
+		cmd = exec.Command("rabbitmqctl", "-p", vhost, "list_queues", "name")
+		output, err = cmd.Output()
+		if err != nil {
+			return []string{}, nil // Return empty on error
+		}
+	}
+
+	var queues []string
+	if err := json.Unmarshal(output, &queues); err != nil {
+		// Parse plain text output
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			parts := strings.Fields(line)
+			if len(parts) >= 1 && parts[0] != "name" {
+				queues = append(queues, parts[0])
+			}
+		}
+	}
+	
+	return queues, nil
 }

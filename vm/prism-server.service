@@ -1,12 +1,15 @@
 [Unit]
-Description=PRISM Hub Server
+Description=PRISM Server (Infrastructure Management Hub)
 After=network.target
 
 [Service]
-ExecStart=/home/prism/server_bin
-WorkingDirectory=/home/prism
+Type=simple
 User=prism
+WorkingDirectory=/opt/prism/server
+ExecStart=/opt/prism/server/prism-server
 Restart=always
+RestartSec=5
+Environment=PORT=65432
 
 [Install]
 WantedBy=multi-user.target

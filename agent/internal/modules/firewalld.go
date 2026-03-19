@@ -122,3 +122,16 @@ func (m *FirewalldModule) SetDefaultPolicy(policy, direction string) error {
 	// Not fully implemented for Firewalld in this generic interface
 	return nil
 }
+
+// --- ServiceSettings Implementation ---
+
+func (m *FirewalldModule) GetSettings() (map[string]interface{}, error) {
+	status, _ := m.Status()
+	return map[string]interface{}{
+		"status": string(status),
+	}, nil
+}
+
+func (m *FirewalldModule) UpdateSettings(settings map[string]interface{}) error {
+	return nil
+}

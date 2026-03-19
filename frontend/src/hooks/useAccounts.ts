@@ -11,8 +11,13 @@ export function useAccounts() {
     const apiBase = import.meta.env.VITE_API_URL || '';
 
     const fetchAccounts = useCallback(async () => {
+        if (!token) return;
         try {
-            const res = await fetch(`${apiBase}/api/accounts`, {});
+            const res = await fetch(`${apiBase}/api/accounts`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
             if (res.ok) {
                 const data = await res.json();
                 setAccounts(data || []);
@@ -29,11 +34,13 @@ export function useAccounts() {
     }, [fetchAccounts]);
 
     const createAccount = useCallback(async (data: Omit<ServiceAccount, 'id' | 'createdAt'>) => {
+        if (!token) return null;
         try {
             const res = await fetch(`${apiBase}/api/accounts`, {
                 method: 'POST',
                 headers: { 
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify(data)
             });
@@ -49,11 +56,13 @@ export function useAccounts() {
     }, [token, apiBase]);
 
     const updateAccount = useCallback(async (id: string, data: Partial<Omit<ServiceAccount, 'id' | 'createdAt'>>) => {
+        if (!token) return false;
         try {
             const res = await fetch(`${apiBase}/api/accounts/${id}`, {
                 method: 'PUT',
                 headers: { 
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify(data)
             });
@@ -69,9 +78,13 @@ export function useAccounts() {
     }, [token, apiBase]);
 
     const deleteAccount = useCallback(async (id: string) => {
+        if (!token) return;
         try {
             const res = await fetch(`${apiBase}/api/accounts/${id}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
             });
             if (res.ok) {
                 setAccounts(prev => prev.filter(a => a.id !== id));
@@ -91,13 +104,15 @@ export function useAccounts() {
     }, [accounts, deleteAccount, token, apiBase]);
 
     const provisionAccount = useCallback(async (agentId: string, action: string, options: Record<string, unknown>) => {
+        if (!token) return false;
         try {
             const service = action.startsWith('db_') ? (accounts.find(a => a.agentId === agentId)?.type || 'mongodb') : 'unknown';
             
             const res = await fetch(`${apiBase}/api/control`, {
                 method: 'POST',
                 headers: { 
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ 
                     agent_id: agentId,

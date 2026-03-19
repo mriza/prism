@@ -1,19 +1,82 @@
 import { useState } from 'react';
 import { useAgents } from '../hooks/useAgents';
 import { useAuth } from '../contexts/AuthContext';
-import { HardDrive, Server, Cpu, ShieldCheck, Shield, Disc, AlertCircle } from 'lucide-react';
+import { 
+    Card, 
+    Row, 
+    Col, 
+    Badge, 
+    Button, 
+    Typography, 
+    Space, 
+    Tag, 
+    Alert, 
+    theme, 
+    Empty, 
+    Tooltip,
+    Divider,
+    Dropdown
+} from 'antd';
+import {
+    CloudServerOutlined,
+    SettingOutlined,
+    DeleteOutlined,
+    ExclamationCircleOutlined,
+    DashboardOutlined,
+    MoreOutlined
+} from '@ant-design/icons';
 import { FirewallModal } from '../components/modals/FirewallModal';
 import { CrowdSecModal } from '../components/modals/CrowdSecModal';
 import { ApproveServerModal } from '../components/modals/ApproveServerModal';
-import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { ServiceDetailModal } from '../components/modals/ServiceDetailModal';
+import { ServerSettingsModal } from '../components/modals/ServerSettingsModal';
+import { SERVICE_TYPE_LABELS } from '../types';
+import type { ServiceType } from '../types';
+import { PageContainer } from '../components/PageContainer';
+
+const { Text, Paragraph } = Typography;
+
+// Reverse map to find category/label
+const SERVICE_NAME_TO_TYPE: Record<string, ServiceType> = {
+    'mongodb': 'mongodb', 'mongod': 'mongodb',
+    'mysql': 'mysql', 'mariadb': 'mysql',
+    'postgresql': 'postgresql', 'postgres': 'postgresql',
+    'rabbitmq': 'rabbitmq',
+    'mosquitto': 'mqtt-mosquitto',
+    'minio': 's3-minio',
+    'garage': 's3-garage',
+    'vsftpd': 'ftp-vsftpd',
+    'sftpgo': 'ftp-sftpgo',
+    'caddy': 'web-caddy',
+    'nginx': 'web-nginx',
+    'pm2': 'pm2',
+    'supervisor': 'supervisor',
+    'systemd': 'systemd',
+    'ufw': 'firewall',
+    'iptables': 'firewall',
+    'nftables': 'firewall',
+    'crowdsec': 'security-crowdsec',
+    'valkey': 'cache-valkey',
+    'valkey-server': 'cache-valkey',
+};
 
 export function ServersPage() {
     const { agents, loading, error, deleteAgent } = useAgents();
     const [fwAgent, setFwAgent] = useState<string | null>(null);
     const [csAgent, setCsAgent] = useState<string | null>(null);
     const [approvingAgentId, setApprovingAgentId] = useState<string | null>(null);
+    const [selectedService, setSelectedService] = useState<{
+        agentId: string;
+        agentName: string;
+        serviceName: string;
+        serviceLabel: string;
+        serviceType: ServiceType;
+        status: string;
+        metrics?: Record<string, number>;
+    } | null>(null);
+    const [serverSettingsAgent, setServerSettingsAgent] = useState<{id: string, name: string} | null>(null);
     const { user } = useAuth();
+    const { token } = theme.useToken();
 
     const pendingAgents = agents.filter(a => a.status === 'pending');
     const registeredServers = agents.filter(a => a.status !== 'pending');
@@ -23,224 +86,240 @@ export function ServersPage() {
         return agents.find(a => a.id === approvingAgentId) || null;
     };
 
-    const handleDelete = async (id: string, nameOrHost: string) => {
+    const handleDelete = (id: string, nameOrHost: string) => {
         if (confirm(`Are you sure you want to remove the server "${nameOrHost}"?`)) {
-            await deleteAgent(id);
+            deleteAgent(id);
         }
     };
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold">Servers</h1>
-                    <p className="text-neutral-content text-sm">
-                        Manage your connected infrastructure
-                    </p>
-                </div>
-            </div>
+        <PageContainer 
+            title="Servers" 
+            description="Centrally manage your distributed fleet of PRISM agents and infrastructure."
+        >
+            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                {error && (
+                    <Alert
+                        message="Deployment Alert"
+                        description={error}
+                        type="error"
+                        showIcon
+                        icon={<ExclamationCircleOutlined />}
+                        style={{ borderRadius: '12px' }}
+                    />
+                )}
 
-            {error && (
-                <div role="alert" className="alert alert-error shadow-lg">
-                    <AlertCircle size={20} />
-                    <span>{error}</span>
-                </div>
-            )}
-
-            {/* Pending Approvals Section */}
-            {pendingAgents.length > 0 && user?.role === 'admin' && (
-                <div className="space-y-4">
-                    <h2 className="text-lg font-semibold flex items-center gap-2 text-warning">
-                        <AlertCircle size={18} />
-                        Pending Approvals
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {pendingAgents.map(agent => (
-                            <div key={agent.id} className="card bg-warning/5 border border-warning/30 hover:border-warning/50 transition-all overflow-hidden shadow-sm">
-                                <div className="p-5 flex flex-col gap-4">
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-warning/10 text-warning flex items-center justify-center">
-                                                <Server size={20} />
-                                            </div>
-                                            <div>
-                                                <div className="font-bold text-sm">{agent.hostname}</div>
-                                                <div className="text-xs text-neutral-content/70">{agent.osInfo || 'Unknown OS'}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="text-sm text-neutral-content/80">
-                                        Agent detected waiting for approval to join the fleet.
-                                    </div>
-                                    <div className="flex gap-2 w-full mt-2">
-                                        <button 
-                                            onClick={() => setApprovingAgentId(agent.id)}
-                                            className="btn btn-sm btn-success flex-1"
-                                        >
-                                            Review & Approve
-                                        </button>
-                                        <button 
-                                            onClick={() => handleDelete(agent.id, agent.hostname)}
-                                            className="btn btn-sm btn-outline btn-error flex-1"
-                                        >
-                                            Reject
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* Registered Servers Section */}
-            <div className="space-y-4 pt-4 border-t border-white/5">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <HardDrive size={18} />
-                    Registered Servers
-                </h2>
-
-                {loading && registeredServers.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 gap-4">
-                        <span className="loading loading-spinner loading-lg text-primary"></span>
-                        <p className="text-neutral-content animate-pulse">Connecting to hub…</p>
-                    </div>
-                ) : registeredServers.length === 0 ? (
-                    <div className="card bg-base-200 border border-white/5 border-dashed py-16 flex flex-col items-center justify-center gap-6 text-center">
-                        <div className="w-16 h-16 rounded-full bg-base-300 flex items-center justify-center text-neutral-content/40">
-                            <HardDrive size={32} />
-                        </div>
-                        <div className="space-y-1">
-                            <h3 className="text-lg font-semibold">No registered servers</h3>
-                            <p className="text-sm text-neutral-content max-w-sm">
-                                Start a PRISM agent on a server to see it here and begin managing its services
-                            </p>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                        {registeredServers.map(server => (
-                            <div
-                                key={server.id}
-                                className="card bg-base-200 border border-white/5 hover:border-white/10 transition-all overflow-hidden shadow-sm"
-                            >
-                                {/* Card header */}
-                                <div className="bg-base-300/50 px-5 py-3 border-b border-white/5 flex flex-col gap-1.5 justify-center">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2.5">
-                                            <HardDrive size={18} className={server.status === 'online' ? "text-success" : "text-neutral-content/50"} />
-                                            <div className="font-bold tracking-tight text-white">{server.name || server.hostname}</div>
-                                        </div>
-                                        <div className="flex items-center">
-                                            {server.status === 'online' ? (
-                                                <div className="badge badge-success badge-outline badge-sm gap-1.5 py-2 font-semibold">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse-dot" />
-                                                    Online
+                {/* Pending Approvals */}
+                {pendingAgents.length > 0 && user?.role === 'admin' && (
+                    <div>
+                        <Divider orientation={"left" as any} style={{ margin: '16px 0' }}>
+                            <Space>
+                                <ExclamationCircleOutlined style={{ color: token.colorWarning }} />
+                                <Text strong style={{ textTransform: 'uppercase', letterSpacing: '1px', fontSize: '12px', color: token.colorWarning }}>Security Check Required</Text>
+                            </Space>
+                        </Divider>
+                        <Row gutter={[24, 24]}>
+                            {pendingAgents.map(agent => (
+                                <Col xs={24} md={12} lg={8} key={agent.id}>
+                                    <Card 
+                                        style={{ border: `1px solid ${token.colorWarningOutline}`, background: token.colorWarningBgHover }}
+                                        bodyStyle={{ padding: '24px' }}
+                                    >
+                                        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                                            <Space align="start">
+                                                <div style={{ 
+                                                    padding: '12px', 
+                                                    borderRadius: '12px', 
+                                                    background: token.colorWarningBg, 
+                                                    color: token.colorWarning,
+                                                    display: 'flex',
+                                                    border: `1px solid ${token.colorWarningBorder}`
+                                                }}>
+                                                    <CloudServerOutlined style={{ fontSize: '20px' }} />
                                                 </div>
-                                            ) : (
-                                                <div className="badge badge-error badge-outline badge-sm gap-1.5 py-2 font-semibold">
-                                                    Offline
+                                                <div>
+                                                    <Text strong>{agent.hostname}</Text>
+                                                    <br />
+                                                    <Text type="secondary" style={{ fontSize: '10px', textTransform: 'uppercase' }}>{agent.osInfo || 'Awaiting Specs'}</Text>
                                                 </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="text-[10px] text-neutral-content/60 font-mono tracking-wider ml-7">{server.hostname} • {server.osInfo || 'Unknown OS'}</div>
-                                </div>
-
-                                {/* Body */}
-                                <div className="card-body p-5 space-y-4">
-                                    {server.description && (
-                                        <div className="text-sm text-neutral-content/80 italic border-l-2 border-white/10 pl-3">
-                                            {server.description}
-                                        </div>
-                                    )}
-
-                                    {/* Services */}
-                                    <div className="pt-2">
-                                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-neutral-content/60 mb-3">
-                                            <Cpu size={12} />
-                                            Managed Services
-                                        </div>
-                                        
-                                        {server.services && server.services.length > 0 ? (
-                                            <div className="flex flex-wrap gap-2">
-                                                {server.services.map(svc => {
-                                                    const isUfw = svc.name === 'ufw';
-                                                    const isCrowdSec = svc.name === 'crowdsec';
-                                                    const isClickable = isUfw || isCrowdSec;
-
-                                                    let statusColorClass = 'bg-neutral-content/50';
-                                                    if (svc.status === 'running') statusColorClass = 'bg-success shadow-[0_0_8px_rgba(34,197,94,0.4)]';
-                                                    else if (svc.status === 'stopped' || svc.status === 'error') statusColorClass = 'bg-error shadow-[0_0_8px_rgba(239,68,68,0.4)]';
-
-                                                    const handleClick = isUfw
-                                                        ? () => setFwAgent(server.id)
-                                                        : isCrowdSec
-                                                            ? () => setCsAgent(server.id)
-                                                            : undefined;
-
-                                                    return (
-                                                        <button
-                                                            key={svc.name}
-                                                            title={isClickable ? `Click to manage ${svc.name}` : `Status: ${svc.status}`}
-                                                            onClick={handleClick}
-                                                            disabled={!isClickable}
-                                                            className={twMerge(
-                                                                clsx(
-                                                                    "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border",
-                                                                    isUfw ? "bg-info/10 border-info/30 text-info-content hover:bg-info/20 hover:border-info/50" :
-                                                                    isCrowdSec ? "bg-warning/10 border-warning/30 text-warning-content hover:bg-warning/20 hover:border-warning/50" :
-                                                                    "bg-base-300 border-white/5 text-neutral-content",
-                                                                    !isClickable && "cursor-default"
-                                                                )
-                                                            )}
-                                                        >
-                                                            <span className={twMerge(clsx("w-2 h-2 rounded-full", statusColorClass))} />
-                                                            {isUfw ? <ShieldCheck size={12} className="text-info" /> : isCrowdSec ? <Shield size={12} className="text-warning" /> : <Disc size={12} />}
-                                                            <span>{svc.name}</span>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        ) : (
-                                            <div className="text-sm text-neutral-content bg-base-300/30 rounded-lg p-3 text-center italic border border-white/5 border-dashed">
-                                                No active services detected
-                                            </div>
-                                        )}
-                                    </div>
-                                    
-                                    <div className="pt-4 mt-auto">
-                                        {user?.role !== 'user' && (
-                                            <button 
-                                                onClick={() => handleDelete(server.id, server.name || server.hostname)}
-                                                className="btn btn-sm btn-outline btn-error w-full"
-                                            >
-                                                Remove Server
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
+                                            </Space>
+                                            <Text type="secondary" style={{ fontSize: '13px' }}>
+                                                An unauthorized agent is attempting to join the fleet. Please verify credentials.
+                                            </Text>
+                                            <Space style={{ width: '100%' }}>
+                                                <Button type="primary" block onClick={() => setApprovingAgentId(agent.id)}>Authorize</Button>
+                                                <Button danger block onClick={() => handleDelete(agent.id, agent.hostname)}>Reject</Button>
+                                            </Space>
+                                        </Space>
+                                    </Card>
+                                </Col>
+                            ))}
+                        </Row>
                     </div>
                 )}
-            </div>
+
+                {/* Registered Servers */}
+                <div>
+                    <Divider orientation={"left" as any} plain>
+                        <Space>
+                            <CloudServerOutlined />
+                            <Text strong style={{ textTransform: 'uppercase', letterSpacing: '1px', fontSize: '12px' }}>Active Fleet</Text>
+                        </Space>
+                    </Divider>
+
+                    {loading && registeredServers.length === 0 ? (
+                        <div style={{ padding: '64px', textAlign: 'center' }}>
+                            <Space direction="vertical">
+                                <Button type="text" loading />
+                                <Text type="secondary" strong style={{ textTransform: 'uppercase', letterSpacing: '1px', fontSize: '12px' }}>Connecting to infrastructure...</Text>
+                            </Space>
+                        </div>
+                    ) : registeredServers.length === 0 ? (
+                        <Empty 
+                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                            description={
+                                <Space direction="vertical">
+                                    <Text strong>No Registered Servers</Text>
+                                    <Text type="secondary">Start a PRISM agent on any server and it will appear here for management.</Text>
+                                </Space>
+                            }
+                        />
+                    ) : (
+                        <Row gutter={[24, 24]}>
+                            {registeredServers.map(server => (
+                                <Col xs={24} md={12} lg={8} key={server.id}>
+                                    <Card 
+                                        hoverable
+                                        style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '16px' }}
+                                        bodyStyle={{ padding: 0 }}
+                                    >
+                                        {/* Header */}
+                                        <div style={{ padding: '20px 24px', borderBottom: `1px solid ${token.colorBorderSecondary}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <Space size="middle">
+                                                <CloudServerOutlined style={{ color: server.status === 'online' ? token.colorSuccess : token.colorTextDisabled, fontSize: '18px' }} />
+                                                <div>
+                                                    <Text strong style={{ fontSize: '14px' }}>{server.name || server.hostname}</Text>
+                                                    <br />
+                                                    <Text type="secondary" style={{ fontSize: '10px', textTransform: 'uppercase' }}>{server.hostname}</Text>
+                                                </div>
+                                            </Space>
+                                            <Space>
+                                                <Badge status={server.status === 'online' ? 'success' : 'default'} text={server.status.toUpperCase()} style={{ fontSize: '10px', fontWeight: 700 }} />
+                                                {user?.role !== 'user' && (
+                                                    <Dropdown 
+                                                        menu={{ 
+                                                            items: [
+                                                                { key: 'settings', label: 'Settings', icon: <SettingOutlined />, onClick: () => setServerSettingsAgent({ id: server.id, name: server.name || server.hostname }) },
+                                                                { type: 'divider' },
+                                                                { key: 'delete', label: 'Remove', danger: true, icon: <DeleteOutlined />, onClick: () => handleDelete(server.id, server.name || server.hostname) }
+                                                            ] 
+                                                        }} 
+                                                        trigger={['click']}
+                                                    >
+                                                        <Button type="text" icon={<MoreOutlined />} size="small" />
+                                                    </Dropdown>
+                                                )}
+                                            </Space>
+                                        </div>
+
+                                        {/* Content */}
+                                        <div style={{ padding: '24px' }}>
+                                            {server.description && (
+                                                <Paragraph type="secondary" italic style={{ fontSize: '12px', borderLeft: `3px solid ${token.colorPrimaryBg}`, paddingLeft: '12px', marginBottom: '24px' }}>
+                                                    {server.description}
+                                                </Paragraph>
+                                            )}
+
+                                            <div style={{ marginBottom: '8px' }}>
+                                                <Space style={{ marginBottom: '12px' }}>
+                                                    <DashboardOutlined style={{ fontSize: '12px', opacity: 0.3 }} />
+                                                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.3 }}>Managed Services</Text>
+                                                </Space>
+
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                    {server.services && server.services.length > 0 ? (
+                                                        // Sort services alphabetically for consistent display
+                                                        [...server.services]
+                                                            .sort((a, b) => a.name.localeCompare(b.name))
+                                                            .map(svc => {
+                                                                const isSecurity = svc.name === 'ufw' || svc.name === 'crowdsec';
+                                                                const isFirewall = ['ufw', 'firewalld', 'iptables', 'nftables'].includes(svc.name);
+                                                                const type = SERVICE_NAME_TO_TYPE[svc.name] || 'systemd' as ServiceType;
+                                                                const label = SERVICE_TYPE_LABELS[type] || svc.name;
+                                                                const isSvcOnline = svc.status === 'running' || svc.status === 'online' || svc.status === 'active';
+
+                                                                // For firewalls, show type in parentheses
+                                                                const displayName = isFirewall
+                                                                    ? `${label} (${svc.name})`
+                                                                    : label;
+
+                                                                const handleClick = svc.name === 'ufw'
+                                                                    ? () => setFwAgent(server.id)
+                                                                    : svc.name === 'crowdsec'
+                                                                        ? () => setCsAgent(server.id)
+                                                                        : () => setSelectedService({
+                                                                            agentId: server.id,
+                                                                            agentName: server.name || server.hostname,
+                                                                            serviceName: svc.name,
+                                                                            serviceLabel: label,
+                                                                            serviceType: type,
+                                                                            status: svc.status,
+                                                                            metrics: svc.metrics
+                                                                        });
+
+                                                                return (
+                                                                <Tooltip title={`Manage ${displayName}`} key={svc.name}>
+                                                                    <Tag
+                                                                        onClick={handleClick}
+                                                                        style={{
+                                                                            cursor: 'pointer',
+                                                                            borderRadius: '6px',
+                                                                            padding: '4px 10px',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '6px',
+                                                                            marginRight: 0,
+                                                                            border: isSecurity ? undefined : `1px solid ${token.colorBorderSecondary}`,
+                                                                            background: isSecurity ? (svc.name === 'ufw' ? token.colorInfoBg : token.colorWarningBg) : token.colorBgContainer
+                                                                        }}
+                                                                        color={isSecurity ? (svc.name === 'ufw' ? 'info' : 'warning') : undefined}
+                                                                    >
+                                                                        <div style={{
+                                                                            width: '4px',
+                                                                            height: '4px',
+                                                                            borderRadius: '50%',
+                                                                            background: isSvcOnline ? token.colorSuccess : token.colorTextDisabled
+                                                                        }} />
+                                                                        <Text style={{ fontSize: '11px', fontWeight: 600, color: 'inherit' }}>{displayName}</Text>
+                                                                    </Tag>
+                                                                </Tooltip>
+                                                            );
+                                                        })
+                                                    ) : (
+                                                        <div style={{ 
+                                                            width: '100%', 
+                                                            padding: '24px', 
+                                                            borderRadius: '12px', 
+                                                            border: `1px dashed ${token.colorBorder}`, 
+                                                            textAlign: 'center' 
+                                                        }}>
+                                                            <Text type="secondary" italic style={{ fontSize: '12px' }}>No managed services reported</Text>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </Card>
+                                </Col>
+                            ))}
+                        </Row>
+                    )}
+                </div>
+            </Space>
 
             {/* Modals */}
-            {fwAgent && (
-                <FirewallModal
-                    isOpen={true}
-                    onClose={() => setFwAgent(null)}
-                    agentId={fwAgent}
-                />
-            )}
-            {csAgent && (
-                <CrowdSecModal
-                    isOpen={true}
-                    onClose={() => setCsAgent(null)}
-                    agentId={csAgent}
-                />
-            )}
+            {fwAgent && <FirewallModal isOpen={true} onClose={() => setFwAgent(null)} agentId={fwAgent} />}
+            {csAgent && <CrowdSecModal isOpen={true} onClose={() => setCsAgent(null)} agentId={csAgent} />}
             {approvingAgentId && (
                 <ApproveServerModal
                     isOpen={true}
@@ -249,6 +328,16 @@ export function ServersPage() {
                     hostname={getApprovingAgent()?.hostname || ''}
                 />
             )}
-        </div>
+            {selectedService && <ServiceDetailModal isOpen={true} onClose={() => setSelectedService(null)} {...selectedService} />}
+            {serverSettingsAgent && (
+                <ServerSettingsModal
+                    isOpen={true}
+                    onClose={() => setServerSettingsAgent(null)}
+                    agentId={serverSettingsAgent.id}
+                    agentName={serverSettingsAgent.name}
+                />
+            )}
+        </PageContainer>
     );
 }
+

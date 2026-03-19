@@ -1,100 +1,143 @@
+import { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
+import { Layout, Button, theme, Space, Badge, Dropdown, Avatar, Typography, type MenuProps } from 'antd';
+import {
+    MenuFoldOutlined,
+    MenuUnfoldOutlined,
+    UserOutlined,
+    LogoutOutlined,
+    SettingOutlined,
+    EnvironmentOutlined
+} from '@ant-design/icons';
 import { Sidebar } from './Sidebar';
 import { useAgents } from '../hooks/useAgents';
 import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
-import { clsx } from 'clsx';
-import { LogOut, User, ChevronDown, Sun, Moon } from 'lucide-react';
+import { ProfileModal } from '../components/modals/ProfileModal';
+
+const { Header, Content } = Layout;
+const { Text } = Typography;
 
 export function AppLayout() {
     const { agents, error } = useAgents();
     const { user, logout } = useAuth();
-    const { theme, toggleTheme } = useTheme();
     const navigate = useNavigate();
+    const [collapsed, setCollapsed] = useState(false);
+    const [profileOpen, setProfileOpen] = useState(false);
+
+    const {
+        token
+    } = theme.useToken();
+
+    const { colorBgContainer, colorBgLayout, borderRadiusLG } = token;
 
     const handleLogout = () => {
         logout();
         navigate('/login');
     };
 
-    return (
-        <div className="drawer lg:drawer-open bg-base-100 min-h-screen">
-            <input id="app-drawer" type="checkbox" className="drawer-toggle" />
-            
-            {/* Main Content Area */}
-            <div className="drawer-content flex flex-col min-h-screen overflow-hidden">
-                {/* Navbar */}
-                <header className="navbar bg-base-200/50 backdrop-blur-md border-b border-white/5 sticky top-0 z-10 min-h-[52px] px-4">
-                    <div className="flex-none lg:hidden">
-                        <label htmlFor="app-drawer" aria-label="open sidebar" className="btn btn-square btn-ghost btn-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="inline-block w-5 h-5 stroke-current"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-                        </label>
-                    </div>
-                    <div className="flex-1">
-                        <span className="lg:hidden font-bold ml-2">PRISM</span>
-                    </div>
-                    
-                    <div className="flex-none gap-4">
-                        {/* Agent status badge */}
-                        <div className={clsx(
-                            "badge gap-2 font-bold p-3 uppercase tracking-wider text-[10px] hidden sm:flex",
-                            error 
-                                ? "badge-error badge-outline" 
-                                : "badge-success badge-outline"
-                        )}>
-                            <span className={clsx(
-                                "w-1.5 h-1.5 rounded-full",
-                                error ? "bg-error" : "bg-success animate-pulse-dot"
-                            )} />
-                            {error ? "Hub offline" : `${agents.length} agent${agents.length !== 1 ? 's' : ''} online`}
-                        </div>
+    const userMenuItems: MenuProps['items'] = [
+        {
+            key: 'profile',
+            label: 'My Profile',
+            icon: <UserOutlined />,
+            onClick: () => setProfileOpen(true),
+        },
+        {
+            key: 'settings',
+            label: 'Settings',
+            icon: <SettingOutlined />,
+            onClick: () => navigate('/settings'),
+        },
+        {
+            type: 'divider',
+        },
+        {
+            key: 'logout',
+            label: 'Sign Out',
+            icon: <LogoutOutlined />,
+            danger: true,
+            onClick: handleLogout,
+        },
+    ];
 
-                        {/* Theme Toggle */}
-                        <button 
-                            onClick={toggleTheme}
-                            className="btn btn-ghost btn-sm btn-square rounded-xl border border-white/5 hover:bg-white/5 h-9 w-9 text-neutral-content/60 hover:text-primary transition-all"
-                            title={`Switch to ${theme === 'corporate' ? 'dark' : 'light'} mode`}
-                        >
-                            {theme === 'corporate' ? <Moon size={18} /> : <Sun size={18} />}
-                        </button>
+    return (
+        <Layout style={{ minHeight: '100vh', background: colorBgLayout }}>
+            <Sidebar collapsed={collapsed} />
+            <Layout style={{ 
+                marginLeft: collapsed ? 80 : 260, 
+                transition: 'margin-left 0.2s',
+                minHeight: '100vh',
+                background: colorBgLayout
+            }}>
+                <Header style={{ 
+                    padding: 0, 
+                    background: colorBgContainer, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    paddingRight: '24px',
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 99,
+                    borderBottom: '1px solid rgba(0, 0, 0, 0.06)'
+                }}>
+                    <Space size="middle">
+                        <Button
+                            type="text"
+                            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                            onClick={() => setCollapsed(!collapsed)}
+                            style={{
+                                fontSize: '16px',
+                                width: 64,
+                                height: 64,
+                            }}
+                        />
+                        <Space className="hidden sm:flex">
+                             <EnvironmentOutlined style={{ color: token.colorTextSecondary }} />
+                             <Text type="secondary" style={{ fontSize: '14px' }}>Local Infrastructure</Text>
+                        </Space>
+                    </Space>
+                    
+                    <Space size="large">
+                        {/* Agent status badge */}
+                        <div className="hidden md:block">
+                             {error || agents.length === 0 ? (
+                                <Badge status="error" text="No Agents Online" />
+                            ) : (
+                                <Badge status="success" text={`${agents.length} Agent${agents.length !== 1 ? 's' : ''} Online`} />
+                            )}
+                        </div>
 
                         {/* User Profile Dropdown */}
-                        <div className="dropdown dropdown-end">
-                            <div tabIndex={0} role="button" className="btn btn-ghost btn-sm gap-2 px-2 hover:bg-white/5 h-9 rounded-xl border border-white/5">
-                                <div className="w-6 h-6 rounded-lg bg-primary/20 flex items-center justify-center text-primary">
-                                    <User size={14} />
+                        <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow>
+                            <Space style={{ cursor: 'pointer' }}>
+                                <Avatar 
+                                    size="small" 
+                                    icon={<UserOutlined />} 
+                                    style={{ backgroundColor: token.colorPrimary }}
+                                />
+                                <div style={{ display: 'flex', flexDirection: 'column', lineHeight: '1.2' }} className="hidden xs:flex">
+                                    <Text strong style={{ fontSize: '12px' }}>{user?.username}</Text>
+                                    <Text type="secondary" style={{ fontSize: '10px', textTransform: 'uppercase' }}>{user?.role}</Text>
                                 </div>
-                                <div className="text-left hidden xs:block">
-                                    <div className="text-[11px] font-bold leading-none">{user?.username}</div>
-                                    <div className="text-[9px] opacity-40 uppercase tracking-tighter mt-0.5">{user?.role}</div>
-                                </div>
-                                <ChevronDown size={12} className="opacity-40" />
-                            </div>
-                            <ul tabIndex={0} className="dropdown-content z-30 menu p-2 shadow-2xl bg-base-200 border border-white/5 rounded-2xl w-52 mt-2">
-                                <li className="menu-title px-4 py-2 text-[10px] font-bold uppercase tracking-widest opacity-40">Account Management</li>
-                                <li>
-                                    <button onClick={handleLogout} className="text-error flex items-center gap-3 py-3 hover:bg-error/10 transition-colors">
-                                        <LogOut size={16} />
-                                        <span className="font-bold">Sign Out</span>
-                                    </button>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                </header>
+                            </Space>
+                        </Dropdown>
+                    </Space>
+                </Header>
 
-                {/* Page Content */}
-                <main className="flex-1 overflow-y-auto p-4 md:p-7">
+                <Content
+                    style={{
+                        margin: '24px 24px',
+                        minHeight: 280,
+                        borderRadius: borderRadiusLG,
+                    }}
+                >
                     <Outlet />
-                </main>
-            </div> 
-            
-            {/* Sidebar Drawer Side */}
-            <div className="drawer-side z-20">
-                <label htmlFor="app-drawer" aria-label="close sidebar" className="drawer-overlay"></label>
-                <Sidebar />
-            </div>
-        </div>
+                </Content>
+            </Layout>
+
+            <ProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
+        </Layout>
     );
 }
 

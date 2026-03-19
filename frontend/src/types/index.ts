@@ -13,7 +13,9 @@ export type ServiceType =
     | 'pm2'
     | 'supervisor'
     | 'systemd'
-    | 'security-crowdsec';
+    | 'firewall'
+    | 'security-crowdsec'
+    | 'cache-valkey';
 
 export type ProxyType = 'caddy' | 'nginx' | 'none';
 
@@ -36,19 +38,22 @@ export const SERVICE_TYPE_LABELS: Record<ServiceType, string> = {
     'web-caddy': 'Caddy',
     'web-nginx': 'Nginx',
     pm2: 'PM2 Process',
-    supervisor: 'Supervisor',
-    systemd: 'Systemd (User)',
+    supervisor: 'Supervisor Process',
+    systemd: 'Systemd Process',
+    firewall: 'Firewall',
     'security-crowdsec': 'CrowdSec',
+    'cache-valkey': 'Valkey (Cache)',
 };
 
 export const SERVICE_TYPE_CATEGORIES: Record<string, ServiceType[]> = {
-    Database: ['mongodb', 'mysql', 'postgresql'],
+    'Databases': ['mongodb', 'mysql', 'postgresql'],
     'Message Queue': ['rabbitmq', 'mqtt-mosquitto'],
-    'Object Storage': ['s3-minio', 's3-garage'],
+    'Storage': ['s3-minio', 's3-garage'],
     'File Transfer': ['ftp-vsftpd', 'ftp-sftpgo'],
-    'Web Server': ['web-caddy', 'web-nginx'],
-    'Process Manager': ['pm2', 'supervisor', 'systemd'],
-    'Security': ['security-crowdsec'],
+    'Web Servers': ['web-caddy', 'web-nginx'],
+    'Process Managers': ['pm2', 'supervisor', 'systemd'],
+    'Security': ['security-crowdsec', 'firewall'],
+    'Caching': ['cache-valkey'],
 };
 
 export interface Project {
@@ -125,21 +130,20 @@ export interface Agent {
 export interface User {
     id: string;
     username: string;
+    fullName?: string;
+    email?: string;
+    phone?: string;
     role: 'admin' | 'manager' | 'user';
     createdAt: string;
 }
 
 export const PROJECT_COLORS = [
-    '#6366f1', // indigo
-    '#8b5cf6', // violet
-    '#a855f7', // purple
-    '#ec4899', // pink
-    '#f43f5e', // rose
-    '#ef4444', // red
-    '#f97316', // orange
-    '#eab308', // yellow
-    '#22c55e', // green
-    '#14b8a6', // teal
-    '#06b6d4', // cyan
-    '#3b82f6', // blue
+    'primary',
+    'secondary',
+    'accent',
+    'info',
+    'success',
+    'warning',
+    'error',
+    'neutral',
 ];

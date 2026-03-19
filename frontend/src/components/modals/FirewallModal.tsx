@@ -1,11 +1,33 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Modal } from '../ui/Modal';
-import { Button } from '../ui/Button';
-import { Input, Select } from '../ui/Fields';
-import { ShieldCheck, Plus, Trash2, RefreshCw, ShieldOff, ShieldAlert } from 'lucide-react';
-import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { 
+    Modal, 
+    Table, 
+    Button, 
+    Space, 
+    Typography, 
+    theme, 
+    Form, 
+    Input, 
+    Select, 
+    Badge, 
+    Popconfirm,
+    Divider, 
+    Alert, 
+    Dropdown,
+    Row,
+    Col
+} from 'antd';
+import { 
+    SafetyCertificateOutlined, 
+    PlusOutlined, 
+    DeleteOutlined, 
+    ReloadOutlined, 
+    SafetyOutlined, 
+    StopOutlined, 
+    DownOutlined
+} from '@ant-design/icons';
 
+const { Text } = Typography;
 
 interface FirewallRule {
     id: string;
@@ -31,10 +53,9 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
     const [rules, setRules] = useState<FirewallRule[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [newPort, setNewPort] = useState('');
-    const [newProtocol, setNewProtocol] = useState('tcp');
-    const [newAction, setNewAction] = useState('allow');
     const [actionLoading, setActionLoading] = useState('');
+    const { token } = theme.useToken();
+    const [form] = Form.useForm();
 
     const fetchRules = useCallback(async () => {
         setLoading(true);
@@ -55,20 +76,21 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
 
     useEffect(() => {
         if (isOpen) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            fetchRules();
+            const timer = setTimeout(() => {
+                fetchRules();
+            }, 0);
+            return () => clearTimeout(timer);
         }
     }, [isOpen, fetchRules]);
 
-    const handleAdd = async () => {
-        if (!newPort) return;
+    const handleAdd = async (values: any) => {
         setActionLoading('add');
         await controlAgent(agentId, 'ufw_add', {
-            port: parseFloat(newPort),
-            protocol: newProtocol,
-            action: newAction,
+            port: parseFloat(values.port),
+            protocol: values.protocol,
+            action: values.action,
         });
-        setNewPort('');
+        form.resetFields();
         await fetchRules();
         setActionLoading('');
     };
@@ -87,9 +109,7 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
         setActionLoading('');
     };
 
-    // Parse rule description into structured columns
     const parseRule = (desc: string) => {
-        // e.g. "22/tcp                     ALLOW IN    Anywhere"
         const parts = desc.split(/\s{2,}/);
         return {
             to: parts[0]?.trim() || '',
@@ -98,191 +118,199 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
         };
     };
 
-    return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Firewall — ${agentId}`} size="lg">
-            <div className="space-y-6">
-                {/* Status bar */}
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex items-center gap-2 text-primary">
-                        <div className="p-2 rounded-lg bg-primary/10">
-                            <ShieldCheck size={18} />
-                        </div>
-                        <span className="text-sm font-bold">{rules.length} Active Rules</span>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs h-8 hover:bg-white/5"
-                            onClick={fetchRules}
-                            loading={loading}
-                        >
-                            <RefreshCw size={14} className={clsx("mr-1.5", loading && "animate-spin")} />
-                            Refresh
-                        </Button>
-                        <div className="flex bg-base-300 p-1 rounded-lg border border-white/5">
-                            <button
-                                onClick={() => handleDefaultPolicy('allow')}
-                                disabled={actionLoading === 'default-allow'}
-                                className="btn btn-ghost btn-xs text-[10px] font-bold uppercase tracking-wider h-6 min-h-6 px-3 hover:bg-success hover:text-success-content"
-                            >
-                                {actionLoading === 'default-allow' ? (
-                                    <span className="loading loading-spinner h-3 w-3" />
-                                ) : (
-                                    <ShieldOff size={12} className="mr-1" />
-                                )}
-                                Allow All
-                            </button>
-                            <button
-                                onClick={() => handleDefaultPolicy('deny')}
-                                disabled={actionLoading === 'default-deny'}
-                                className="btn btn-ghost btn-xs text-[10px] font-bold uppercase tracking-wider h-6 min-h-6 px-3 hover:bg-error hover:text-error-content"
-                            >
-                                {actionLoading === 'default-deny' ? (
-                                    <span className="loading loading-spinner h-3 w-3" />
-                                ) : (
-                                    <ShieldAlert size={12} className="mr-1" />
-                                )}
-                                Block All
-                            </button>
-                        </div>
-                    </div>
-                </div>
+    const columns = [
+        {
+            title: 'ID',
+            dataIndex: 'id',
+            key: 'id',
+            width: 60,
+            render: (id: string) => <Text type="secondary" style={{ fontFamily: 'monospace', fontSize: '10px' }}>{id}</Text>
+        },
+        {
+            title: 'Destination',
+            key: 'to',
+            render: (_: any, record: FirewallRule) => {
+                const parsed = parseRule(record.description);
+                return <Text strong style={{ fontFamily: 'monospace' }}>{parsed.to}</Text>;
+            }
+        },
+        {
+            title: 'Action',
+            key: 'action',
+            render: (_: any, record: FirewallRule) => {
+                const parsed = parseRule(record.description);
+                const isAllow = parsed.action.includes('ALLOW');
+                const isDeny = parsed.action.includes('DENY') || parsed.action.includes('REJECT');
+                
+                let status: 'success' | 'error' | 'warning' = 'warning';
+                if (isAllow) status = 'success';
+                if (isDeny) status = 'error';
 
-                {/* Error */}
-                {error && (
-                    <div className="alert alert-error text-xs p-3 rounded-xl border border-error/20 flex items-start">
-                        <div className="p-1 rounded bg-error/10 mr-1">
-                            <ShieldAlert size={14} />
-                        </div>
-                        <span>{error}</span>
+                return <Badge status={status} text={<Text strong style={{ fontSize: '10px', textTransform: 'uppercase' }}>{parsed.action}</Text>} />;
+            }
+        },
+        {
+            title: 'Source / From',
+            key: 'from',
+            render: (_: any, record: FirewallRule) => {
+                const parsed = parseRule(record.description);
+                return <Text type="secondary" style={{ fontSize: '12px' }}>{parsed.from}</Text>;
+            }
+        },
+        {
+            title: 'Actions',
+            key: 'actions',
+            align: 'right' as const,
+            render: (_: any, record: FirewallRule) => (
+                <Popconfirm
+                    title="Delete Rule"
+                    description="Are you sure you want to delete this firewall rule?"
+                    onConfirm={() => handleDelete(record.id)}
+                    okText="Yes"
+                    cancelText="No"
+                    okButtonProps={{ danger: true }}
+                >
+                    <Button 
+                        type="text" 
+                        danger 
+                        icon={<DeleteOutlined />} 
+                        loading={actionLoading === `del-${record.id}`}
+                    />
+                </Popconfirm>
+            )
+        }
+    ];
+
+    return (
+        <Modal 
+            open={isOpen} 
+            onCancel={onClose} 
+            title={
+                <Space size="middle">
+                    <div style={{ 
+                        padding: '8px', 
+                        borderRadius: '10px', 
+                        backgroundColor: `${token.colorSuccess}15`, 
+                        color: token.colorSuccess,
+                        display: 'flex'
+                    }}>
+                        <SafetyCertificateOutlined />
                     </div>
+                    <div>
+                        <Text strong style={{ fontSize: '16px' }}>Firewall Configuration</Text>
+                        <Text type="secondary" style={{ display: 'block', fontSize: '12px' }}>
+                            Managing inbound traffic rules for node <Text code>{agentId}</Text>
+                        </Text>
+                    </div>
+                </Space>
+            }
+            footer={null}
+            width={800}
+            style={{ borderRadius: '20px', overflow: 'hidden' }}
+        >
+            <div style={{ marginTop: '24px' }}>
+                {error && (
+                    <Alert
+                        message="Connection Error"
+                        description={error}
+                        type="error"
+                        showIcon
+                        style={{ marginBottom: '24px', borderRadius: '12px' }}
+                    />
                 )}
 
-                {/* Add rule form */}
-                <div className="p-4 bg-base-200 rounded-xl border border-white/5 shadow-inner">
-                    <div className="flex flex-col sm:flex-row items-end gap-3">
-                        <div className="flex-1 w-full">
-                            <Input
-                                label="Port"
-                                type="number"
-                                placeholder="e.g. 8080"
-                                value={newPort}
-                                onChange={e => setNewPort(e.target.value)}
-                                className="w-full"
-                            />
-                        </div>
-                        <div className="w-full sm:w-[100px]">
-                            <Select
-                                label="Protocol"
-                                value={newProtocol}
-                                onChange={e => setNewProtocol(e.target.value)}
-                                options={[
-                                    { value: 'tcp', label: 'TCP' },
-                                    { value: 'udp', label: 'UDP' },
-                                ]}
-                            />
-                        </div>
-                        <div className="w-full sm:w-[120px]">
-                            <Select
-                                label="Action"
-                                value={newAction}
-                                onChange={e => setNewAction(e.target.value)}
-                                options={[
-                                    { value: 'allow', label: 'Allow' },
-                                    { value: 'deny', label: 'Deny' },
-                                    { value: 'reject', label: 'Reject' },
-                                ]}
-                            />
-                        </div>
-                        <Button
-                            variant="primary"
-                            size="md"
-                            className="w-full sm:w-auto h-11"
-                            onClick={handleAdd}
-                            loading={actionLoading === 'add'}
-                            disabled={!newPort}
+                <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text strong style={{ fontSize: '12px', textTransform: 'uppercase', opacity: 0.5 }}>
+                        {rules.length} Active Rules
+                    </Text>
+                    <Space>
+                        <Button 
+                            icon={<ReloadOutlined spin={loading} />} 
+                            onClick={fetchRules}
+                            style={{ borderRadius: '8px' }}
                         >
-                            <Plus size={16} />
-                            Add Rule
+                            Refresh
                         </Button>
-                    </div>
+                        <Dropdown
+                            menu={{
+                                items: [
+                                    { key: 'allow', label: 'Allow All Incoming', icon: <SafetyOutlined />, onClick: () => handleDefaultPolicy('allow') },
+                                    { key: 'deny', label: 'Deny All Incoming', icon: <StopOutlined />, danger: true, onClick: () => handleDefaultPolicy('deny') }
+                                ]
+                            }}
+                        >
+                            <Button style={{ borderRadius: '8px' }}>
+                                Default Policy <DownOutlined />
+                            </Button>
+                        </Dropdown>
+                    </Space>
                 </div>
 
-                {/* Rules Table */}
-                <div className="rounded-xl border border-white/5 overflow-hidden bg-base-200/50 backdrop-blur-sm shadow-sm ring-1 ring-white/5">
-                    <div className="overflow-x-auto">
-                        <table className="table table-sm w-full">
-                            <thead>
-                                <tr className="bg-base-300/50 text-[10px] uppercase font-black tracking-[0.15em] text-neutral-content/40 border-b border-white/5 leading-none h-10">
-                                    <th className="pl-4 w-12 text-center">#</th>
-                                    <th>To</th>
-                                    <th>Action</th>
-                                    <th>From</th>
-                                    <th className="pr-4 w-12"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {loading && rules.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={5} className="py-12 text-center text-neutral-content/40 italic">
-                                            <span className="loading loading-spinner h-6 w-6 mb-2" />
-                                            <div>Loading firewall rules...</div>
-                                        </td>
-                                    </tr>
-                                ) : rules.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={5} className="py-12 text-center text-neutral-content/40 italic">
-                                            No firewall rules configured
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    rules.map(rule => {
-                                        const parsed = parseRule(rule.description);
-                                        const isAllow = parsed.action.includes('ALLOW');
-                                        const isDeny = parsed.action.includes('DENY') || parsed.action.includes('REJECT');
-
-                                        return (
-                                            <tr key={rule.id} className="hover:bg-white/[0.02] transition-colors border-b border-white/5 group last:border-0 h-12">
-                                                <td className="pl-4 text-center font-mono opacity-40 text-[11px]">{rule.id}</td>
-                                                <td className="font-mono font-bold text-xs text-primary/80">{parsed.to}</td>
-                                                <td>
-                                                    <span className={twMerge(
-                                                        clsx(
-                                                            "badge badge-xs font-black uppercase text-[9px] px-2 py-2 border leading-none shadow-sm",
-                                                            isAllow ? "bg-success/10 text-success border-success/20" :
-                                                                isDeny ? "bg-error/10 text-error border-error/20" :
-                                                                    "bg-warning/10 text-warning border-warning/20"
-                                                        )
-                                                    )}>
-                                                        {parsed.action}
-                                                    </span>
-                                                </td>
-                                                <td className="text-neutral-content/60 text-[11px]">{parsed.from}</td>
-                                                <td className="pr-4 text-right">
-                                                    <button
-                                                        title="Delete rule"
-                                                        onClick={() => handleDelete(rule.id)}
-                                                        disabled={actionLoading === `del-${rule.id}`}
-                                                        className="btn btn-ghost btn-xs btn-square text-neutral-content/30 hover:text-error hover:bg-error/10 transition-all rounded-lg opacity-0 group-hover:opacity-100 focus:opacity-100"
-                                                    >
-                                                        {actionLoading === `del-${rule.id}` ? (
-                                                            <span className="loading loading-spinner h-3.5 w-3.5" />
-                                                        ) : (
-                                                            <Trash2 size={14} />
-                                                        )}
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                {/* List Table */}
+                <div style={{ 
+                    borderRadius: '16px', 
+                    overflow: 'hidden', 
+                    border: `1px solid ${token.colorBorderSecondary}`,
+                    marginBottom: '32px'
+                }}>
+                    <Table 
+                        dataSource={rules}
+                        columns={columns}
+                        rowKey="id"
+                        pagination={false}
+                        loading={loading}
+                        locale={{ emptyText: 'No firewall rules discovered.' }}
+                        size="small"
+                    />
                 </div>
+
+                {/* Add Form */}
+                <Divider orientation={"left" as any} style={{ margin: '0 0 24px 0' }}>
+                    <Space>
+                        <PlusOutlined style={{ color: token.colorPrimary, fontSize: '12px' }} />
+                        <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Create Inbound Rule</Text>
+                    </Space>
+                </Divider>
+
+                <Form
+                    form={form}
+                    layout="vertical"
+                    onFinish={handleAdd}
+                    initialValues={{ protocol: 'tcp', action: 'allow' }}
+                >
+                    <Row gutter={16} align="bottom">
+                        <Col span={6}>
+                            <Form.Item name="port" label={<Text strong style={{ fontSize: '12px' }}>Port</Text>} rules={[{ required: true }]}>
+                                <Input placeholder="8080" style={{ borderRadius: '8px' }} />
+                            </Form.Item>
+                        </Col>
+                        <Col span={6}>
+                            <Form.Item name="protocol" label={<Text strong style={{ fontSize: '12px' }}>Protocol</Text>} rules={[{ required: true }]}>
+                                <Select options={[{ value: 'tcp', label: 'TCP' }, { value: 'udp', label: 'UDP' }]} style={{ borderRadius: '8px' }} />
+                            </Form.Item>
+                        </Col>
+                        <Col span={6}>
+                            <Form.Item name="action" label={<Text strong style={{ fontSize: '12px' }}>Action</Text>} rules={[{ required: true }]}>
+                                <Select options={[{ value: 'allow', label: 'Allow' }, { value: 'deny', label: 'Deny' }, { value: 'reject', label: 'Reject' }]} style={{ borderRadius: '8px' }} />
+                            </Form.Item>
+                        </Col>
+                        <Col span={6}>
+                            <Form.Item>
+                                <Button 
+                                    type="primary" 
+                                    htmlType="submit" 
+                                    block 
+                                    icon={<PlusOutlined />}
+                                    loading={actionLoading === 'add'}
+                                    style={{ height: '40px', borderRadius: '10px', fontWeight: 600 }}
+                                >
+                                    Add Rule
+                                </Button>
+                            </Form.Item>
+                        </Col>
+                    </Row>
+                </Form>
             </div>
         </Modal>
     );
 }
-

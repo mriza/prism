@@ -1,112 +1,124 @@
-import { NavLink } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Menu, Layout, Typography, Button, Divider, theme } from 'antd';
 import {
-    LayoutDashboard,
-    FolderKanban,
-    KeyRound,
-    Server,
-    Settings,
-    Zap,
-    AppWindow,
-    ShieldCheck,
-    Users,
-    LogOut
-} from 'lucide-react';
-import { twMerge } from 'tailwind-merge';
+    DashboardOutlined,
+    ProjectOutlined,
+    KeyOutlined,
+    CloudServerOutlined,
+    LineChartOutlined,
+    SafetyCertificateOutlined,
+    SettingOutlined,
+    UserOutlined,
+    LogoutOutlined,
+    ThunderboltFilled,
+    UnorderedListOutlined
+} from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
 
-const navItems = [
-    { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-    { to: '/projects', label: 'Projects', icon: FolderKanban },
-    { to: '/accounts', label: 'Accounts', icon: KeyRound },
-    { to: '/servers', label: 'Servers', icon: Server },
-    { to: '/services', label: 'Services', icon: AppWindow },
-    { to: '/security', label: 'Security', icon: ShieldCheck },
-    { to: '/settings', label: 'Settings', icon: Settings },
-];
+const { Sider } = Layout;
+const { Text, Title } = Typography;
 
-export function Sidebar() {
+export function Sidebar({ collapsed }: { collapsed: boolean }) {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+    const { token } = theme.useToken();
+
+    const menuItems = [
+        { key: '/', icon: <DashboardOutlined />, label: 'Dashboard' },
+        { key: '/projects', icon: <ProjectOutlined />, label: 'Projects' },
+        { key: '/accounts', icon: <KeyOutlined />, label: 'Accounts' },
+        { key: '/servers', icon: <CloudServerOutlined />, label: 'Servers' },
+        { key: '/processes', icon: <LineChartOutlined />, label: 'Processes' },
+        { key: '/security', icon: <SafetyCertificateOutlined />, label: 'Security' },
+        { key: '/logs', icon: <UnorderedListOutlined />, label: 'Activity Logs' },
+        { key: '/settings', icon: <SettingOutlined />, label: 'Settings' },
+        ...(user?.role === 'admin' ? [{ key: '/users', icon: <UserOutlined />, label: 'Users' }] : []),
+    ];
+
+    const handleMenuClick = ({ key }: { key: string }) => {
+        navigate(key);
+    };
+
     return (
-        <aside className="menu bg-base-200 text-base-content min-h-full w-64 p-4 border-r border-white/5 flex flex-col gap-4">
-            {/* Brand */}
-            <div className="flex items-center gap-3 px-2 py-2 border-b border-white/10 mx-2 pb-6">
-                <div className="w-10 h-10 rounded-xl bg-linear-to-br from-primary to-secondary flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(99,102,241,0.5)]">
-                    <Zap size={20} className="text-white" />
+        <Sider
+            trigger={null}
+            collapsible
+            collapsed={collapsed}
+            width={260}
+            theme="light"
+            style={{
+                height: '100vh',
+                position: 'fixed',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                borderRight: `1px solid ${token.colorBorderSecondary}`,
+                zIndex: 100,
+            }}
+        >
+            <div style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden' }}>
+                <div style={{ 
+                    width: '40px', 
+                    height: '40px', 
+                    borderRadius: '8px', 
+                    background: `linear-gradient(135deg, ${token.colorPrimary} 0%, ${token.colorPrimaryHover} 100%)`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    boxShadow: `0 4px 12px ${token.colorPrimary}33`
+                }}>
+                    <ThunderboltFilled style={{ fontSize: '20px', color: '#fff' }} />
                 </div>
-                <div>
-                    <div className="font-bold text-lg leading-none text-white tracking-wide">PRISM</div>
-                    <div className="text-[10px] text-primary font-bold tracking-[0.2em] uppercase mt-1">
-                        Infra Manager
+                {!collapsed && (
+                    <div style={{ whiteSpace: 'nowrap' }}>
+                        <Title level={4} style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>PRISM</Title>
+                        <Text type="secondary" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                            Infra Manager
+                        </Text>
                     </div>
-                </div>
+                )}
             </div>
 
-            {/* Nav */}
-            <ul className="menu w-full gap-1 flex-1">
-                {navItems.map(({ to, label, icon: Icon, end }) => (
-                    <li key={to}>
-                        <NavLink
-                            to={to}
-                            end={end}
-                            className={({ isActive }) => twMerge(
-                                "flex items-center gap-3 py-3 px-4 transition-all duration-200 rounded-xl",
-                                isActive 
-                                    ? "bg-primary text-primary-content active shadow-lg shadow-primary/20 font-bold" 
-                                    : "text-neutral-content hover:bg-base-300 hover:text-base-content"
-                            )}
-                            onClick={() => {
-                                // Close drawer on mobile click
-                                const drawer = document.getElementById('app-drawer') as HTMLInputElement;
-                                if (drawer && window.innerWidth < 1024) drawer.checked = false;
-                            }}
-                        >
-                            <Icon size={18} />
-                            {label}
-                        </NavLink>
-                    </li>
-                ))}
-                
-                {user?.role === 'admin' && (
-                    <li key="/users">
-                        <NavLink
-                            to="/users"
-                            className={({ isActive }) => twMerge(
-                                "flex items-center gap-3 py-3 px-4 transition-all duration-200 rounded-xl",
-                                isActive 
-                                    ? "bg-primary text-primary-content active shadow-lg shadow-primary/20 font-bold" 
-                                    : "text-neutral-content hover:bg-base-300 hover:text-base-content"
-                            )}
-                            onClick={() => {
-                                const drawer = document.getElementById('app-drawer') as HTMLInputElement;
-                                if (drawer && window.innerWidth < 1024) drawer.checked = false;
-                            }}
-                        >
-                            <Users size={18} />
-                            Users
-                        </NavLink>
-                    </li>
-                )}
-            </ul>
+            <Divider style={{ margin: '4px 0 12px 0' }} />
 
-            {/* Footer */}
-            <div className="mt-auto px-2 pb-4 space-y-4">
-                <button 
+            <Menu
+                mode="inline"
+                selectedKeys={[location.pathname]}
+                items={menuItems}
+                onClick={handleMenuClick}
+                style={{ borderRight: 0 }}
+            />
+
+            <div style={{ 
+                position: 'absolute', 
+                bottom: 0, 
+                width: '100%', 
+                padding: '16px', 
+                borderTop: `1px solid ${token.colorBorderSecondary}` 
+            }}>
+                <Button 
+                    type="text" 
+                    danger 
+                    icon={<LogoutOutlined />} 
                     onClick={() => {
                         logout();
                         navigate('/login');
                     }}
-                    className="flex items-center gap-3 w-full py-3 px-4 text-error hover:bg-error/10 transition-colors rounded-xl font-bold"
+                    block
+                    style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
-                    <LogOut size={18} />
-                    Logout
-                </button>
-                <div className="opacity-40 text-xs font-mono uppercase tracking-widest text-center py-4 border-t border-white/10">
-                    v0.1.0-alpha
-                </div>
+                    {!collapsed && "Logout"}
+                </Button>
+                {!collapsed && (
+                    <div style={{ textAlign: 'center', marginTop: '12px' }}>
+                        <Text type="secondary" style={{ fontSize: '11px', opacity: 0.5 }}>v0.2.0-antd</Text>
+                    </div>
+                )}
             </div>
-        </aside>
+        </Sider>
     );
 }
+
 

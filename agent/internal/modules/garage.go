@@ -1,9 +1,12 @@
 package modules
 
 import (
-	"prism-agent/internal/core"
+	"fmt"
+	"os"
 	"os/exec"
 	"strings"
+
+	"prism-agent/internal/core"
 )
 
 type GarageModule struct {
@@ -127,4 +130,64 @@ func (m *GarageModule) DeleteUser(accessKey string) error {
 	// Garage delete by key ID or name?
 	// "garage key delete <pattern>" works on name or ID.
 	return exec.Command("garage", "key", "delete", accessKey, "--yes").Run()
+}
+
+// --- ServiceSettings Implementation ---
+
+func (m *GarageModule) getConfigPath() string {
+	candidates := []string{"/etc/garage.toml", "/etc/garage/garage.toml"}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return "/etc/garage.toml"
+}
+
+func (m *GarageModule) GetSettings() (map[string]interface{}, error) {
+	s3Port := "3900"
+
+	if content, err := os.ReadFile(m.getConfigPath()); err == nil {
+		for _, line := range strings.Split(string(content), "\n") {
+			trimmed := strings.TrimSpace(line)
+			// s3_api.bind_addr = ":3900" or api_bind_addr = "0.0.0.0:3900"
+			if strings.Contains(trimmed, "bind_addr") && strings.Contains(strings.ToLower(trimmed), "s3") {
+				if idx := strings.LastIndex(trimmed, ":"); idx != -1 {
+					port := strings.Trim(trimmed[idx+1:], `"`)
+					if port != "" {
+						s3Port = port
+					}
+				}
+			}
+		}
+	}
+
+	settings := map[string]interface{}{
+		"endpoint": fmt.Sprintf("http://localhost:%s", s3Port),
+	}
+
+	// Try to get first access key from garage
+	if out, err := exec.Command("garage", "key", "list").Output(); err == nil {
+		for _, line := range strings.Split(string(out), "\n") {
+			fields := strings.Fields(line)
+			if len(fields) >= 1 && len(fields[0]) > 10 {
+				settings["access_key"] = fields[0]
+				break
+			}
+		}
+	}
+
+	return settings, nil
+}
+
+func (m *GarageModule) UpdateSettings(settings map[string]interface{}) error {
+	// Garage config requires file editing and restart
+	configPath := m.getConfigPath()
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		return err
+	}
+	_ = content
+	// Restart to apply any manual edits
+	return m.Restart()
 }

@@ -1,7 +1,19 @@
 import { useState } from 'react';
-import { Server } from 'lucide-react';
+import { 
+    Modal, 
+    Form, 
+    Input, 
+    Space, 
+    Typography, 
+    theme, 
+    Button, 
+    Alert 
+} from 'antd';
+import { RocketOutlined } from '@ant-design/icons';
 import { useAgents } from '../../hooks/useAgents';
-import { Input, Textarea } from '../ui/Fields';
+
+const { Text } = Typography;
+const { TextArea } = Input;
 
 interface ApproveServerModalProps {
     isOpen: boolean;
@@ -12,26 +24,17 @@ interface ApproveServerModalProps {
 
 export function ApproveServerModal({ isOpen, onClose, agentId, hostname }: ApproveServerModalProps) {
     const { approveAgent } = useAgents();
-    const [name, setName] = useState(hostname);
-    const [description, setDescription] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const { token } = theme.useToken();
+    const [form] = Form.useForm();
 
-    if (!isOpen) return null;
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        
-        if (!name.trim()) {
-            setError('Server name is required');
-            return;
-        }
-
+    const handleSubmit = async (values: any) => {
         setIsSubmitting(true);
         setError(null);
 
         try {
-            const success = await approveAgent(agentId, name.trim(), description.trim());
+            const success = await approveAgent(agentId, values.name.trim(), values.description?.trim());
             if (success) {
                 onClose();
             } else {
@@ -45,66 +48,99 @@ export function ApproveServerModal({ isOpen, onClose, agentId, hostname }: Appro
     };
 
     return (
-        <div className="modal modal-open bg-base-300/80 backdrop-blur-sm z-50">
-            <div className="modal-box border border-white/10 bg-base-200 shadow-2xl relative">
-                <button
-                    onClick={onClose}
-                    className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4"
-                >
-                    ✕
-                </button>
-                
-                <h3 className="font-bold text-lg flex items-center gap-2 mb-4">
-                    <Server size={20} className="text-success" />
-                    Approve and Register Server
-                </h3>
-                
-                <p className="text-sm text-neutral-content mb-6">
-                    A new PRISM agent was detected on <span className="font-mono bg-base-300 px-1 py-0.5 rounded text-secondary">{hostname}</span>. 
-                    Please provide a name and optional description to register it as a managed server.
-                </p>
+        <Modal
+            open={isOpen}
+            onCancel={onClose}
+            title={
+                <Space size="middle">
+                    <div style={{ 
+                        padding: '8px', 
+                        borderRadius: '10px', 
+                        backgroundColor: `${token.colorSuccess}15`, 
+                        color: token.colorSuccess,
+                        display: 'flex'
+                    }}>
+                        <RocketOutlined />
+                    </div>
+                    <div>
+                        <Text strong style={{ fontSize: '16px' }}>Approve Server</Text>
+                        <Text type="secondary" style={{ display: 'block', fontSize: '12px' }}>
+                            Register this new PRISM agent as a managed resource
+                        </Text>
+                    </div>
+                </Space>
+            }
+            footer={null}
+            width={500}
+            style={{ borderRadius: '20px', overflow: 'hidden' }}
+        >
+            <div style={{ marginTop: '24px' }}>
+                <Alert
+                    message={
+                        <Text style={{ fontSize: '13px' }}>
+                            A new agent was detected on <Text code>{hostname}</Text>. 
+                            Provide a display name to register it.
+                        </Text>
+                    }
+                    type="info"
+                    style={{ marginBottom: '24px', borderRadius: '12px' }}
+                />
 
                 {error && (
-                    <div className="alert alert-error text-sm py-2 mb-4">
-                        <span>{error}</span>
-                    </div>
+                    <Alert
+                        message="Approval Failed"
+                        description={error}
+                        type="error"
+                        showIcon
+                        style={{ marginBottom: '24px', borderRadius: '12px' }}
+                    />
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <Input
-                        label="Server Name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="e.g. Production Database"
-                        autoFocus
-                        required
-                    />
+                <Form
+                    form={form}
+                    layout="vertical"
+                    onFinish={handleSubmit}
+                    initialValues={{ name: hostname }}
+                >
+                    <Form.Item
+                        name="name"
+                        label={<Text strong style={{ fontSize: '12px' }}>Server name</Text>}
+                        rules={[{ required: true, message: 'Server name is required' }]}
+                    >
+                        <Input placeholder="e.g. Production Database" style={{ borderRadius: '8px' }} autoFocus />
+                    </Form.Item>
                     
-                    <Textarea
-                        label="Description"
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Optional details about this server's purpose..."
-                        className="min-h-[6rem]"
-                    />
+                    <Form.Item
+                        name="description"
+                        label={<Text strong style={{ fontSize: '12px' }}>Description</Text>}
+                    >
+                        <TextArea
+                            placeholder="Optional details about this server's purpose..."
+                            rows={3}
+                            style={{ borderRadius: '8px' }}
+                        />
+                    </Form.Item>
                     
-                    <div className="modal-action mt-6">
-                        <button type="button" className="btn btn-ghost" onClick={onClose} disabled={isSubmitting}>
-                            Cancel
-                        </button>
-                        <button type="submit" className="btn btn-success" disabled={isSubmitting}>
-                            {isSubmitting ? (
-                                <><span className="loading loading-spinner text-success-content"></span> Approving...</>
-                            ) : (
-                                'Approve Server'
-                            )}
-                        </button>
+                    <div style={{ 
+                        marginTop: '32px', 
+                        paddingTop: '16px', 
+                        borderTop: `1px solid ${token.colorBorderSecondary}`,
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        gap: '12px'
+                    }}>
+                        <Button onClick={onClose} disabled={isSubmitting} style={{ borderRadius: '8px' }}>Cancel</Button>
+                        <Button 
+                            type="primary" 
+                            htmlType="submit" 
+                            loading={isSubmitting} 
+                            style={{ borderRadius: '8px', fontWeight: 600, backgroundColor: token.colorSuccess, borderColor: 'transparent' }}
+                        >
+                            Approve Server
+                        </Button>
                     </div>
-                </form>
+                </Form>
             </div>
-            <form method="dialog" className="modal-backdrop" onClick={onClose}>
-                <button>close</button>
-            </form>
-        </div>
+        </Modal>
     );
 }

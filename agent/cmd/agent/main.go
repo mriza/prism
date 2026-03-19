@@ -7,17 +7,18 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"runtime"
-	"strings"
 	"prism-agent/internal/config"
 	"prism-agent/internal/core"
 	"prism-agent/internal/discovery"
 	"prism-agent/internal/modules"
 	"prism-agent/internal/protocol"
+	"runtime"
+	"strings"
 	"time"
 
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -53,8 +54,8 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Load configuration
-	cfg, err := config.Load(*configPath)
+	// Load configuration with auto-token loading
+	cfg, err := config.LoadWithAutoToken(*configPath)
 	if err != nil {
 		log.Printf("Config not found at %s: %v", *configPath, err)
 		cfg = &config.Config{} // Use empty defaults so auto-discovery still works
@@ -68,30 +69,61 @@ func main() {
 		switch svcCfg.Type {
 		case "systemd":
 			switch svcCfg.Name {
+			// Databases
 			case "mysql", "mariadb":
 				registry.Register(modules.NewMySQLModule())
 				log.Printf("Registered MySQL module: %s", svcCfg.Name)
-			case "rabbitmq":
-				registry.Register(modules.NewRabbitMQModule())
-				log.Printf("Registered RabbitMQ module: %s", svcCfg.Name)
-			case "caddy":
-				registry.Register(modules.NewCaddyModule())
-				log.Printf("Registered Caddy module: %s", svcCfg.Name)
-			case "nginx":
-				registry.Register(modules.NewNginxModule())
-				log.Printf("Registered Nginx module: %s", svcCfg.Name)
-			case "mongodb", "mongod":
-				registry.Register(modules.NewMongoDBModule())
-				log.Printf("Registered MongoDB module: %s", svcCfg.Name)
 			case "postgresql", "postgres":
 				registry.Register(modules.NewPostgresModule())
 				log.Printf("Registered PostgreSQL module: %s", svcCfg.Name)
+			case "mongodb", "mongod":
+				registry.Register(modules.NewMongoDBModule())
+				log.Printf("Registered MongoDB module: %s", svcCfg.Name)
+
+			// Message Queues & MQTT
+			case "rabbitmq":
+				registry.Register(modules.NewRabbitMQModule())
+				log.Printf("Registered RabbitMQ module: %s", svcCfg.Name)
+			case "mosquitto":
+				registry.Register(modules.NewMosquittoModule())
+				log.Printf("Registered Mosquitto module: %s", svcCfg.Name)
+
+			// Web Servers
+			case "nginx":
+				registry.Register(modules.NewNginxModule())
+				log.Printf("Registered Nginx module: %s", svcCfg.Name)
+			case "caddy":
+				registry.Register(modules.NewCaddyModule())
+				log.Printf("Registered Caddy module: %s", svcCfg.Name)
+
+			// Storage (S3)
 			case "minio":
 				registry.Register(modules.NewMinIOModule())
 				log.Printf("Registered MinIO module: %s", svcCfg.Name)
 			case "garage":
 				registry.Register(modules.NewGarageModule())
 				log.Printf("Registered Garage module: %s", svcCfg.Name)
+			case "seaweedfs", "seaweed":
+				registry.Register(modules.NewSystemdModule(svcCfg.Name, svcCfg.ServiceName, svcCfg.UserScope))
+				log.Printf("Registered SeaweedFS module: %s", svcCfg.Name)
+
+			// FTP/SFTP
+			case "vsftpd":
+				registry.Register(modules.NewVsftpdModule())
+				log.Printf("Registered VSFTPD module: %s", svcCfg.Name)
+			case "sftpgo":
+				registry.Register(modules.NewSystemdModule(svcCfg.Name, svcCfg.ServiceName, svcCfg.UserScope))
+				log.Printf("Registered SFTPGo module (systemd): %s", svcCfg.Name)
+
+			// Cache/Database
+			case "valkey", "valkey-server":
+				registry.Register(modules.NewValkeyModule())
+				log.Printf("Registered Valkey module: %s", svcCfg.Name)
+			case "redis", "redis-server":
+				registry.Register(modules.NewSystemdModule(svcCfg.Name, svcCfg.ServiceName, svcCfg.UserScope))
+				log.Printf("Registered Redis module: %s", svcCfg.Name)
+
+			// Default systemd service
 			default:
 				registry.Register(modules.NewSystemdModule(svcCfg.Name, svcCfg.ServiceName, svcCfg.UserScope))
 				log.Printf("Registered systemd service (config): %s", svcCfg.Name)
@@ -99,6 +131,9 @@ func main() {
 		case "pm2":
 			registry.Register(modules.NewPM2Module())
 			log.Printf("Registered pm2 module (config): %s", svcCfg.Name)
+		case "supervisor":
+			registry.Register(modules.NewSupervisorModule())
+			log.Printf("Registered supervisor module: %s", svcCfg.Name)
 		case "ansible":
 			registry.Register(modules.NewAnsibleModule())
 			log.Printf("Registered Ansible module: %s", svcCfg.Name)
@@ -123,6 +158,17 @@ func main() {
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
+
+	// Ensure Agent ID exists
+	if cfg.Hub.ID == "" {
+		cfg.Hub.ID = uuid.NewString()
+		log.Printf("Generated new Agent ID: %s", cfg.Hub.ID)
+		if err := config.Save(cfg, *configPath); err != nil {
+			log.Printf("Warning: failed to save Agent ID to config: %v", err)
+		}
+	} else {
+		log.Printf("Using existing Agent ID: %s", cfg.Hub.ID)
+	}
 
 	for {
 		log.Printf("Connecting to Hub at %s", u.String())
@@ -211,6 +257,7 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 	regMsg := protocol.Message{
 		Type: protocol.MsgTypeRegister,
 		Payload: protocol.RegisterPayload{
+			AgentID:  cfg.Hub.ID,
 			Hostname: hostname,
 			OSInfo:   getOSInfo(),
 			Token:    token,
@@ -222,7 +269,45 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 		return fmt.Errorf("register write error: %w", err)
 	}
 
-	// Handle Incoming Messages
+	// 1. Wait for Welcome Message BEFORE starting loops
+	var welcomeMsg protocol.Message
+	if err := c.ReadJSON(&welcomeMsg); err != nil {
+		return fmt.Errorf("failed to read welcome message: %w", err)
+	}
+
+	heartbeatInterval := 15 // Default
+	if welcomeMsg.Type == protocol.MsgTypeWelcome {
+		log.Println("Agent registered successfully!")
+		if payload, ok := welcomeMsg.Payload.(map[string]interface{}); ok {
+			if interval, ok := payload["heartbeat_interval"].(float64); ok && interval > 0 {
+				heartbeatInterval = int(interval)
+				log.Printf("Heartbeat interval set to %ds by Hub", heartbeatInterval)
+			}
+		}
+
+		// Report "Agent Connected" event
+		safeWrite(protocol.Message{
+			Type: protocol.MsgTypeEvent,
+			Payload: protocol.EventPayload{
+				Type:    "agent_connected",
+				Message: fmt.Sprintf("Agent %s successfully connected and registered", hostname),
+			},
+		})
+	} else if welcomeMsg.Type == protocol.MsgTypeResponse {
+		if payload, ok := welcomeMsg.Payload.(map[string]interface{}); ok {
+			if errMsg, ok := payload["error"].(string); ok {
+				log.Printf("Server rejected connection: %s", errMsg)
+				return fmt.Errorf("server registration failed: %s", errMsg)
+			}
+		}
+		log.Printf("Server sent unexpected response message: %+v", welcomeMsg.Payload)
+		return fmt.Errorf("server registration failed with unknown response")
+	} else {
+		log.Printf("Expected welcome message, got %s", welcomeMsg.Type)
+		return fmt.Errorf("unexpected message type from server: %s", welcomeMsg.Type)
+	}
+
+	// Handle Incoming Messages (Commands etc.)
 	done := make(chan struct{})
 
 	go func() {
@@ -235,10 +320,6 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 				return
 			}
 			// log.Printf("recv: %s", msg.Type)
-
-			if msg.Type == protocol.MsgTypeWelcome {
-				log.Println("Agent registered successfully!")
-			}
 
 			if msg.Type == protocol.MsgTypeCommand {
 				payloadMap, ok := msg.Payload.(map[string]interface{})
@@ -292,7 +373,9 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 							Payload: protocol.ResponsePayload{
 								CommandID: cmdID,
 								Success:   success,
-								Message:   output,
+								Message:   output, // Legacy
+								Output:    output,
+								Error:     "",
 							},
 						}
 						safeWrite(resp)
@@ -302,6 +385,54 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 
 				// Execute
 				go func() {
+					var opts map[string]interface{}
+					if optsRaw, ok := payloadMap["options"]; ok && optsRaw != nil {
+						opts, _ = optsRaw.(map[string]interface{})
+					}
+					cmdCtx := &CommandContext{
+						Registry:   registry,
+						Config:     cfg,
+						ConfigPath: cfgPath,
+					}
+
+					// "agent" is not a registry module - dispatch directly without registry lookup
+					if serviceName == "agent" {
+						var success bool
+						var output string
+						if handler, ok := CommandHandlers[action]; ok {
+							out, err := handler(nil, cmdCtx, map[string]interface{}{"options": opts})
+							if err != nil {
+								success = false
+								output = err.Error()
+							} else {
+								success = true
+								output = out
+								if output == "" {
+									output = "OK"
+								}
+							}
+						} else {
+							success = false
+							output = fmt.Sprintf("unknown agent action: %s", action)
+						}
+						resp := protocol.Message{
+							Type: protocol.MsgTypeResponse,
+							Payload: protocol.ResponsePayload{
+								CommandID: cmdID,
+								Success:   success,
+								Message:   output,
+								Output:    func() string {
+									if success { return output }; return ""
+								}(),
+								Error: func() string {
+									if !success { return output }; return ""
+								}(),
+							},
+						}
+						safeWrite(resp)
+						return
+					}
+
 					mod, err := registry.Get(serviceName)
 					var success bool
 					var output string
@@ -311,11 +442,7 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 						output = err.Error()
 					} else {
 						if handler, ok := CommandHandlers[action]; ok {
-							var opts map[string]interface{}
-							if optsRaw, ok := payloadMap["options"]; ok && optsRaw != nil {
-								opts, _ = optsRaw.(map[string]interface{})
-							}
-							out, err := handler(mod, map[string]interface{}{"options": opts})
+							out, err := handler(mod, cmdCtx, map[string]interface{}{"options": opts})
 							if err != nil {
 								success = false
 								output = err.Error()
@@ -333,13 +460,21 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 					}
 
 					// Send Response
+					respPayload := protocol.ResponsePayload{
+						CommandID: cmdID,
+						Success:   success,
+						Message:   output, // Legacy
+					}
+					if success {
+						respPayload.Output = output
+					} else {
+						respPayload.Error = output
+						respPayload.Output = ""
+					}
+
 					resp := protocol.Message{
-						Type: protocol.MsgTypeResponse,
-						Payload: protocol.ResponsePayload{
-							CommandID: cmdID,
-							Success:   success,
-							Message:   output,
-						},
+						Type:    protocol.MsgTypeResponse,
+						Payload: respPayload,
 					}
 					safeWrite(resp)
 				}()
@@ -347,16 +482,50 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 		}
 	}()
 
-	// Keep Alive Loop
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
+	// Keep Track of last status for events
+	lastStatuses := make(map[string]string)
+	for _, info := range serviceInfos {
+		lastStatuses[info.Name] = info.Status
+	}
+
+	// Tickers
+	heartbeatTicker := time.NewTicker(time.Duration(heartbeatInterval) * time.Second)
+	defer heartbeatTicker.Stop()
+	monitorTicker := time.NewTicker(5 * time.Second)
+	defer monitorTicker.Stop()
 
 	for {
 		select {
 		case <-done:
 			return fmt.Errorf("connection closed by server")
-		case <-ticker.C:
-			// Get latest status
+		case <-monitorTicker.C:
+			// Rapidly check for status changes
+			for _, svcName := range registry.List() {
+				mod, err := registry.Get(svcName)
+				if err == nil {
+					status, _ := mod.Status()
+					if oldStatus, exists := lastStatuses[svcName]; exists {
+						if oldStatus != string(status) {
+							log.Printf("Event: %s status changed %s -> %s", svcName, oldStatus, status)
+							safeWrite(protocol.Message{
+								Type: protocol.MsgTypeEvent,
+								Payload: protocol.EventPayload{
+									Type:    "service_status_change",
+									Service: svcName,
+									Status:  string(status),
+									Message: fmt.Sprintf("Service %s changed status from %s to %s", svcName, oldStatus, status),
+								},
+							})
+							lastStatuses[svcName] = string(status)
+						}
+					} else {
+						lastStatuses[svcName] = string(status)
+					}
+				}
+			}
+
+		case <-heartbeatTicker.C:
+			// Get latest status for full ping
 			var serviceInfos []protocol.ServiceInfo
 			for _, svcName := range registry.List() {
 				mod, err := registry.Get(svcName)

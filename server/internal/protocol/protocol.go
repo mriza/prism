@@ -25,6 +25,7 @@ type ServiceInfo struct {
 }
 
 type RegisterPayload struct {
+	AgentID  string        `json:"agent_id"`
 	Hostname string        `json:"hostname"`
 	OSInfo   string        `json:"os_info"`
 	Token    string        `json:"token"`
@@ -36,7 +37,8 @@ type KeepAlivePayload struct {
 }
 
 type WelcomePayload struct {
-	AgentID string `json:"agent_id"`
+	AgentID           string `json:"agent_id"`
+	HeartbeatInterval int    `json:"heartbeat_interval"` // in seconds
 }
 
 type CommandPayload struct {
@@ -49,7 +51,9 @@ type CommandPayload struct {
 type ResponsePayload struct {
 	CommandID string      `json:"command_id"`
 	Success   bool        `json:"success"`
-	Message   string      `json:"message"`
+	Message   string      `json:"message"` // Legacy
+	Output    string      `json:"output"`  // Consistent with agent
+	Error     string      `json:"error,omitempty"`
 	Data      interface{} `json:"data,omitempty"`
 }
 
@@ -57,4 +61,5 @@ type EventPayload struct {
 	Type    string `json:"type"` // service_status_change
 	Service string `json:"service"`
 	Status  string `json:"status"`
+	Message string `json:"message"`
 }

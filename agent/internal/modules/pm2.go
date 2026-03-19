@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -158,4 +159,78 @@ func findListenPortInFile(netFile string, inodes map[string]bool) (int, error) {
 		}
 	}
 	return 0, fmt.Errorf("not found")
+}
+
+func (m *PM2Module) ListProcesses() ([]core.ProcessInfo, error) {
+	apps, err := m.GetApps()
+	if err != nil {
+		return nil, err
+	}
+	procs := make([]core.ProcessInfo, 0, len(apps))
+	for _, a := range apps {
+		procs = append(procs, core.ProcessInfo{
+			ID:     a.Name,
+			Name:   a.Name,
+			Status: a.Status,
+			// CPU/Memory need parsing from strings or better struct
+		})
+	}
+	return procs, nil
+}
+
+func (m *PM2Module) StartProcess(id string) error {
+	return exec.Command("pm2", "start", id).Run()
+}
+
+func (m *PM2Module) StopProcess(id string) error {
+	return exec.Command("pm2", "stop", id).Run()
+}
+
+func (m *PM2Module) RestartProcess(id string) error {
+	return exec.Command("pm2", "restart", id).Run()
+}
+
+// --- ServiceSettings Implementation ---
+
+func (m *PM2Module) GetSettings() (map[string]interface{}, error) {
+	defaults := map[string]interface{}{
+		"instances":           "1",
+		"max_memory_restart":  "512M",
+		"out_file":            "/root/.pm2/logs/app-out.log",
+		"error_file":          "/root/.pm2/logs/app-error.log",
+	}
+
+	// Try to read pm2 module conf for any saved global defaults
+	confPaths := []string{"/root/.pm2/module_conf.json", "/home/prism/.pm2/module_conf.json"}
+	for _, path := range confPaths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		var conf map[string]interface{}
+		if err := json.Unmarshal(data, &conf); err != nil {
+			continue
+		}
+		if pm2Conf, ok := conf["pm2"].(map[string]interface{}); ok {
+			for _, key := range []string{"max_memory_restart", "out_file", "error_file", "instances"} {
+				if v, ok := pm2Conf[key]; ok {
+					defaults[key] = fmt.Sprintf("%v", v)
+				}
+			}
+		}
+		break
+	}
+	return defaults, nil
+}
+
+func (m *PM2Module) UpdateSettings(settings map[string]interface{}) error {
+	// pm2 set stores settings in module_conf.json
+	for _, key := range []string{"max_memory_restart", "instances"} {
+		if val, ok := settings[key].(string); ok && val != "" {
+			if err := exec.Command("pm2", "set", "pm2:"+key, val).Run(); err != nil {
+				return fmt.Errorf("pm2 set %s: %w", key, err)
+			}
+		}
+	}
+	return nil
 }

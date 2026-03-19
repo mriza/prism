@@ -3,10 +3,12 @@ Description=PRISM Agent
 After=network.target
 
 [Service]
-ExecStart=/home/prism/agent_bin
-WorkingDirectory=/home/prism
+Type=simple
 User=root
+WorkingDirectory=/opt/prism/agent
+ExecStart=/opt/prism/agent/prism-agent -config /opt/prism/agent/prism-agent.conf
 Restart=always
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target

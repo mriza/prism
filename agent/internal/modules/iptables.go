@@ -122,3 +122,16 @@ func (m *IptablesModule) SetDefaultPolicy(policy, direction string) error {
 	}
 	return exec.Command("iptables", "-P", chain, pol).Run()
 }
+
+// --- ServiceSettings Implementation ---
+
+func (m *IptablesModule) GetSettings() (map[string]interface{}, error) {
+	status, _ := m.Status()
+	return map[string]interface{}{
+		"status": string(status),
+	}, nil
+}
+
+func (m *IptablesModule) UpdateSettings(settings map[string]interface{}) error {
+	return nil
+}

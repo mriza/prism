@@ -10,8 +10,8 @@ import (
 )
 
 type Config struct {
-	Server   ServerConfig    `toml:"server"`
-	Hub      HubConfig       `toml:"hub"`
+	Server         ServerConfig    `toml:"server"`
+	Hub            HubConfig       `toml:"hub"`
 	Database       DatabaseConfig  `toml:"database"`
 	Services       []ServiceConfig `toml:"services"`
 	ActiveFirewall string          `toml:"active_firewall"`
@@ -20,6 +20,11 @@ type Config struct {
 type HubConfig struct {
 	URL   string `toml:"url"`
 	Token string `toml:"token"`
+	ID    string `toml:"id"`
+
+	// ServerConfigPath is the path to the server's prism-server.conf
+	// Used to automatically read the token if token is empty
+	ServerConfigPath string `toml:"server_config_path"`
 }
 
 type ServerConfig struct {
@@ -92,6 +97,52 @@ func Load(mainPath string) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+// LoadWithAutoToken loads config and auto-reads token from server config if empty
+func LoadWithAutoToken(mainPath string) (*Config, error) {
+	cfg, err := Load(mainPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Auto-load token from server config if empty
+	if cfg.Hub.Token == "" && cfg.Hub.ServerConfigPath != "" {
+		token, err := readTokenFromServerConfig(cfg.Hub.ServerConfigPath)
+		if err != nil {
+			fmt.Printf("Warning: failed to read token from server config: %v\n", err)
+		} else {
+			cfg.Hub.Token = token
+			fmt.Printf("Auto-loaded token from %s\n", cfg.Hub.ServerConfigPath)
+		}
+	}
+
+	return cfg, nil
+}
+
+// readTokenFromServerConfig reads the auth token from server's prism-server.conf
+func readTokenFromServerConfig(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to read server config: %w", err)
+	}
+
+	var serverCfg struct {
+		Auth struct {
+			Token string `toml:"token"`
+		} `toml:"auth"`
+	}
+
+	err = toml.Unmarshal(data, &serverCfg)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse server config: %w", err)
+	}
+
+	if serverCfg.Auth.Token == "" {
+		return "", fmt.Errorf("token not found in server config")
+	}
+
+	return serverCfg.Auth.Token, nil
 }
 
 // Save writes the Config struct to a TOML file

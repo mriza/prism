@@ -87,3 +87,35 @@ func (m *SystemdModule) GetFacts() (map[string]string, error) {
 func (m *SystemdModule) Configure(config map[string]interface{}) error {
 	return nil
 }
+
+func (m *SystemdModule) ListProcesses() ([]core.ProcessInfo, error) {
+	status, _ := m.Status()
+	return []core.ProcessInfo{
+		{
+			ID:     m.serviceName,
+			Name:   m.name,
+			Status: string(status),
+		},
+	}, nil
+}
+
+func (m *SystemdModule) StartProcess(id string) error {
+	if id == m.serviceName {
+		return m.Start()
+	}
+	return fmt.Errorf("unknown process id: %s", id)
+}
+
+func (m *SystemdModule) StopProcess(id string) error {
+	if id == m.serviceName {
+		return m.Stop()
+	}
+	return fmt.Errorf("unknown process id: %s", id)
+}
+
+func (m *SystemdModule) RestartProcess(id string) error {
+	if id == m.serviceName {
+		return m.Restart()
+	}
+	return fmt.Errorf("unknown process id: %s", id)
+}

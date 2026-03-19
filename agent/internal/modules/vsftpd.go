@@ -198,7 +198,16 @@ func (m *VsftpdModule) setupUserDirectory(rootPath string, _ int, _ bool) error 
 // --- ConfigurableModule Implementation ---
 
 func (m *VsftpdModule) GetConfigPath() string {
-	return "/etc/vsftpd/vsftpd.conf"
+	candidates := []string{
+		"/etc/vsftpd.conf",
+		"/etc/vsftpd/vsftpd.conf",
+	}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return "/etc/vsftpd.conf"
 }
 
 func (m *VsftpdModule) ReadConfig() (string, error) {
@@ -246,8 +255,8 @@ func (m *VsftpdModule) GetSettings() (map[string]interface{}, error) {
 				settings["local_enable"] = val
 			case "write_enable":
 				settings["write_enable"] = val
-			case "chroot_local_user":
-				settings["chroot_local_user"] = val
+			case "local_root":
+				settings["local_root"] = val
 			}
 		}
 	}
@@ -268,11 +277,11 @@ func (m *VsftpdModule) UpdateSettings(settings map[string]interface{}) error {
 	}
 
 	updates := map[string]string{
-		"listen_port":       "port",
-		"anonymous_enable":  "anonymous_enable",
-		"local_enable":      "local_enable",
-		"write_enable":      "write_enable",
-		"chroot_local_user": "chroot_local_user",
+		"listen_port":      "port",
+		"anonymous_enable": "anonymous_enable",
+		"local_enable":     "local_enable",
+		"write_enable":     "write_enable",
+		"local_root":       "local_root",
 	}
 
 	for configKey, settingsKey := range updates {

@@ -1,16 +1,49 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useProjects } from '../hooks/useProjects';
 import { useAccounts } from '../hooks/useAccounts';
 import { useAuth } from '../contexts/AuthContext';
+import { useAgents } from '../hooks/useAgents';
 import { AccountFormModal } from '../components/modals/AccountFormModal';
 import { ProjectFormModal } from '../components/modals/ProjectFormModal';
-import { Button } from '../components/ui/Button';
-import { ServiceTypeIcon } from '../components/ui/ServiceTypeIcon';
-import { SERVICE_TYPE_LABELS } from '../types';
-import { Plus, ArrowLeft, Pencil, Trash2, Server, KeyRound, Copy, Check, Play, Eye, EyeOff, RefreshCw } from 'lucide-react';
-import { clsx } from 'clsx';
+import { 
+    Button, 
+    Card, 
+    Row, 
+    Col, 
+    Typography, 
+    Space, 
+    Tag, 
+    Badge, 
+    Tabs, 
+    Tooltip, 
+    Empty, 
+    theme, 
+    Descriptions,
+    Alert
+} from 'antd';
+import {
+    ArrowLeftOutlined,
+    PlusOutlined,
+    EditOutlined,
+    DeleteOutlined,
+    ReloadOutlined,
+    LoadingOutlined,
+    StopOutlined,
+    BranchesOutlined,
+    CaretRightOutlined,
+    KeyOutlined,
+    EyeOutlined,
+    EyeInvisibleOutlined,
+    CheckOutlined,
+    CopyOutlined,
+    CloudServerOutlined
+} from '@ant-design/icons';
 import type { ServiceAccount } from '../types';
+import { PageContainer } from '../components/PageContainer';
+import { SERVICE_TYPE_LABELS } from '../types';
+
+const { Text } = Typography;
 
 export function ProjectDetailPage() {
     const { id } = useParams<{ id: string }>();
@@ -18,6 +51,12 @@ export function ProjectDetailPage() {
     const { accountsByProject, createAccount, updateAccount, deleteAccount, deleteAccountsByProject, provisionAccount } = useAccounts();
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { agents, controlService, controlSubProcess, listSubProcesses } = useAgents();
+    const { token } = theme.useToken();
+
+    const [projectProcesses, setProjectProcesses] = useState<any[]>([]);
+    const [loadingInfra, setLoadingInfra] = useState(false);
+    const [infraActionLoading, setInfraActionLoading] = useState<string | null>(null);
 
     const project = projects.find(p => p.id === id);
     const [showAddAccount, setShowAddAccount] = useState(false);
@@ -31,319 +70,362 @@ export function ProjectDetailPage() {
         setShowPasswords(prev => ({ ...prev, [id]: !prev[id] }));
     };
 
+    const fetchProjectInfra = async () => {
+        if (!project) return;
+        setLoadingInfra(true);
+        const allProcs: any[] = [];
+        const accounts = accountsByProject(project.id);
+        
+        for (const agent of agents) {
+            for (const svc of agent.services) {
+                const account = accounts.find(a => a.name === svc.name && a.agentId === agent.id);
+                if (account) {
+                    allProcs.push({
+                        id: svc.name,
+                        name: svc.name,
+                        status: svc.status,
+                        agentId: agent.id,
+                        agentName: agent.name || agent.hostname,
+                        type: 'service',
+                        serviceName: svc.name
+                    });
+                }
+
+                if (svc.name === 'pm2' || svc.name === 'supervisor' || svc.name === 'systemd') {
+                     const subs = await listSubProcesses(agent.id, svc.name);
+                     if (subs) {
+                         subs.forEach((sub: any) => {
+                             const subAccount = accounts.find(a => a.name === sub.name && a.agentId === agent.id);
+                             if (subAccount) {
+                                 allProcs.push({
+                                     ...sub,
+                                     agentId: agent.id,
+                                     agentName: agent.name || agent.hostname,
+                                     type: 'process',
+                                     serviceName: svc.name
+                                 });
+                             }
+                         });
+                     }
+                }
+            }
+        }
+        setProjectProcesses(allProcs);
+        setLoadingInfra(false);
+    };
+
+    useEffect(() => {
+        fetchProjectInfra();
+    }, [id, agents.length]);
+
     if (!project) {
         return (
-            <div className="flex flex-col items-center justify-center py-20 gap-4">
-                <p className="text-neutral-content">Project not found.</p>
-                <Link to="/projects" className="btn btn-primary btn-sm">← Back to projects</Link>
+            <div style={{ padding: '100px 0', textAlign: 'center' }}>
+                <Empty description="Project not found" />
+                <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/projects')}>Back to Projects</Button>
             </div>
         );
     }
 
     const accounts = accountsByProject(project.id);
 
+    const handleInfraControl = async (agentId: string, service: string, action: string, processId?: string) => {
+        const id = processId ? `${agentId}-${processId}-${action}` : `${agentId}-${service}-${action}`;
+        setInfraActionLoading(id);
+        try {
+            if (processId) {
+                await controlSubProcess(agentId, service, processId, action);
+            } else {
+                await controlService(agentId, service, action);
+            }
+            await fetchProjectInfra();
+        } finally {
+            setInfraActionLoading(null);
+        }
+    };
+
     return (
-        <div className="space-y-6">
-            {/* Breadcrumb */}
-            <nav className="text-sm">
-                <Link to="/projects" className="flex items-center gap-1.5 text-neutral-content hover:text-primary transition-colors">
-                    <ArrowLeft size={14} /> <span>Projects</span>
-                </Link>
-            </nav>
+        <PageContainer 
+            title={project.name}
+            description={project.description || "Project orchestration and asset management."}
+            breadcrumb={[
+                { title: <Link to="/projects">Projects</Link> },
+                { title: project.name }
+            ]}
+            extra={
+                user?.role !== 'user' && (
+                    <Space>
+                        <Button icon={<EditOutlined />} onClick={() => setShowEditProject(true)}>Edit Project</Button>
+                        <Button danger icon={<DeleteOutlined />} onClick={() => {
+                            if (confirm(`Delete project "${project.name}" and all its accounts?`)) {
+                                deleteAccountsByProject(project.id);
+                                deleteProject(project.id);
+                                navigate('/projects');
+                            }
+                        }}>Delete</Button>
+                    </Space>
+                )
+            }
+        >
+            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                {/* Stats Header */}
+                <Card 
+                    bodyStyle={{ padding: '24px' }}
+                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '16px', background: `linear-gradient(135deg, ${token.colorBgContainer} 0%, ${token.colorBgLayout} 100%)` }}
+                >
+                    <Row gutter={48}>
+                        <Col span={6}>
+                            <Descriptions column={1}>
+                                <Descriptions.Item label={<Text strong style={{ color: token.colorTextDisabled, textTransform: 'uppercase', fontSize: '10px' }}>Total Assets</Text>}>
+                                    <Text strong style={{ fontSize: '24px' }}>{accounts.length}</Text>
+                                </Descriptions.Item>
+                            </Descriptions>
+                        </Col>
+                        <Col span={6}>
+                            <Descriptions column={1}>
+                                <Descriptions.Item label={<Text strong style={{ color: token.colorTextDisabled, textTransform: 'uppercase', fontSize: '10px' }}>Active Nodes</Text>}>
+                                    <Text strong style={{ fontSize: '24px' }}>{[...new Set(accounts.map(a => a.agentId))].length}</Text>
+                                </Descriptions.Item>
+                            </Descriptions>
+                        </Col>
+                        <Col span={12}>
+                    <Descriptions column={1}>
+                        <Descriptions.Item label={<Text strong style={{ color: token.colorTextDisabled, textTransform: 'uppercase', fontSize: '10px' }}>Created At</Text>}>
+                            <Text style={{ fontSize: '16px' }}>{new Date(project.createdAt).toLocaleDateString(undefined, { dateStyle: 'long' })}</Text>
+                        </Descriptions.Item>
+                    </Descriptions>
+                        </Col>
+                    </Row>
+                </Card>
 
-            {/* Project header card */}
-            <div className="card bg-base-200 border border-white/5 overflow-hidden">
-                <div className="h-1.5 w-full" style={{ background: project.color }} />
-                <div className="card-body p-6 md:p-8">
-                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-                        <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border border-white/10" style={{ background: `${project.color}20` }}>
-                                <KeyRound size={28} style={{ color: project.color }} />
-                            </div>
-                            <div className="space-y-1">
-                                <h1 className="text-2xl font-bold">{project.name}</h1>
-                                {project.description && (
-                                    <p className="text-neutral-content text-sm max-w-2xl">
-                                        {project.description}
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-                        {user?.role !== 'user' && (
-                            <div className="flex gap-2 shrink-0">
-                                <Button variant="secondary" size="sm" icon={<Pencil size={14} />} onClick={() => setShowEditProject(true)}>
-                                    Edit Project
-                                </Button>
-                                <Button
-                                    variant="danger"
-                                    size="sm"
-                                    icon={<Trash2 size={14} />}
-                                    onClick={() => {
-                                        if (confirm(`Delete project "${project.name}" and all its accounts?`)) {
-                                            deleteAccountsByProject(project.id);
-                                            deleteProject(project.id);
-                                            navigate('/projects');
-                                        }
-                                    }}
-                                >
-                                    Delete
-                                </Button>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-8 mt-8 border-t border-white/5">
-                        <div className="space-y-1">
-                            <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-content/60">Service Accounts</div>
-                            <div className="text-xl font-bold">{accounts.length}</div>
-                        </div>
-                        <div className="space-y-1">
-                            <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-content/60">Date Created</div>
-                            <div className="text-base font-semibold">{new Date(project.createdAt).toLocaleDateString()}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Accounts section */}
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-bold flex items-center gap-2">
-                        <span>Service Accounts</span>
-                        <div className="badge badge-neutral badge-sm font-mono">{accounts.length}</div>
-                    </h2>
-                    {user?.role !== 'user' && (
-                        <Button size="sm" icon={<Plus size={16} />} onClick={() => setShowAddAccount(true)}>
-                            Add Account
-                        </Button>
-                    )}
-                </div>
-
-                {accounts.length === 0 ? (
-                    <div className="card bg-base-200 border border-white/5 border-dashed py-12 flex flex-col items-center justify-center gap-4">
-                        <KeyRound size={32} className="text-neutral-content/40" />
-                        <p className="text-sm text-neutral-content">No accounts in this project yet.</p>
-                        {user?.role !== 'user' && (
-                            <Button size="sm" variant="outline" icon={<Plus size={14} />} onClick={() => setShowAddAccount(true)}>
-                                Add First Account
-                            </Button>
-                        )}
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 gap-3">
-                        {accounts.map(a => (
-                            <div
-                                key={a.id}
-                                className="card bg-base-200 border border-white/5 hover:border-primary/20 transition-all group overflow-hidden"
-                            >
-                                <div className="p-4 md:p-5 flex flex-col md:flex-row md:items-center gap-4">
-                                    <div className="shrink-0 flex items-center gap-4">
-                                        <ServiceTypeIcon type={a.type} size={42} />
-                                        <div className="md:hidden">
-                                            <div className="font-bold text-base">{a.name}</div>
-                                            <div className="text-xs text-neutral-content uppercase tracking-wider font-semibold">{SERVICE_TYPE_LABELS[a.type]}</div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="flex-1 min-w-0 space-y-2">
-                                        <div className="hidden md:block font-bold text-base line-clamp-1">{a.name}</div>
-                                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-content font-medium">
-                                            <span className="hidden md:inline text-primary uppercase tracking-wider">{SERVICE_TYPE_LABELS[a.type]}</span>
-                                            {a.host && <span className="flex items-center gap-1.5"><Server size={12} className="opacity-60" /> {a.host}{a.port ? `:${a.port}` : ''}</span>}
-                                            {a.database && <span className="flex items-center gap-1.5">db: <span className="text-base-content">{a.database}</span></span>}
-                                            {a.bucket && <span className="flex items-center gap-1.5">bucket: <span className="text-base-content">{a.bucket}</span></span>}
-                                            {a.appName && <span className="flex items-center gap-1.5">app: <span className="text-base-content">{a.appName}</span></span>}
-                                            {a.agentId && <div className="badge badge-neutral badge-xs py-2 px-2 gap-1"><Server size={10} /> {a.agentId}</div>}
-                                        </div>
-
-                                        {/* Connection Info / Credentials Blocks */}
-                                        <div className="pt-2 grid grid-cols-1 gap-2">
-                                            {/* Database URI (Mongo/MySQL/Postgre) */}
-                                            {(a.type === 'mongodb' || a.type === 'mysql' || a.type === 'postgresql') && a.username && a.password && a.host && (
-                                                <div className="flex items-center gap-1 max-w-xl bg-black/30 border border-white/5 rounded-md p-1 pl-3">
-                                                    <code className="text-[10px] text-success flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-mono py-1">
-                                                        {a.type === 'mongodb' 
-                                                            ? `mongodb://${a.username}:${showPasswords[a.id] ? a.password : '••••••••'}@${a.host}:${a.port || 27017}/${a.database}`
-                                                            : `${a.type}://${a.username}:${showPasswords[a.id] ? a.password : '••••••••'}@${a.host}:${a.port}/${a.database}`
-                                                        }
-                                                    </code>
-                                                    <div className="flex gap-1 pr-1">
-                                                        <button
-                                                            onClick={() => togglePassword(a.id)}
-                                                            className="btn btn-ghost btn-square btn-xs text-neutral-content hover:text-base-content"
-                                                        >
-                                                            {showPasswords[a.id] ? <EyeOff size={13} /> : <Eye size={13} />}
-                                                        </button>
-                                                        <button
-                                                            onClick={async () => {
-                                                                const uri = a.type === 'mongodb'
-                                                                    ? `mongodb://${encodeURIComponent(a.username!)}:${encodeURIComponent(a.password!)}@${a.host}:${a.port || 27017}/${encodeURIComponent(a.database!)}`
-                                                                    : `${a.type}://${encodeURIComponent(a.username!)}:${encodeURIComponent(a.password!)}@${a.host}:${a.port}/${encodeURIComponent(a.database!)}`;
-                                                                await navigator.clipboard.writeText(uri);
-                                                                setCopiedId(a.id);
-                                                                setTimeout(() => setCopiedId(null), 2000);
-                                                            }}
-                                                            className={clsx("btn btn-ghost btn-square btn-xs", copiedId === a.id ? "text-success" : "text-neutral-content")}
-                                                        >
-                                                            {copiedId === a.id ? <Check size={13} /> : <Copy size={13} />}
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* S3 Credentials */}
-                                            {(a.type === 's3-minio' || a.type === 's3-garage') && a.accessKey && (
-                                                <div className="flex items-center gap-3 text-[11px] font-mono bg-base-300/50 p-3 rounded-xl border border-white/5">
-                                                    <div className="flex-1 space-y-1">
-                                                        <div className="flex justify-between border-b border-white/5 pb-1">
-                                                            <span className="opacity-40 uppercase">Endpoint</span>
-                                                            <span className="text-white">{a.endpoint || a.host}</span>
-                                                        </div>
-                                                        <div className="flex justify-between border-b border-white/5 pb-1">
-                                                            <span className="opacity-40 uppercase">AccessKey</span>
-                                                            <code className="text-primary">{a.accessKey}</code>
-                                                        </div>
-                                                        <div className="flex justify-between">
-                                                            <span className="opacity-40 uppercase">SecretKey</span>
-                                                            <div className="flex items-center gap-2">
-                                                                <code className="text-success">{showPasswords[a.id] ? a.secretKey : '••••••••••••••••'}</code>
-                                                                <button onClick={() => togglePassword(a.id)} className="opacity-20 hover:opacity-100 transition-opacity">
-                                                                    {showPasswords[a.id] ? <EyeOff size={10} /> : <Eye size={10} />}
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* MQTT/FTP Credentials */}
-                                            {(a.type === 'mqtt-mosquitto' || a.type === 'ftp-vsftpd') && a.username && (
-                                                <div className="flex items-center gap-1 max-w-xl bg-black/20 border border-white/5 rounded-md p-1 pl-3">
-                                                    <span className="text-[10px] opacity-40 uppercase mr-2 font-bold">{a.type === 'mqtt-mosquitto' ? 'MQTT' : 'FTP'}</span>
-                                                    <code className="text-[10px] text-neutral-content flex-1 font-mono">
-                                                        {a.username} : {showPasswords[a.id] ? a.password : '••••••••'}
-                                                    </code>
-                                                    <button onClick={() => togglePassword(a.id)} className="btn btn-ghost btn-xs text-neutral-content">
-                                                        {showPasswords[a.id] ? <EyeOff size={12} /> : <Eye size={12} />}
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {user?.role !== 'user' && (
-                                        <div className="flex items-center justify-end gap-2 shrink-0 md:ml-4 pt-4 md:pt-0 border-t md:border-t-0 border-white/5">
-                                            {/* Logic for manual provisioning/sync */}
-                                            {(() => {
-                                                const isDb = a.type === 'mongodb' || a.type === 'mysql' || a.type === 'postgresql';
-                                                const isStorage = a.type === 's3-minio' || a.type === 's3-garage';
-                                                const isWeb = a.type === 'web-caddy' || a.type === 'web-nginx';
-                                                const isFTP = a.type === 'ftp-vsftpd';
-                                                const handleProvision = async () => {
-                                                    setProvisioningId(a.id);
-                                                    let action = '';
-                                                    let options: Record<string, unknown> = {};
-                                                    const isMongo = a.type === 'mongodb';
-                                                    
-                                                    if (isDb) {
-                                                        action = 'db_create_user';
-                                                        const fallbackRole = isMongo ? 'readWrite' : 'ALL PRIVILEGES';
-                                                        options = {
-                                                            username: isMongo ? `${a.username}@${a.database}` : a.username,
-                                                            password: a.password,
-                                                            role: a.role || fallbackRole,
-                                                            target: a.targetEntity
-                                                        };
-                                                    } else if (a.type === 'rabbitmq') {
-                                                        action = 'db_sync';
-                                                        options = { bindings: a.bindings };
-                                                    } else if (a.type === 'mqtt-mosquitto') {
-                                                        action = 'mq_create_user';
-                                                        options = { username: a.username, password: a.password };
-                                                    } else if (isStorage) {
-                                                        action = 'storage_create_bucket';
-                                                        options = { name: a.bucket };
-                                                        // Also create user
-                                                        await provisionAccount(a.agentId!, 'storage_create_user', { access_key: a.accessKey, secret_key: a.secretKey });
-                                                    } else if (isWeb) {
-                                                        action = 'proxy_create';
-                                                        options = { domain: a.endpoint, port: Number(a.port) };
-                                                    } else if (isFTP) {
-                                                        action = 'ftp_create_user';
-                                                        options = { username: a.username, password: a.password, root_path: a.rootPath };
-                                                    }
-
-                                                    if (action) {
-                                                        const ok = await provisionAccount(a.agentId!, action, options);
-                                                        if (ok) alert('Successfully provisioned on server.');
-                                                        else alert('Failed to provision on server.');
-                                                    }
-                                                    setProvisioningId(null);
-                                                };
+                <Tabs 
+                    defaultActiveKey="infrastructure"
+                    items={[
+                        {
+                            key: 'infrastructure',
+                            label: (
+                                <Space>
+                                    <BranchesOutlined />
+                                    <span>Infrastructure</span>
+                                    {loadingInfra && <ReloadOutlined spin style={{ fontSize: '12px', opacity: 0.5 }} />}
+                                </Space>
+                            ),
+                            children: (
+                                <div style={{ padding: '8px 0' }}>
+                                    {projectProcesses.length === 0 && !loadingInfra ? (
+                                        <Empty description="No active services detected for this project group" />
+                                    ) : (
+                                        <Row gutter={[16, 16]}>
+                                            {projectProcesses.map(proc => {
+                                                const isRunning = ['online', 'running', 'active', 'UP'].includes(proc.status);
+                                                const actionId = (action: string) => proc.type === 'process' ? `${proc.agentId}-${proc.id}-${action}` : `${proc.agentId}-${proc.serviceName}-${action}`;
 
                                                 return (
-                                                    <>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="secondary"
-                                                            icon={<Play size={13} />}
-                                                            disabled={provisioningId === a.id}
-                                                            onClick={handleProvision}
-                                                            className="h-8 min-h-0 px-3"
-                                                        >
-                                                            {provisioningId === a.id ? '...' : 'Provision'}
-                                                        </Button>
-                                                        {isDb && (
-                                                            <Button
-                                                                size="sm"
-                                                                variant="ghost"
-                                                                icon={<RefreshCw size={13} />}
-                                                                disabled={provisioningId === a.id}
-                                                                onClick={async () => {
-                                                                    setProvisioningId(a.id);
-                                                                    const isMongo = a.type === 'mongodb';
-                                                                    const fallbackRole = isMongo ? 'readWrite' : 'ALL PRIVILEGES';
-                                                                    const ok = await provisionAccount(a.agentId!, 'db_update_privileges', {
-                                                                        username: isMongo ? `${a.username}@${a.database}` : a.username,
-                                                                        role: a.role || fallbackRole,
-                                                                        target: a.targetEntity
-                                                                    });
-                                                                    setProvisioningId(null);
-                                                                    if (ok) alert('Successfully updated privileges.');
-                                                                    else alert('Failed to update privileges.');
-                                                                }}
-                                                                className="h-8 min-h-0 px-3"
-                                                            >
-                                                                Sync
-                                                            </Button>
-                                                        )}
-                                                    </>
+                                                    <Col xs={24} md={12} lg={8} key={`${proc.agentId}-${proc.id}-${proc.type}`}>
+                                                        <Card hoverable size="small" style={{ borderRadius: '12px' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                                                                <Space direction="vertical" size={0}>
+                                                                    <Space>
+                                                                        <Badge status={isRunning ? 'success' : 'default'} />
+                                                                        <Text strong style={{ fontSize: '14px' }}>{proc.name}</Text>
+                                                                    </Space>
+                                                                    <Text type="secondary" style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                                                                        <CloudServerOutlined style={{ fontSize: '10px' }} /> {proc.agentName}
+                                                                    </Text>
+                                                                    <Tag style={{ marginTop: '8px', fontSize: '10px', textTransform: 'uppercase' }} color={proc.type === 'process' ? 'blue' : 'purple'}>
+                                                                        {proc.type === 'process' ? `${proc.serviceName} app` : proc.serviceName}
+                                                                    </Tag>
+                                                                </Space>
+                                                                <div className="infra-controls">
+                                                                    <Space.Compact direction="vertical" size="small">
+                                                                        <Tooltip title="Start">
+                                                                            <Button 
+                                                                                icon={infraActionLoading === actionId('start') ? <LoadingOutlined /> : <CaretRightOutlined />} 
+                                                                                disabled={isRunning || !!infraActionLoading}
+                                                                                onClick={() => handleInfraControl(proc.agentId, proc.serviceName, 'start', proc.type === 'process' ? proc.id : undefined)}
+                                                                            />
+                                                                        </Tooltip>
+                                                                        <Tooltip title="Restart">
+                                                                            <Button 
+                                                                                icon={infraActionLoading === actionId('restart') ? <LoadingOutlined /> : <ReloadOutlined />} 
+                                                                                disabled={!!infraActionLoading}
+                                                                                onClick={() => handleInfraControl(proc.agentId, proc.serviceName, 'restart', proc.type === 'process' ? proc.id : undefined)}
+                                                                            />
+                                                                        </Tooltip>
+                                                                        <Tooltip title="Stop">
+                                                                            <Button 
+                                                                                danger
+                                                                                icon={infraActionLoading === actionId('stop') ? <LoadingOutlined /> : <StopOutlined />} 
+                                                                                disabled={!isRunning || !!infraActionLoading}
+                                                                                onClick={() => handleInfraControl(proc.agentId, proc.serviceName, 'stop', proc.type === 'process' ? proc.id : undefined)}
+                                                                            />
+                                                                        </Tooltip>
+                                                                    </Space.Compact>
+                                                                </div>
+                                                            </div>
+                                                        </Card>
+                                                    </Col>
                                                 );
-                                            })()}
-                                            <button
-                                                onClick={() => setEditAccount(a)}
-                                                className="btn btn-ghost btn-square btn-sm text-neutral-content hover:text-primary"
-                                                title="Edit Account"
-                                            >
-                                                <Pencil size={16} />
-                                            </button>
-                                            <button
-                                                onClick={() => { if (confirm(`Delete account "${a.name}"?`)) deleteAccount(a.id); }}
-                                                className="btn btn-ghost btn-square btn-sm text-neutral-content hover:btn-error hover:text-error-content"
-                                                title="Delete Account"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
+                                            })}
+                                        </Row>
                                     )}
                                 </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
+                            )
+                        },
+                        {
+                            key: 'accounts',
+                            label: (
+                                <Space>
+                                    <KeyOutlined />
+                                    <span>Service Accounts</span>
+                                </Space>
+                            ),
+                            children: (
+                                <div style={{ padding: '8px 0' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+                                        {user?.role !== 'user' && (
+                                            <Button type="primary" icon={<PlusOutlined />} onClick={() => setShowAddAccount(true)}>Add Account</Button>
+                                        )}
+                                    </div>
 
-            {/* Modals */}
+                                    {accounts.length === 0 ? (
+                                        <Empty description="No service accounts linked to this project" />
+                                    ) : (
+                                        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                                            {accounts.map(a => {
+                                                const type = a.type.toLowerCase();
+                                                const isDb = type.includes('mongodb') || type.includes('mysql') || type.includes('postgresql');
+                                                const isStorage = type.includes('s3') || type.includes('minio');
+                                                const isMQTT = type.includes('mqtt');
+                                                const isFTP = type.includes('ftp');
+
+                                                return (
+                                                    <Card 
+                                                        key={a.id} 
+                                                        style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '16px' }}
+                                                        bodyStyle={{ padding: '24px' }}
+                                                    >
+                                                        <Row gutter={24} align="middle">
+                                                            <Col flex="0 0 300px">
+                                                                <Space direction="vertical" size={2}>
+                                                                    <Text strong style={{ fontSize: '16px' }}>{a.name}</Text>
+                                                                    <Text type="secondary" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>{SERVICE_TYPE_LABELS[a.type]}</Text>
+                                                                    <Space style={{ marginTop: '8px' }}>
+                                                                        <Tag icon={<CloudServerOutlined />} style={{ borderRadius: '4px' }}>{a.agentId || 'External'}</Tag>
+                                                                        {a.host && <Tag style={{ borderRadius: '4px' }}>{a.host}:{a.port}</Tag>}
+                                                                    </Space>
+                                                                </Space>
+                                                            </Col>
+                                                            
+                                                            <Col flex="auto">
+                                                                {/* Connection Strings and Credentials */}
+                                                                <Space direction="vertical" style={{ width: '100%' }}>
+                                                                    {isDb && a.username && a.password && a.host && (
+                                                                        <Alert
+                                                                            style={{ padding: '8px 12px' }}
+                                                                            message={
+                                                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                                                    <code style={{ fontSize: '12px', color: token.colorSuccess }}>
+                                                                                        {type.includes('mongodb') 
+                                                                                            ? `mongodb://${a.username}:${showPasswords[a.id] ? a.password : '••••••••'}@${a.host}:${a.port || 27017}/${a.database}`
+                                                                                            : `${a.type.split('-')[0]}://${a.username}:${showPasswords[a.id] ? a.password : '••••••••'}@${a.host}:${a.port}/${a.database}`
+                                                                                        }
+                                                                                    </code>
+                                                                                    <Space>
+                                                                                        <Button type="text" size="small" icon={showPasswords[a.id] ? <EyeInvisibleOutlined /> : <EyeOutlined />} onClick={() => togglePassword(a.id)} />
+                                                                                        <Button 
+                                                                                            type="text" 
+                                                                                            size="small" 
+                                                                                            icon={copiedId === a.id ? <CheckOutlined style={{ color: token.colorSuccess }} /> : <CopyOutlined />} 
+                                                                                            onClick={async () => {
+                                                                                                const prefix = type.includes('mongodb') ? 'mongodb' : a.type.split('-')[0];
+                                                                                                const uri = `${prefix}://${encodeURIComponent(a.username!)}:${encodeURIComponent(a.password!)}@${a.host}:${a.port || (prefix === 'mongodb' ? 27017 : 3306)}/${encodeURIComponent(a.database!)}`;
+                                                                                                await navigator.clipboard.writeText(uri);
+                                                                                                setCopiedId(a.id);
+                                                                                                setTimeout(() => setCopiedId(null), 2000);
+                                                                                            }}
+                                                                                        />
+                                                                                    </Space>
+                                                                                </div>
+                                                                            }
+                                                                        />
+                                                                    )}
+
+                                                                    {isStorage && (
+                                                                        <Descriptions size="small" column={2} bordered style={{ background: token.colorBgContainer }}>
+                                                                            <Descriptions.Item label="Access Key" labelStyle={{ fontSize: '11px', textTransform: 'uppercase' }}>
+                                                                                <code style={{ fontSize: '11px', fontWeight: 600 }}>{a.accessKey}</code>
+                                                                            </Descriptions.Item>
+                                                                            <Descriptions.Item label="Secret Key" labelStyle={{ fontSize: '11px', textTransform: 'uppercase' }}>
+                                                                                <Space>
+                                                                                    <code style={{ fontSize: '11px', fontWeight: 600 }}>{showPasswords[a.id] ? a.secretKey : '••••••••••••••••'}</code>
+                                                                                    <Button type="text" size="small" icon={showPasswords[a.id] ? <EyeInvisibleOutlined /> : <EyeOutlined />} onClick={() => togglePassword(a.id)} />
+                                                                                </Space>
+                                                                            </Descriptions.Item>
+                                                                        </Descriptions>
+                                                                    )}
+                                                                </Space>
+                                                            </Col>
+
+                                                            <Col flex="0 0 120px">
+                                                                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                                                    {user?.role !== 'user' && (
+                                                                        <Space>
+                                                                            {(isDb || isStorage || isMQTT || isFTP) && (
+                                                                                <Tooltip title="Provision on Agent">
+                                                                                    <Button 
+                                                                                        type="text" 
+                                                                                        icon={provisioningId === a.id ? <LoadingOutlined /> : <ReloadOutlined />} 
+                                                                                        onClick={async () => {
+                                                                                            setProvisioningId(a.id);
+                                                                                            try {
+                                                                                                let action = '';
+                                                                                                let options: any = {};
+                                                                                                if (isDb) {
+                                                                                                    action = 'db_create_user';
+                                                                                                    options = { username: type.includes('mongodb') ? `${a.username}@${a.database}` : a.username, password: a.password, role: a.role || (type.includes('mongodb') ? 'readWrite' : 'ALL PRIVILEGES'), target: a.targetEntity };
+                                                                                                } else if (isStorage) {
+                                                                                                    await provisionAccount(a.agentId!, 'storage_create_user', { access_key: a.accessKey, secret_key: a.secretKey });
+                                                                                                    action = 'storage_create_bucket';
+                                                                                                    options = { name: a.bucket };
+                                                                                                } else if (isMQTT) {
+                                                                                                    action = 'mq_create_user';
+                                                                                                    options = { username: a.username, password: a.password };
+                                                                                                } else if (isFTP) {
+                                                                                                    action = 'ftp_create_user';
+                                                                                                    options = { username: a.username, password: a.password, root_path: a.rootPath };
+                                                                                                }
+                                                                                                if (action) await provisionAccount(a.agentId!, action, options);
+                                                                                            } finally {
+                                                                                                setProvisioningId(null);
+                                                                                            }
+                                                                                        }}
+                                                                                    />
+                                                                                </Tooltip>
+                                                                            )}
+                                                                            <Tooltip title="Edit">
+                                                                                <Button type="text" icon={<EditOutlined />} onClick={() => setEditAccount(a)} />
+                                                                            </Tooltip>
+                                                                            <Tooltip title="Delete">
+                                                                                <Button type="text" danger icon={<DeleteOutlined />} onClick={() => { if (confirm(`Delete account "${a.name}"?`)) deleteAccount(a.id); }} />
+                                                                            </Tooltip>
+                                                                        </Space>
+                                                                    )}
+                                                                </div>
+                                                            </Col>
+                                                        </Row>
+                                                    </Card>
+                                                );
+                                            })}
+                                        </Space>
+                                    )}
+                                </div>
+                            )
+                        }
+                    ]}
+                />
+            </Space>
+
             <AccountFormModal
                 isOpen={showAddAccount}
                 onClose={() => setShowAddAccount(false)}
@@ -366,7 +448,7 @@ export function ProjectDetailPage() {
                     initial={project}
                 />
             )}
-        </div>
+        </PageContainer>
     );
 }
 

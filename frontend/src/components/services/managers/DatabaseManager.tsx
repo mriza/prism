@@ -1,126 +1,215 @@
-import { useState, useEffect } from 'react'
-import { Database, User, AlertCircle, RefreshCw } from 'lucide-react'
+import { useState, useEffect } from 'react';
+import { 
+    Button, 
+    Space, 
+    Typography, 
+    theme, 
+    Alert, 
+    Divider, 
+    Card, 
+    Table,
+    Input,
+    Row,
+    Col,
+    Tag,
+    Popconfirm
+} from 'antd';
+import { 
+    DatabaseOutlined, 
+    PlusOutlined, 
+    DeleteOutlined,
+    TableOutlined,
+    SafetyCertificateOutlined,
+    ReloadOutlined
+} from '@ant-design/icons';
+
+const { Text } = Typography;
 
 interface DatabaseManagerProps {
-    sendCommand: (action: string, options?: Record<string, unknown>) => Promise<any> // eslint-disable-line @typescript-eslint/no-explicit-any
+    sendCommand: (action: string, options?: Record<string, unknown>) => Promise<any>;
 }
 
 export function DatabaseManager({ sendCommand }: DatabaseManagerProps) {
-    const [dbList, setDbList] = useState<string[]>([])
-    const [dbUsers, setDbUsers] = useState<string[]>([])
-    const [loading, setLoading] = useState(false)
-    const [error, setError] = useState<string | null>(null)
-
-    const fetchDatabases = async () => {
-        const data = await sendCommand('db_list_dbs')
-        if (data && data.message) {
-            try {
-                setDbList(JSON.parse(data.message))
-            } catch { setError("Failed to parse DB list") }
-        }
-    }
-
-    const fetchUsers = async () => {
-        const data = await sendCommand('db_list_users')
-        if (data && data.message) {
-            try {
-                setDbUsers(JSON.parse(data.message))
-            } catch { setError("Failed to parse User list") }
-        }
-    }
-
-    const refreshData = async () => {
-        setLoading(true)
-        setError(null)
-        await Promise.all([fetchDatabases(), fetchUsers()])
-        setLoading(false)
-    }
+    const [databases, setDatabases] = useState<string[]>([]);
+    const [users, setUsers] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const { token } = theme.useToken();
 
     useEffect(() => {
-        refreshData()
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+        fetchData();
+    }, []);
+
+    const fetchData = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const dbRes = await sendCommand('database_list_dbs');
+            if (dbRes?.success) {
+                setDatabases(typeof dbRes.message === 'string' ? JSON.parse(dbRes.message) : dbRes.message);
+            }
+
+            const userRes = await sendCommand('database_list_users');
+            if (userRes?.success) {
+                setUsers(typeof userRes.message === 'string' ? JSON.parse(userRes.message) : userRes.message);
+            }
+        } catch (err: any) {
+            setError(err.message || 'Failed to fetch database information');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCreateDB = async (name: string) => {
+        if (!name) return;
+        setActionLoading('create-db');
+        try {
+            const res = await sendCommand('database_create_db', { db_name: name });
+            if (res?.success) fetchData();
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handleDeleteDB = async (name: string) => {
+        setActionLoading(`delete-db-${name}`);
+        try {
+            const res = await sendCommand('database_delete_db', { db_name: name });
+            if (res?.success) fetchData();
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const dbColumns = [
+        {
+            title: 'Database Name',
+            dataIndex: 'name',
+            key: 'name',
+            render: (name: string) => (
+                <Space>
+                    <TableOutlined style={{ color: token.colorPrimary }} />
+                    <Text strong>{name}</Text>
+                </Space>
+            )
+        },
+        {
+            title: 'Actions',
+            key: 'actions',
+            align: 'right' as const,
+            render: (_: any, record: { name: string }) => (
+                <Popconfirm title={`Drop database ${record.name}?`} onConfirm={() => handleDeleteDB(record.name)} okText="Yes" cancelText="No" okButtonProps={{ danger: true }}>
+                    <Button 
+                        size="small" 
+                        type="text" 
+                        danger 
+                        icon={<DeleteOutlined />} 
+                        loading={actionLoading === `delete-db-${record.name}`}
+                    />
+                </Popconfirm>
+            )
+        }
+    ];
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
+        <div style={{ padding: '4px 0' }}>
             {error && (
-                <div className="alert alert-error text-xs p-3 rounded-xl border border-error/20 flex items-start">
-                    <AlertCircle size={16} className="mt-0.5" />
-                    <span>{error}</span>
+                <Alert message={error} type="error" showIcon style={{ marginBottom: '24px', borderRadius: '12px' }} />
+            )}
+
+            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                {/* Header card */}
+                <Card 
+                    style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter }}
+                    bodyStyle={{ padding: '20px' }}
+                >
+                    <Row gutter={24} align="middle">
+                        <Col span={16}>
+                            <Space size="middle">
+                                <div style={{ 
+                                    padding: '10px', 
+                                    borderRadius: '12px', 
+                                    backgroundColor: `${token.colorPrimary}15`, 
+                                    color: token.colorPrimary,
+                                    fontSize: '20px',
+                                    display: 'flex'
+                                }}>
+                                    <DatabaseOutlined />
+                                </div>
+                                <div>
+                                    <Text strong style={{ fontSize: '15px', display: 'block' }}>Engine Management</Text>
+                                    <Text type="secondary" style={{ fontSize: '12px' }}>Operational health and entity provisioning.</Text>
+                                </div>
+                            </Space>
+                        </Col>
+                        <Col span={8} style={{ textAlign: 'right' }}>
+                            <Button icon={<ReloadOutlined spin={loading} />} onClick={fetchData} style={{ borderRadius: '8px' }}>Refresh State</Button>
+                        </Col>
+                    </Row>
+                </Card>
+
+                {/* Databases Section */}
+                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '0 0 16px 0' }}>
+                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Active Databases</Text>
+                </Divider>
+
+                <Table 
+                    columns={dbColumns} 
+                    dataSource={databases.map(db => ({ key: db, name: db }))} 
+                    loading={loading}
+                    pagination={false}
+                    size="small"
+                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '12px', overflow: 'hidden' }}
+                />
+
+                {/* User Privileges */}
+                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
+                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>User Privileges</Text>
+                </Divider>
+
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    {users.length === 0 ? (
+                        <Text type="secondary" italic>No specific user grants discovered.</Text>
+                    ) : (
+                        users.map((u, i) => (
+                            <Tag key={i} color="processing" style={{ borderRadius: '6px', padding: '4px 10px' }}>
+                                <Space>
+                                    <SafetyCertificateOutlined />
+                                    <Text strong style={{ fontSize: '12px' }}>{typeof u === 'string' ? u : u.user}</Text>
+                                </Space>
+                            </Tag>
+                        ))
+                    )}
                 </div>
-            )}
 
-            {loading && (
-                <div className="flex flex-col items-center justify-center py-8 text-primary opacity-50">
-                    <RefreshCw className="w-6 h-6 animate-spin mb-2" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Updating...</span>
-                </div>
-            )}
+                {/* DB Provisioning card */}
+                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
+                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Entity Provisioning</Text>
+                </Divider>
 
-            {!loading && (
-                <>
-                    {/* Databases */}
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <div className="p-1.5 rounded-lg bg-info/10 text-info">
-                                    <Database size={16} />
-                                </div>
-                                <h3 className="text-sm font-black uppercase tracking-widest leading-none">Databases</h3>
-                            </div>
-                        </div>
-                        
-                        <div className="flex flex-wrap gap-2 p-4 bg-base-300/30 rounded-2xl border border-white/5 shadow-inner min-h-[60px]">
-                            {dbList.length > 0 ? dbList.map(db => (
-                                <div key={db} className="badge badge-lg bg-base-100 border-white/5 text-[11px] font-bold font-mono py-4 px-4 shadow-sm hover:border-info/30 transition-colors">
-                                    {db}
-                                </div>
-                            )) : (
-                                <div className="flex items-center justify-center w-full italic text-neutral-content/30 text-xs">
-                                    No databases found.
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Users */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2">
-                            <div className="p-1.5 rounded-lg bg-success/10 text-success">
-                                <User size={16} />
-                            </div>
-                            <h3 className="text-sm font-black uppercase tracking-widest leading-none">Database Users</h3>
-                        </div>
-                        
-                        <div className="rounded-2xl border border-white/5 overflow-hidden bg-base-300/30 shadow-sm ring-1 ring-white/5">
-                            <div className="overflow-x-auto">
-                                <table className="table table-sm w-full">
-                                    <thead>
-                                        <tr className="bg-base-300/50 text-[10px] uppercase font-black tracking-[0.15em] text-neutral-content/40 border-b border-white/5 leading-none h-10">
-                                            <th className="pl-6">User</th>
-                                            <th className="pr-6 text-right">Host</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {dbUsers.length > 0 ? dbUsers.map((u, idx) => (
-                                            <tr key={idx} className="hover:bg-white/[0.02] transition-colors border-b border-white/5 group last:border-0 h-11">
-                                                <td className="pl-6 font-mono font-bold text-xs text-base-content/80">{u}</td>
-                                                <td className="pr-6 text-right font-mono text-[10px] text-neutral-content/40">-</td>
-                                            </tr>
-                                        )) : (
-                                            <tr>
-                                                <td colSpan={2} className="py-8 text-center italic text-neutral-content/30 text-xs">
-                                                    No database users found.
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </>
-            )}
+                <Card style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                    <Row gutter={16}>
+                        <Col flex="auto">
+                            <Input placeholder="Enter database name..." id="new-db-name" style={{ borderRadius: '8px', height: '40px' }} />
+                        </Col>
+                        <Col>
+                            <Button 
+                                type="primary" 
+                                icon={<PlusOutlined />} 
+                                loading={actionLoading === 'create-db'}
+                                onClick={() => {
+                                    const input = document.getElementById('new-db-name') as HTMLInputElement;
+                                    handleCreateDB(input.value);
+                                }}
+                                style={{ borderRadius: '8px', height: '40px', fontWeight: 600, padding: '0 24px' }}
+                            >
+                                Provision DB
+                            </Button>
+                        </Col>
+                    </Row>
+                </Card>
+            </Space>
         </div>
-    )
+    );
 }

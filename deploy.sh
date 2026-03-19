@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # PRISM Multi-Server Interactive Deployer
-# Versi: 2.0 (Multi-OS & GitHub Support)
+# Versi: 2.1 (Multi-OS & GitHub Support & Token Sync)
 
 echo "================================================="
 echo "   PRISM Interactive Target Deployment Wizard     "
@@ -38,6 +38,18 @@ execute_remote() {
     fi
 }
 
+execute_remote_sudo() {
+    local CMD=$1
+    if [ -n "$TARGET_AUTH" ] && [ -f "$TARGET_AUTH" ]; then
+        ssh -i "$TARGET_AUTH" -o StrictHostKeyChecking=no $TARGET_USER@$TARGET_IP "sudo $CMD"
+    elif [ -n "$TARGET_AUTH" ]; then
+        export SSHPASS="$TARGET_AUTH"
+        sshpass -e ssh -o StrictHostKeyChecking=no $TARGET_USER@$TARGET_IP "sudo $CMD"
+    else
+        ssh -o StrictHostKeyChecking=no $TARGET_USER@$TARGET_IP "sudo $CMD"
+    fi
+}
+
 echo "========================================="
 echo "       MEMULAI PROSES DEPLOYMENT         "
 echo "========================================="
@@ -67,17 +79,26 @@ execute_remote << 'EOF'
     set -e
     # Deteksi OS lagi di dalam shell remote
     OS=$(grep '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
-    
+
     sudo tar -xzf /tmp/prism_deploy.tar.gz -C /tmp/
-    
+
     # Pindahkan binary
     [ -f /tmp/prism-server ] && sudo mv /tmp/prism-server /opt/prism/server/prism-server
+    [ -f /tmp/prism-server.conf ] && sudo mv /tmp/prism-server.conf /opt/prism/server/
     [ -f /tmp/prism-agent ] && sudo mv /tmp/prism-agent /opt/prism/agent/prism-agent
+    [ -f /tmp/prism-agent.conf ] && sudo mv /tmp/prism-agent.conf /opt/prism/agent/
     [ -d /tmp/dist ] && (sudo rm -rf /opt/prism/frontend/dist; sudo mv /tmp/dist /opt/prism/frontend/dist)
-    
+
     sudo chmod +x /opt/prism/server/prism-server 2>/dev/null || true
     sudo chmod +x /opt/prism/agent/prism-agent 2>/dev/null || true
-    
+
+    # Install systemd services
+    [ -f /tmp/prism-server.service ] && sudo mv /tmp/prism-server.service /etc/systemd/system/
+    [ -f /tmp/prism-agent.service ] && sudo mv /tmp/prism-agent.service /etc/systemd/system/
+    sudo systemctl daemon-reload
+    sudo systemctl enable prism-server 2>/dev/null || true
+    sudo systemctl enable prism-agent 2>/dev/null || true
+
     # Nginx Configuration
     case "$OS" in
         ubuntu|debian)
@@ -96,10 +117,24 @@ server {
     listen 80;
     root /opt/prism/frontend/dist;
     index index.html;
-    location / { try_files \$uri \$uri/ /index.html; }
+    
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+    
     location /api/ {
         proxy_pass http://127.0.0.1:65432;
-        proxy_set_header Host \$host;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+    
+    location /agent/connect {
+        proxy_pass http://127.0.0.1:65432;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
     }
 }
 NGINX
@@ -110,18 +145,42 @@ NGINX
 
     # Firewall
     if command -v ufw >/dev/null; then
-        sudo ufw allow 80/tcp
+        sudo ufw allow 80/tcp 2>/dev/null || true
+        sudo ufw allow 65432/tcp 2>/dev/null || true
     elif command -v firewall-cmd >/dev/null; then
-        sudo firewall-cmd --permanent --add-port=80/tcp
-        sudo firewall-cmd --reload
+        sudo firewall-cmd --permanent --add-port=80/tcp 2>/dev/null || true
+        sudo firewall-cmd --permanent --add-port=65432/tcp 2>/dev/null || true
+        sudo firewall-cmd --reload 2>/dev/null || true
     fi
 
+    # Restart services
     echo "Restarting services..."
     sudo systemctl restart nginx 2>/dev/null || true
     sudo systemctl restart prism-server 2>/dev/null || true
-    sudo systemctl restart prism-agent 2>/dev/null || true
+    
+    # Wait for server to initialize
+    echo "Waiting for server to initialize..."
+    sleep 10
+    
+    # Sync token
+    echo "Syncing agent token with server..."
+    SERVER_TOKEN=$(sudo grep "^token =" /opt/prism/server/prism-server.conf | head -1 | sed 's/token *= *//;s/^["'\'']//;s/["'\'']$//' | tr -d ' ')
+    
+    if [ -n "$SERVER_TOKEN" ]; then
+        sudo sed -i "s|^token = .*|token = '$SERVER_TOKEN'|" /opt/prism/agent/prism-agent.conf
+        echo "Token synced successfully"
+        sudo systemctl restart prism-agent 2>/dev/null || true
+    else
+        echo "Warning: Could not sync token automatically"
+    fi
+    
+    echo "Deployment completed!"
 EOF
 
 echo "========================================="
 echo "   DEPLOYMENT SELESAI DENGAN SUKSES!     "
 echo "========================================="
+echo ""
+echo "Akses dashboard di: http://$TARGET_IP"
+echo "Server API: http://$TARGET_IP:65432"
+echo ""

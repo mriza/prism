@@ -1,11 +1,30 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Modal } from '../ui/Modal';
-import { Button } from '../ui/Button';
-import { Input, Select } from '../ui/Fields';
-import { Shield, Plus, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
-import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { 
+    Modal, 
+    Table, 
+    Button, 
+    Space, 
+    Typography, 
+    theme, 
+    Form, 
+    Input, 
+    Select, 
+    Badge, 
+    Popconfirm,
+    Divider,
+    Alert,
+    Row,
+    Col
+} from 'antd';
+import { 
+    SafetyOutlined, 
+    PlusOutlined, 
+    DeleteOutlined, 
+    ReloadOutlined, 
+    WarningOutlined
+} from '@ant-design/icons';
 
+const { Text } = Typography;
 
 interface Decision {
     id: number;
@@ -36,11 +55,9 @@ export function CrowdSecModal({ isOpen, onClose, agentId }: Props) {
     const [decisions, setDecisions] = useState<Decision[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [newIp, setNewIp] = useState('');
-    const [newDuration, setNewDuration] = useState('4h');
-    const [newReason, setNewReason] = useState('');
-    const [newType, setNewType] = useState('ban');
     const [actionLoading, setActionLoading] = useState('');
+    const { token } = theme.useToken();
+    const [form] = Form.useForm();
 
     const fetchDecisions = useCallback(async () => {
         setLoading(true);
@@ -62,22 +79,19 @@ export function CrowdSecModal({ isOpen, onClose, agentId }: Props) {
 
     useEffect(() => {
         if (isOpen) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             fetchDecisions();
         }
     }, [isOpen, fetchDecisions]);
 
-    const handleAdd = async () => {
-        if (!newIp) return;
+    const handleAdd = async (values: any) => {
         setActionLoading('add');
         await controlAgent(agentId, 'crowdsec_add', {
-            ip: newIp,
-            duration: newDuration,
-            reason: newReason || 'manual via PRISM',
-            type: newType,
+            ip: values.ip,
+            duration: values.duration,
+            reason: values.reason || 'manual via PRISM',
+            type: values.type,
         });
-        setNewIp('');
-        setNewReason('');
+        form.resetFields();
         await fetchDecisions();
         setActionLoading('');
     };
@@ -89,167 +103,191 @@ export function CrowdSecModal({ isOpen, onClose, agentId }: Props) {
         setActionLoading('');
     };
 
+    const columns = [
+        {
+            title: 'ID',
+            dataIndex: 'id',
+            key: 'id',
+            width: 60,
+            render: (id: number) => <Text type="secondary" style={{ fontFamily: 'monospace', fontSize: '10px' }}>{id}</Text>
+        },
+        {
+            title: 'Origin',
+            dataIndex: 'origin',
+            key: 'origin',
+            render: (origin: string) => <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', opacity: 0.5 }}>{origin}</Text>
+        },
+        {
+            title: 'IP / Target',
+            dataIndex: 'value',
+            key: 'value',
+            render: (value: string) => <Text strong style={{ color: token.colorWarning, fontFamily: 'monospace' }}>{value}</Text>
+        },
+        {
+            title: 'Reason',
+            dataIndex: 'reason',
+            key: 'reason',
+            render: (reason: string) => <Text type="secondary" style={{ fontSize: '11px' }}>{reason}</Text>,
+            ellipsis: true
+        },
+        {
+            title: 'Type',
+            dataIndex: 'type',
+            key: 'type',
+            render: (type: string) => (
+                <Badge 
+                    status={type === 'ban' ? 'error' : 'warning'} 
+                    text={<Text strong style={{ fontSize: '10px', textTransform: 'uppercase' }}>{type}</Text>} 
+                />
+            )
+        },
+        {
+            title: 'TTL',
+            dataIndex: 'duration',
+            key: 'duration',
+            render: (d: string) => <Text type="secondary" style={{ fontFamily: 'monospace', fontSize: '11px' }}>{d}</Text>
+        },
+        {
+            title: 'Actions',
+            key: 'actions',
+            align: 'right' as const,
+            render: (_: any, record: Decision) => (
+                <Popconfirm
+                    title="Delete Decision"
+                    description="Remove this ban/decision?"
+                    onConfirm={() => handleDelete(record.id)}
+                    okText="Yes"
+                    cancelText="No"
+                    okButtonProps={{ danger: true }}
+                >
+                    <Button 
+                        type="text" 
+                        danger 
+                        icon={<DeleteOutlined />} 
+                        loading={actionLoading === `del-${record.id}`}
+                    />
+                </Popconfirm>
+            )
+        }
+    ];
+
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`CrowdSec — ${agentId}`} size="xl">
-            <div className="space-y-6 text-sm">
-                {/* Status bar */}
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex items-center gap-2 text-warning">
-                        <div className="p-2 rounded-lg bg-warning/10">
-                            <Shield size={18} />
-                        </div>
-                        <span className="text-sm font-bold">{decisions.length} Active Decision{decisions.length !== 1 ? 's' : ''}</span>
+        <Modal 
+            open={isOpen} 
+            onCancel={onClose} 
+            title={
+                <Space size="middle">
+                    <div style={{ 
+                        padding: '8px', 
+                        borderRadius: '10px', 
+                        backgroundColor: `${token.colorWarning}15`, 
+                        color: token.colorWarning,
+                        display: 'flex'
+                    }}>
+                        <SafetyOutlined />
                     </div>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs h-8 hover:bg-white/5"
+                    <div>
+                        <Text strong style={{ fontSize: '16px' }}>CrowdSec Firewall</Text>
+                        <Text type="secondary" style={{ display: 'block', fontSize: '12px' }}>
+                            Managing active security decisions for node <Text code>{agentId}</Text>
+                        </Text>
+                    </div>
+                </Space>
+            }
+            footer={null}
+            width={900}
+            style={{ borderRadius: '20px', overflow: 'hidden' }}
+        >
+            <div style={{ marginTop: '24px' }}>
+                {error && (
+                    <Alert
+                        message="Security Node Unreachable"
+                        description={error}
+                        type="error"
+                        showIcon
+                        style={{ marginBottom: '24px', borderRadius: '12px' }}
+                    />
+                )}
+
+                <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text strong style={{ fontSize: '12px', textTransform: 'uppercase', opacity: 0.5 }}>
+                        {decisions.length} Active Decisions
+                    </Text>
+                    <Button 
+                        icon={<ReloadOutlined spin={loading} />} 
                         onClick={fetchDecisions}
-                        loading={loading}
+                        style={{ borderRadius: '8px' }}
                     >
-                        <RefreshCw size={14} className={clsx("mr-1.5", loading && "animate-spin")} />
                         Refresh
                     </Button>
                 </div>
 
-                {/* Error */}
-                {error && (
-                    <div className="alert alert-error text-xs p-3 rounded-xl border border-error/20 flex items-start">
-                        <div className="p-1 rounded bg-error/10 mr-1">
-                            <AlertTriangle size={14} />
-                        </div>
-                        <span>{error}</span>
-                    </div>
-                )}
-
-                {/* Add decision form */}
-                <div className="p-4 bg-base-200 rounded-xl border border-white/5 shadow-inner">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 items-end gap-3">
-                        <div className="md:col-span-2">
-                            <Input
-                                label="IP Address"
-                                placeholder="e.g. 1.2.3.4"
-                                value={newIp}
-                                onChange={e => setNewIp(e.target.value)}
-                            />
-                        </div>
-                        <div className="w-full">
-                            <Input
-                                label="Duration"
-                                placeholder="4h"
-                                value={newDuration}
-                                onChange={e => setNewDuration(e.target.value)}
-                            />
-                        </div>
-                        <div className="w-full">
-                            <Select
-                                label="Type"
-                                value={newType}
-                                onChange={e => setNewType(e.target.value)}
-                                options={[
-                                    { value: 'ban', label: 'Ban' },
-                                    { value: 'captcha', label: 'Captcha' },
-                                    { value: 'throttle', label: 'Throttle' },
-                                ]}
-                            />
-                        </div>
-                        <Button
-                            variant="primary"
-                            size="md"
-                            className="w-full h-11"
-                            onClick={handleAdd}
-                            loading={actionLoading === 'add'}
-                            disabled={!newIp}
-                        >
-                            <Plus size={16} />
-                            Add Decision
-                        </Button>
-                        <div className="md:col-span-4 mt-1">
-                            <Input
-                                label="Reason (optional)"
-                                placeholder="e.g. repeated failed logins"
-                                value={newReason}
-                                onChange={e => setNewReason(e.target.value)}
-                            />
-                        </div>
-                    </div>
+                {/* List Table */}
+                <div style={{ 
+                    borderRadius: '16px', 
+                    overflow: 'hidden', 
+                    border: `1px solid ${token.colorBorderSecondary}`,
+                    marginBottom: '32px'
+                }}>
+                    <Table 
+                        dataSource={decisions}
+                        columns={columns}
+                        rowKey="id"
+                        pagination={false}
+                        loading={loading}
+                        locale={{ emptyText: 'No active security decisions found.' }}
+                        size="small"
+                    />
                 </div>
 
-                {/* Decisions Table */}
-                <div className="rounded-xl border border-white/5 overflow-hidden bg-base-200/50 backdrop-blur-sm shadow-sm ring-1 ring-white/5">
-                    <div className="overflow-x-auto">
-                        <table className="table table-sm w-full">
-                            <thead>
-                                <tr className="bg-base-300/50 text-[10px] uppercase font-black tracking-[0.15em] text-neutral-content/40 border-b border-white/5 leading-none h-10">
-                                    <th className="pl-4 w-12 text-center">ID</th>
-                                    <th>Source</th>
-                                    <th>Value</th>
-                                    <th>Reason</th>
-                                    <th>Type</th>
-                                    <th>Duration</th>
-                                    <th className="pr-4 w-12"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {loading && decisions.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={7} className="py-12 text-center text-neutral-content/40 italic">
-                                            <span className="loading loading-spinner h-6 w-6 mb-2" />
-                                            <div>Loading decisions...</div>
-                                        </td>
-                                    </tr>
-                                ) : decisions.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={7} className="py-12 text-center text-neutral-content/40 italic">
-                                            No active decisions — all clear 🎉
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    decisions.map(dec => {
-                                        const isBan = dec.type === 'ban';
-                                        return (
-                                            <tr key={dec.id} className="hover:bg-white/[0.02] transition-colors border-b border-white/5 group last:border-0 h-12">
-                                                <td className="pl-4 text-center font-mono opacity-40 text-[11px]">{dec.id}</td>
-                                                <td className="text-[10px] uppercase font-bold text-neutral-content/40">{dec.origin}</td>
-                                                <td className="font-mono font-bold text-xs text-warning/80">{dec.value}</td>
-                                                <td className="max-w-[200px] truncate text-neutral-content/60 text-[11px]" title={dec.reason}>
-                                                    {dec.reason}
-                                                </td>
-                                                <td>
-                                                    <span className={twMerge(
-                                                        clsx(
-                                                            "badge badge-xs font-black uppercase text-[9px] px-2 py-2 border leading-none shadow-sm",
-                                                            isBan ? "bg-error/10 text-error border-error/20" : "bg-warning/10 text-warning border-warning/20"
-                                                        )
-                                                    )}>
-                                                        {dec.type}
-                                                    </span>
-                                                </td>
-                                                <td className="text-neutral-content/60 text-[11px] font-mono">{dec.duration}</td>
-                                                <td className="pr-4 text-right">
-                                                    <button
-                                                        title="Delete decision"
-                                                        onClick={() => handleDelete(dec.id)}
-                                                        disabled={actionLoading === `del-${dec.id}`}
-                                                        className="btn btn-ghost btn-xs btn-square text-neutral-content/30 hover:text-error hover:bg-error/10 transition-all rounded-lg opacity-0 group-hover:opacity-100 focus:opacity-100"
-                                                    >
-                                                        {actionLoading === `del-${dec.id}` ? (
-                                                            <span className="loading loading-spinner h-3.5 w-3.5" />
-                                                        ) : (
-                                                            <Trash2 size={14} />
-                                                        )}
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                {/* Add Form */}
+                <Divider orientation={"left" as any} style={{ margin: '0 0 24px 0' }}>
+                    <Space>
+                        <WarningOutlined style={{ color: token.colorWarning, fontSize: '12px' }} />
+                        <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Manual Decision (BAN)</Text>
+                    </Space>
+                </Divider>
+
+                <Form
+                    form={form}
+                    layout="vertical"
+                    onFinish={handleAdd}
+                    initialValues={{ duration: '4h', type: 'ban' }}
+                >
+                    <Row gutter={16}>
+                        <Col span={8}>
+                            <Form.Item name="ip" label={<Text strong style={{ fontSize: '12px' }}>IP / Range</Text>} rules={[{ required: true }]}>
+                                <Input placeholder="e.g. 1.2.3.4" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                            </Form.Item>
+                        </Col>
+                        <Col span={4}>
+                            <Form.Item name="duration" label={<Text strong style={{ fontSize: '12px' }}>TTL</Text>} rules={[{ required: true }]}>
+                                <Input placeholder="4h" style={{ borderRadius: '8px' }} />
+                            </Form.Item>
+                        </Col>
+                        <Col span={4}>
+                            <Form.Item name="type" label={<Text strong style={{ fontSize: '12px' }}>Action</Text>} rules={[{ required: true }]}>
+                                <Select options={[{ value: 'ban', label: 'BAN' }, { value: 'captcha', label: 'CAPTCHA' }, { value: 'throttle', label: 'THROTTLE' }]} style={{ borderRadius: '8px' }} />
+                            </Form.Item>
+                        </Col>
+                        <Col span={8}>
+                            <Form.Item name="reason" label={<Text strong style={{ fontSize: '12px' }}>Reason</Text>}>
+                                <Input placeholder="e.g. repeated failed logins" style={{ borderRadius: '8px' }} />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+                    <Button 
+                        type="primary" 
+                        htmlType="submit" 
+                        block 
+                        icon={<PlusOutlined />}
+                        loading={actionLoading === 'add'}
+                        style={{ height: '40px', borderRadius: '10px', fontWeight: 600, backgroundColor: token.colorWarning, borderColor: 'transparent' }}
+                    >
+                        Apply Decision
+                    </Button>
+                </Form>
             </div>
         </Modal>
     );
 }
-

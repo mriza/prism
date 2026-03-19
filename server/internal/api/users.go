@@ -46,6 +46,9 @@ func HandleUsers(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Username string `json:"username"`
 			Password string `json:"password"`
+			FullName string `json:"fullName"`
+			Email    string `json:"email"`
+			Phone    string `json:"phone"`
 			Role     string `json:"role"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -67,6 +70,9 @@ func HandleUsers(w http.ResponseWriter, r *http.Request) {
 		user := models.User{
 			Username: req.Username,
 			Password: string(hashedPassword),
+			FullName: req.FullName,
+			Email:    req.Email,
+			Phone:    req.Phone,
 			Role:     req.Role,
 		}
 
@@ -111,14 +117,21 @@ func HandleUserDetail(w http.ResponseWriter, r *http.Request) {
 	id := pathParts[3]
 
 	// Don't allow modified/deleted user if it's the last admin
-	// In a real application, you might want to perform an extra query 
-	// to ensure we aren't deleting the last remaining admin account.
+	// Prevent self-deletion
+	claims := GetUserClaims(r)
+	if claims != nil && claims.UserID == id && r.Method == "DELETE" {
+		http.Error(w, "Cannot delete your own account", http.StatusForbidden)
+		return
+	}
 
 	switch r.Method {
 	case "PUT":
 		var req struct {
 			Username string `json:"username"`
 			Password string `json:"password"` // optional
+			FullName string `json:"fullName"`
+			Email    string `json:"email"`
+			Phone    string `json:"phone"`
 			Role     string `json:"role"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -145,6 +158,9 @@ func HandleUserDetail(w http.ResponseWriter, r *http.Request) {
 			ID:       id,
 			Username: req.Username,
 			Password: hashedPassword,
+			FullName: req.FullName,
+			Email:    req.Email,
+			Phone:    req.Phone,
 			Role:     req.Role,
 		}
 
@@ -161,6 +177,90 @@ func HandleUserDetail(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]bool{"success": true})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func HandleMe(w http.ResponseWriter, r *http.Request) {
+	// Enable CORS
+	origin := r.Header.Get("Origin")
+	if origin != "" {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+	} else {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+	}
+	w.Header().Set("Access-Control-Allow-Methods", "GET, PUT, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+	if r.Method == "OPTIONS" {
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	claims := GetUserClaims(r)
+	if claims == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	switch r.Method {
+	case "GET":
+		user, err := db.GetUserByID(claims.UserID)
+		if err != nil || user == nil {
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+		user.Password = ""
+		json.NewEncoder(w).Encode(user)
+
+	case "PUT":
+		var req struct {
+			Password string `json:"password"` // optional, for changing password
+			FullName string `json:"fullName"`
+			Email    string `json:"email"`
+			Phone    string `json:"phone"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid input", http.StatusBadRequest)
+			return
+		}
+
+		user, err := db.GetUserByID(claims.UserID)
+		if err != nil || user == nil {
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+
+		var hashedPassword = ""
+		if req.Password != "" {
+			hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+			if err != nil {
+				http.Error(w, "Failed to hash password", http.StatusInternalServerError)
+				return
+			}
+			hashedPassword = string(hash)
+		}
+
+		updatedUser := models.User{
+			ID:       user.ID,
+			Username: user.Username, // Username remains static
+			Password: hashedPassword,
+			FullName: req.FullName,
+			Email:    req.Email,
+			Phone:    req.Phone,
+			Role:     user.Role, // Role remains static for self-update
+		}
+
+		if err := db.UpdateUser(updatedUser); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]bool{"success": true})
 

@@ -1,278 +1,637 @@
-import { useState, useEffect } from 'react'
-import { X, Plus, Users, Globe, Link } from 'lucide-react'
-import { clsx } from 'clsx'
+import { useState, useEffect } from 'react';
+import {
+    Button,
+    Space,
+    Typography,
+    theme,
+    Alert,
+    Divider,
+    Card,
+    Table,
+    Row,
+    Col,
+    Tag,
+    Badge,
+    Input,
+    Select,
+    Form,
+    message
+} from 'antd';
+import {
+    PlusOutlined,
+    DeleteOutlined,
+    GlobalOutlined,
+    InteractionOutlined,
+    ArrowRightOutlined,
+    InfoCircleOutlined,
+    ReloadOutlined,
+    SettingOutlined,
+    SwapOutlined
+} from '@ant-design/icons';
+
+const { Text } = Typography;
+const { Option } = Select;
 
 interface RabbitMQManagerProps {
-    sendCommand: (action: string, options?: Record<string, unknown>) => Promise<any> // eslint-disable-line @typescript-eslint/no-explicit-any
-    setActionOutput: (output: string | null) => void
+    sendCommand: (action: string, options?: Record<string, unknown>) => Promise<any>;
 }
 
-interface RMQUser {
+interface Exchange {
     name: string;
-    tags: string;
+    vhost: string;
+    type: string;
 }
 
-export function RabbitMQManager({ sendCommand, setActionOutput }: RabbitMQManagerProps) {
-    const [rmqVHosts, setRmqVHosts] = useState<string[]>([])
-    const [rmqUsers, setRmqUsers] = useState<RMQUser[]>([])
-    const [loading, setLoading] = useState(false)
+interface Queue {
+    name: string;
+    vhost: string;
+    messages: number;
+    state: string;
+}
 
-    const fetchRmqData = async () => {
-        setLoading(true)
-        try {
-            // VHosts
-            const vhostsData = await sendCommand('rmq_list_vhosts')
-            if (vhostsData?.message) setRmqVHosts(JSON.parse(vhostsData.message))
+interface Binding {
+    source: string;
+    destination: string;
+    routing_key: string;
+    vhost: string;
+}
 
-            // Users
-            const usersData = await sendCommand('rmq_list_users')
-            if (usersData?.message) setRmqUsers(JSON.parse(usersData.message))
-        } catch (e) {
-            console.error("Failed to fetch RMQ data", e)
-        } finally {
-            setLoading(false)
-        }
-    }
+export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
+    const [vhosts, setVhosts] = useState<string[]>([]);
+    const [queues, setQueues] = useState<Queue[]>([]);
+    const [exchanges, setExchanges] = useState<Exchange[]>([]);
+    const [bindings, setBindings] = useState<Binding[]>([]);
+    const [users, setUsers] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [settings, setSettings] = useState<Record<string, any>>({});
+    const [loadingSettings, setLoadingSettings] = useState(false);
+    const [updatingSettings, setUpdatingSettings] = useState(false);
+    const [form] = Form.useForm();
+    const { token } = theme.useToken();
 
     useEffect(() => {
-        fetchRmqData()
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+        fetchData();
+        loadSettings();
+    }, []);
 
-    const handleCreateVHost = async () => {
-        const input = document.getElementById('newVhost') as HTMLInputElement;
-        const val = input.value;
-        if (val) {
-            const res = await sendCommand('rmq_create_vhost', { name: val });
-            if (res) {
-                input.value = '';
-                fetchRmqData();
-                setActionOutput(`VHost "${val}" created successfully`);
+    const fetchData = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const vhRes = await sendCommand('rabbitmq_list_vhosts');
+            if (vhRes?.success) {
+                setVhosts(typeof vhRes.message === 'string' ? JSON.parse(vhRes.message) : vhRes.message);
             }
-        }
-    }
 
-    const handleCreateUser = async () => {
-        const userEl = document.getElementById('rmqUser') as HTMLInputElement;
-        const passEl = document.getElementById('rmqPass') as HTMLInputElement;
-        const tagsEl = document.getElementById('rmqTags') as HTMLSelectElement;
-        const vhostEl = document.getElementById('rmqPermVhost') as HTMLSelectElement;
-
-        const user = userEl.value;
-        const pass = passEl.value;
-        const tags = tagsEl.value;
-        const vhost = vhostEl.value;
-
-        if (user && pass) {
-            const res = await sendCommand('rmq_create_user', { username: user, password: pass, tags });
-            if (res) {
-                if (vhost) {
-                    await sendCommand('rmq_set_permissions', { vhost, username: user });
-                }
-                fetchRmqData();
-                userEl.value = '';
-                passEl.value = '';
-                setActionOutput(`User "${user}" created successfully`);
+            const qRes = await sendCommand('rabbitmq_list_queues');
+            if (qRes?.success) {
+                setQueues(typeof qRes.message === 'string' ? JSON.parse(qRes.message) : qRes.message);
             }
+
+            const exRes = await sendCommand('rabbitmq_list_exchanges');
+            if (exRes?.success) {
+                setExchanges(typeof exRes.message === 'string' ? JSON.parse(exRes.message) : exRes.message);
+            }
+
+            const bindRes = await sendCommand('rabbitmq_list_bindings');
+            if (bindRes?.success) {
+                setBindings(typeof bindRes.message === 'string' ? JSON.parse(bindRes.message) : bindRes.message);
+            }
+
+            const userRes = await sendCommand('rabbitmq_list_users');
+            if (userRes?.success) {
+                setUsers(typeof userRes.message === 'string' ? JSON.parse(userRes.message) : userRes.message);
+            }
+        } catch (err: any) {
+            setError(err.message || 'Failed to fetch RabbitMQ data');
+        } finally {
+            setLoading(false);
         }
-    }
+    };
+
+    const loadSettings = async () => {
+        setLoadingSettings(true);
+        try {
+            const res = await sendCommand('get_settings');
+            if (res?.success) {
+                const settingsData = typeof res.message === 'string' ? JSON.parse(res.message) : res.message;
+                setSettings(settingsData);
+                form.setFieldsValue(settingsData);
+            }
+        } catch (err: any) {
+            console.error('Failed to load settings:', err);
+        } finally {
+            setLoadingSettings(false);
+        }
+    };
+
+    const handleUpdateSettings = async (values: any) => {
+        setUpdatingSettings(true);
+        try {
+            const res = await sendCommand('update_settings', values);
+            if (res?.success) {
+                message.success('Settings updated successfully');
+                loadSettings();
+            }
+        } catch (err: any) {
+            message.error('Failed to update settings');
+        } finally {
+            setUpdatingSettings(false);
+        }
+    };
+
+    const handleCreateVHost = async (name: string) => {
+        if (!name) return;
+        const res = await sendCommand('rabbitmq_add_vhost', { vhost: name });
+        if (res?.success) {
+            message.success(`VHost ${name} created successfully`);
+            fetchData();
+        }
+    };
+
+    const handleDeleteVHost = async (name: string) => {
+        const res = await sendCommand('rabbitmq_delete_vhost', { vhost: name });
+        if (res?.success) {
+            message.success(`VHost ${name} deleted successfully`);
+            fetchData();
+        }
+    };
+
+    const handleCreateExchange = async (values: any) => {
+        const res = await sendCommand('rabbitmq_declare_exchange', {
+            vhost: values.vhost || '/',
+            name: values.name,
+            kind: values.type || 'direct'
+        });
+        if (res?.success) {
+            message.success('Exchange created successfully');
+            fetchData();
+        }
+    };
+
+    const handleCreateQueue = async (values: any) => {
+        const res = await sendCommand('rabbitmq_declare_queue', {
+            vhost: values.vhost || '/',
+            name: values.name
+        });
+        if (res?.success) {
+            message.success('Queue created successfully');
+            fetchData();
+        }
+    };
+
+    const handleCreateBinding = async (values: any) => {
+        const res = await sendCommand('rabbitmq_create_binding', {
+            vhost: values.vhost || '/',
+            sourceExchange: values.exchange,
+            destinationQueue: values.queue,
+            routingKey: values.routing_key || ''
+        });
+        if (res?.success) {
+            message.success('Binding created successfully');
+            fetchData();
+        }
+    };
+
+    const queueColumns = [
+        {
+            title: 'Queue Name',
+            dataIndex: 'name',
+            key: 'name',
+            render: (name: string) => <Text strong>{name}</Text>
+        },
+        {
+            title: 'VHost',
+            dataIndex: 'vhost',
+            key: 'vhost',
+            render: (vh: string) => <Tag color="blue">{vh}</Tag>
+        },
+        {
+            title: 'Status',
+            dataIndex: 'state',
+            key: 'state',
+            render: (state: string) => (
+                <Badge status={state === 'running' ? 'success' : 'default'} text={<Text style={{ fontSize: '12px' }}>{state}</Text>} />
+            )
+        },
+        {
+            title: 'Messages',
+            dataIndex: 'messages',
+            key: 'messages',
+            render: (count: number) => <Text code>{count || 0}</Text>
+        }
+    ];
+
+    const exchangeColumns = [
+        {
+            title: 'Exchange Name',
+            dataIndex: 'name',
+            key: 'name',
+            render: (name: string) => (
+                <Space>
+                    <SwapOutlined style={{ color: token.colorWarning }} />
+                    <Text strong>{name}</Text>
+                </Space>
+            )
+        },
+        {
+            title: 'Type',
+            dataIndex: 'type',
+            key: 'type',
+            render: (type: string) => (
+                <Tag color={type === 'direct' ? 'green' : type === 'fanout' ? 'purple' : 'orange'}>
+                    {type}
+                </Tag>
+            )
+        },
+        {
+            title: 'VHost',
+            dataIndex: 'vhost',
+            key: 'vhost',
+            render: (vh: string) => <Tag color="blue">{vh}</Tag>
+        }
+    ];
+
+    const bindingColumns = [
+        {
+            title: 'Source',
+            dataIndex: 'source',
+            key: 'source',
+            render: (source: string) => <Text code>{source}</Text>
+        },
+        {
+            title: '',
+            key: 'arrow',
+            render: () => <ArrowRightOutlined style={{ opacity: 0.5 }} />
+        },
+        {
+            title: 'Destination',
+            dataIndex: 'destination',
+            key: 'destination',
+            render: (dest: string) => <Text code>{dest}</Text>
+        },
+        {
+            title: 'Routing Key',
+            dataIndex: 'routing_key',
+            key: 'routing_key',
+            render: (key: string) => <Tag>{key || '*'}</Tag>
+        },
+        {
+            title: 'VHost',
+            dataIndex: 'vhost',
+            key: 'vhost',
+            render: (vh: string) => <Tag color="blue">{vh}</Tag>
+        }
+    ];
 
     return (
-        <div className={clsx("space-y-8 animate-in fade-in duration-500", loading && "opacity-50 pointer-events-none")}>
-            {/* VHosts */}
-            <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                        <Globe size={16} />
-                    </div>
-                    <h3 className="text-sm font-black uppercase tracking-widest leading-none">Virtual Hosts</h3>
-                </div>
+        <div style={{ padding: '4px 0' }}>
+            {error && (
+                <Alert message={error} type="error" showIcon style={{ marginBottom: '24px', borderRadius: '12px' }} />
+            )}
 
-                <div className="bg-base-300/30 rounded-2xl border border-white/5 p-4 shadow-inner space-y-4">
-                    <div className="flex flex-wrap gap-2 min-h-[40px]">
-                        {rmqVHosts.length > 0 ? rmqVHosts.map(vh => (
-                            <div key={vh} className="badge badge-lg bg-base-100 border-white/5 text-[11px] font-bold font-mono py-4 px-3 shadow-sm flex items-center gap-2 group hover:border-error/30 transition-colors">
-                                {vh}
-                                <button 
-                                    onClick={async () => {
-                                        if (confirm(`Are you sure you want to delete vhost "${vh}"?`)) {
-                                            await sendCommand('rmq_delete_vhost', { name: vh })
-                                            fetchRmqData()
-                                        }
-                                    }} 
-                                    className="text-neutral-content/30 hover:text-error transition-colors p-0.5 rounded-md hover:bg-error/10"
+            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                {/* Header */}
+                <Card
+                    style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter }}
+                    bodyStyle={{ padding: '20px' }}
+                >
+                    <Row gutter={24} align="middle">
+                        <Col span={16}>
+                            <Space size="middle">
+                                <div style={{
+                                    padding: '10px',
+                                    borderRadius: '12px',
+                                    backgroundColor: `${token.colorWarning}15`,
+                                    color: token.colorWarning,
+                                    fontSize: '20px',
+                                    display: 'flex'
+                                }}>
+                                    <InteractionOutlined />
+                                </div>
+                                <div>
+                                    <Text strong style={{ fontSize: '15px', display: 'block' }}>Message Broker Configuration</Text>
+                                    <Text type="secondary" style={{ fontSize: '12px' }}>Manage Virtual Hosts, Queues, Exchanges, and Routing policies.</Text>
+                                </div>
+                            </Space>
+                        </Col>
+                        <Col span={8} style={{ textAlign: 'right' }}>
+                            <Space>
+                                <Button icon={<ReloadOutlined spin={loading} />} onClick={fetchData} style={{ borderRadius: '8px' }}>Refresh</Button>
+                                <Button icon={<InfoCircleOutlined />} style={{ borderRadius: '8px' }}>Broker Logs</Button>
+                            </Space>
+                        </Col>
+                    </Row>
+                </Card>
+
+                {/* Settings Section */}
+                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '0 0 16px 0' }}>
+                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Service Settings</Text>
+                </Divider>
+
+                <Card
+                    loading={loadingSettings}
+                    style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}
+                    bodyStyle={{ padding: '24px' }}
+                >
+                    <Form
+                        form={form}
+                        layout="vertical"
+                        onFinish={handleUpdateSettings}
+                        initialValues={settings}
+                    >
+                        <Row gutter={[16, 16]}>
+                            <Col span={12}>
+                                <Form.Item
+                                    name="port"
+                                    label={<Text strong style={{ fontSize: '12px' }}>AMQP Port</Text>}
+                                    help="Port for AMQP connections (default: 5672)"
                                 >
-                                    <X className="w-3 h-3" />
-                                </button>
-                            </div>
-                        )) : (
-                            <div className="flex items-center justify-center w-full italic text-neutral-content/30 text-xs py-2">
-                                No virtual hosts found.
-                            </div>
-                        )}
-                    </div>
-                    
-                    <div className="flex gap-2">
-                        <input 
-                            type="text" 
-                            placeholder="vhost name (e.g. /prod)" 
-                            id="newVhost" 
-                            className="input input-sm bg-base-100 border-white/5 focus:border-primary/30 flex-1 font-mono text-xs rounded-xl" 
-                            onKeyDown={(e) => e.key === 'Enter' && handleCreateVHost()}
-                        />
-                        <button 
-                            onClick={handleCreateVHost} 
-                            className="btn btn-sm btn-primary rounded-xl px-4 font-black uppercase tracking-widest text-[10px]"
+                                    <Input placeholder="5672" style={{ borderRadius: '8px' }} />
+                                </Form.Item>
+                            </Col>
+                            <Col span={12}>
+                                <Form.Item
+                                    name="management_port"
+                                    label={<Text strong style={{ fontSize: '12px' }}>Management Port</Text>}
+                                    help="Port for web management interface (default: 15672)"
+                                >
+                                    <Input placeholder="15672" style={{ borderRadius: '8px' }} />
+                                </Form.Item>
+                            </Col>
+                            <Col span={24}>
+                                <Form.Item
+                                    name="config_path"
+                                    label={<Text strong style={{ fontSize: '12px' }}>Config Path</Text>}
+                                    help="Path to rabbitmq.conf file"
+                                >
+                                    <Input placeholder="/etc/rabbitmq/rabbitmq.conf" style={{ borderRadius: '8px' }} />
+                                </Form.Item>
+                            </Col>
+                            <Col span={12}>
+                                <Form.Item
+                                    name="admin_username"
+                                    label={<Text strong style={{ fontSize: '12px' }}>Admin Username</Text>}
+                                    help="Default administrator username"
+                                >
+                                    <Input placeholder="admin" style={{ borderRadius: '8px' }} />
+                                </Form.Item>
+                            </Col>
+                            <Col span={12}>
+                                <Form.Item
+                                    name="admin_password"
+                                    label={<Text strong style={{ fontSize: '12px' }}>Admin Password</Text>}
+                                    help="Leave blank to keep current password"
+                                >
+                                    <Input.Password placeholder="••••••••" style={{ borderRadius: '8px' }} />
+                                </Form.Item>
+                            </Col>
+                            <Col span={24}>
+                                <Form.Item
+                                    name="enabled_plugins"
+                                    label={<Text strong style={{ fontSize: '12px' }}>Enabled Plugins</Text>}
+                                    help="Comma-separated list of enabled plugins"
+                                >
+                                    <Input placeholder="rabbitmq_management,rabbitmq_peer_discovery_localnode" style={{ borderRadius: '8px' }} />
+                                </Form.Item>
+                            </Col>
+                        </Row>
+                        <Button
+                            type="primary"
+                            htmlType="submit"
+                            loading={updatingSettings}
+                            icon={<SettingOutlined />}
+                            style={{ borderRadius: '8px' }}
                         >
-                            <Plus size={14} className="mr-1" />
-                            Add
-                        </button>
-                    </div>
-                </div>
-            </div>
+                            Save Settings
+                        </Button>
+                    </Form>
+                </Card>
 
-            {/* Users */}
-            <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-secondary/10 text-secondary">
-                        <Users size={16} />
-                    </div>
-                    <h3 className="text-sm font-black uppercase tracking-widest leading-none">Management Users</h3>
-                </div>
+                {/* VHosts Section */}
+                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
+                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Virtual Hosts</Text>
+                </Divider>
 
-                <div className="rounded-2xl border border-white/5 overflow-hidden bg-base-300/30 shadow-sm ring-1 ring-white/5">
-                    <div className="overflow-x-auto">
-                        <table className="table table-sm w-full">
-                            <thead>
-                                <tr className="bg-base-300/50 text-[10px] uppercase font-black tracking-[0.15em] text-neutral-content/40 border-b border-white/5 leading-none h-10">
-                                    <th className="pl-6">User</th>
-                                    <th>Tags</th>
-                                    <th className="pr-6 text-right w-20">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {rmqUsers.length > 0 ? rmqUsers.map((u, idx) => (
-                                    <tr key={idx} className="hover:bg-white/[0.02] transition-colors border-b border-white/5 group last:border-0 h-11">
-                                        <td className="pl-6 font-mono font-bold text-xs text-base-content/80">{u.name}</td>
-                                        <td>
-                                            <span className={clsx(
-                                                "badge badge-xs font-black uppercase tracking-widest p-2",
-                                                u.tags?.includes('administrator') ? "badge-primary" : "badge-ghost opacity-50"
-                                            )}>
-                                                {u.tags || 'none'}
-                                            </span>
-                                        </td>
-                                        <td className="pr-6 text-right">
-                                            <button className="btn btn-ghost btn-xs btn-square text-neutral-content/30 hover:text-error hover:bg-error/10">
-                                                <X size={14} />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                )) : (
-                                    <tr>
-                                        <td colSpan={3} className="py-8 text-center italic text-neutral-content/30 text-xs">
-                                            No users found.
-                                        </td>
-                                    </tr>
+                <Row gutter={[16, 16]}>
+                    {vhosts.map(vh => (
+                        <Col xs={12} sm={8} md={6} key={vh}>
+                            <Card
+                                size="small"
+                                style={{ borderRadius: '12px', border: `1px solid ${token.colorBorderSecondary}` }}
+                                bodyStyle={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                            >
+                                <Space>
+                                    <GlobalOutlined style={{ color: token.colorPrimary }} />
+                                    <Text strong>{vh}</Text>
+                                </Space>
+                                {vh !== '/' && (
+                                    <Button
+                                        type="text"
+                                        danger
+                                        size="small"
+                                        icon={<DeleteOutlined />}
+                                        onClick={() => handleDeleteVHost(vh)}
+                                    />
                                 )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                            </Card>
+                        </Col>
+                    ))}
+                    <Col xs={12} sm={8} md={6}>
+                        <Button
+                            block
+                            type="dashed"
+                            icon={<PlusOutlined />}
+                            style={{ height: '100%', borderRadius: '12px', minHeight: '42px' }}
+                            onClick={() => {
+                                const name = prompt('Enter new VHost name:');
+                                if (name) handleCreateVHost(name);
+                            }}
+                        >
+                            Add VHost
+                        </Button>
+                    </Col>
+                </Row>
 
-                {/* Create User Form */}
-                <div className="p-5 bg-base-200/50 rounded-2xl border border-white/5 space-y-4 shadow-lg">
-                    <div className="flex items-center gap-2 border-b border-white/5 pb-3">
-                        <Plus size={14} className="text-success" />
-                        <h4 className="text-[10px] font-black text-neutral-content/60 uppercase tracking-[0.2em]">Add New User</h4>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-neutral-content/40 ml-1">Username</label>
-                            <input id="rmqUser" type="text" placeholder="e.g. admin_prod" className="input input-sm w-full bg-base-300 border-white/5 focus:border-success/30 font-mono text-xs rounded-xl" />
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-neutral-content/40 ml-1">Password</label>
-                            <input id="rmqPass" type="password" placeholder="••••••••" className="input input-sm w-full bg-base-300 border-white/5 focus:border-success/30 font-mono text-xs rounded-xl" />
-                        </div>
-                    </div>
+                {/* Exchanges Section */}
+                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
+                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Exchanges</Text>
+                </Divider>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-neutral-content/40 ml-1">Access Tag</label>
-                            <select id="rmqTags" className="select select-sm w-full bg-base-300 border-white/5 focus:border-success/30 font-bold text-xs rounded-xl">
-                                <option value="">No Special Tags</option>
-                                <option value="administrator">Administrator (Full Access)</option>
-                                <option value="management">Management UI Only</option>
-                            </select>
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-neutral-content/40 ml-1">Assign to VHost</label>
-                            <select id="rmqPermVhost" className="select select-sm w-full bg-base-300 border-white/5 focus:border-success/30 font-bold text-xs rounded-xl">
-                                <option value="">-- No Permissions --</option>
-                                {rmqVHosts.map(v => <option key={v} value={v}>{v}</option>)}
-                            </select>
-                        </div>
-                    </div>
+                <Table
+                    columns={exchangeColumns}
+                    dataSource={exchanges.map((e, i) => ({ ...e, key: i }))}
+                    loading={loading}
+                    pagination={false}
+                    size="small"
+                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '12px', overflow: 'hidden' }}
+                />
 
-                    <button 
-                        onClick={handleCreateUser} 
-                        className="btn btn-sm btn-success btn-block rounded-xl font-black uppercase tracking-widest text-[10px] mt-2 shadow-lg shadow-success/10"
+                <Card style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                    <Form
+                        layout="inline"
+                        onFinish={handleCreateExchange}
+                        style={{ width: '100%' }}
                     >
-                        Create User & Grant Permissions
-                    </button>
-                </div>
-            </div>
+                        <Row gutter={16} align="middle" style={{ width: '100%' }}>
+                            <Col flex="auto">
+                                <Space wrap>
+                                    <Form.Item name="name" label="Exchange Name">
+                                        <Input placeholder="my-exchange" style={{ borderRadius: '8px' }} />
+                                    </Form.Item>
+                                    <Form.Item name="type" label="Type" initialValue="direct">
+                                        <Select style={{ width: 120, borderRadius: '8px' }}>
+                                            <Option value="direct">Direct</Option>
+                                            <Option value="fanout">Fanout</Option>
+                                            <Option value="topic">Topic</Option>
+                                            <Option value="headers">Headers</Option>
+                                        </Select>
+                                    </Form.Item>
+                                    <Form.Item name="vhost" label="VHost" initialValue="/">
+                                        <Select style={{ width: 100, borderRadius: '8px' }}>
+                                            {vhosts.map(vh => <Option key={vh} value={vh}>{vh}</Option>)}
+                                        </Select>
+                                    </Form.Item>
+                                </Space>
+                            </Col>
+                            <Col>
+                                <Button
+                                    type="primary"
+                                    htmlType="submit"
+                                    icon={<PlusOutlined />}
+                                    style={{ borderRadius: '8px' }}
+                                >
+                                    Create Exchange
+                                </Button>
+                            </Col>
+                        </Row>
+                    </Form>
+                </Card>
 
-            {/* Bindings */}
-            <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-accent/10 text-accent">
-                        <Link size={16} />
-                    </div>
-                    <h3 className="text-sm font-black uppercase tracking-widest leading-none">MQTT Bindings <span className="text-neutral-content/40 opacity-50">(amq.topic)</span></h3>
-                </div>
+                {/* Queues Section */}
+                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
+                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Active Queues</Text>
+                </Divider>
 
-                <div className="p-5 bg-base-200/50 rounded-2xl border border-white/5 space-y-4">
-                    <div className="flex flex-col sm:flex-row gap-3">
-                        <div className="sm:w-1/4 space-y-1.5">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-neutral-content/40 ml-1">VHost</label>
-                            <select id="bindVhost" className="select select-sm w-full bg-base-300 border-white/5 focus:border-accent/30 font-bold text-xs rounded-xl">
-                                {rmqVHosts.map(v => <option key={v} value={v}>{v}</option>)}
-                            </select>
-                        </div>
-                        <div className="flex-1 space-y-1.5">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-neutral-content/40 ml-1">Destination Queue</label>
-                            <input id="bindQueue" type="text" placeholder="e.g. data_inbox" className="input input-sm w-full bg-base-300 border-white/5 focus:border-accent/30 font-mono text-xs rounded-xl" />
-                        </div>
-                        <div className="flex-1 space-y-1.5">
-                            <label className="text-[9px] font-black uppercase tracking-widest text-neutral-content/40 ml-1">Routing Key Pattern</label>
-                            <input id="bindKey" type="text" placeholder="e.g. sensor/+/data" className="input input-sm w-full bg-base-300 border-white/5 focus:border-accent/30 font-mono text-xs rounded-xl" />
-                        </div>
-                    </div>
-                    <button 
-                        onClick={async () => {
-                            const vhost = (document.getElementById('bindVhost') as HTMLSelectElement).value;
-                            const queue = (document.getElementById('bindQueue') as HTMLInputElement).value;
-                            const key = (document.getElementById('bindKey') as HTMLInputElement).value;
+                <Table
+                    columns={queueColumns}
+                    dataSource={queues.map((q, i) => ({ ...q, key: i }))}
+                    loading={loading}
+                    pagination={false}
+                    size="small"
+                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '12px', overflow: 'hidden' }}
+                />
 
-                            if (vhost && queue && key) {
-                                const res = await sendCommand('rmq_create_binding', {
-                                    vhost,
-                                    queue,
-                                    exchange: 'amq.topic',
-                                    routing_key: key
-                                });
-                                if (res) setActionOutput(`Successfully bound "${queue}" to amq.topic with pattern "${key}"`);
-                            }
-                        }} 
-                        className="btn btn-sm btn-accent btn-block rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-accent/10"
+                <Card style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                    <Form
+                        layout="inline"
+                        onFinish={handleCreateQueue}
+                        style={{ width: '100%' }}
                     >
-                        Create Binding
-                    </button>
+                        <Row gutter={16} align="middle" style={{ width: '100%' }}>
+                            <Col flex="auto">
+                                <Space wrap>
+                                    <Form.Item name="name" label="Queue Name">
+                                        <Input placeholder="my-queue" style={{ borderRadius: '8px' }} />
+                                    </Form.Item>
+                                    <Form.Item name="vhost" label="VHost" initialValue="/">
+                                        <Select style={{ width: 100, borderRadius: '8px' }}>
+                                            {vhosts.map(vh => <Option key={vh} value={vh}>{vh}</Option>)}
+                                        </Select>
+                                    </Form.Item>
+                                </Space>
+                            </Col>
+                            <Col>
+                                <Button
+                                    type="primary"
+                                    htmlType="submit"
+                                    icon={<PlusOutlined />}
+                                    style={{ borderRadius: '8px' }}
+                                >
+                                    Create Queue
+                                </Button>
+                            </Col>
+                        </Row>
+                    </Form>
+                </Card>
+
+                {/* Bindings Section */}
+                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
+                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Queue Bindings</Text>
+                </Divider>
+
+                <Table
+                    columns={bindingColumns}
+                    dataSource={bindings.map((b, i) => ({ ...b, key: i }))}
+                    loading={loading}
+                    pagination={false}
+                    size="small"
+                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '12px', overflow: 'hidden' }}
+                />
+
+                <Card style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                    <Form
+                        layout="inline"
+                        onFinish={handleCreateBinding}
+                        style={{ width: '100%' }}
+                    >
+                        <Row gutter={16} align="middle" style={{ width: '100%' }}>
+                            <Col flex="auto">
+                                <Space wrap>
+                                    <Form.Item name="exchange" label="Exchange">
+                                        <Input placeholder="my-exchange" style={{ borderRadius: '8px' }} />
+                                    </Form.Item>
+                                    <Form.Item name="queue" label="Queue">
+                                        <Input placeholder="my-queue" style={{ borderRadius: '8px' }} />
+                                    </Form.Item>
+                                    <Form.Item name="routing_key" label="Routing Key">
+                                        <Input placeholder="#" style={{ borderRadius: '8px' }} />
+                                    </Form.Item>
+                                    <Form.Item name="vhost" label="VHost" initialValue="/">
+                                        <Select style={{ width: 100, borderRadius: '8px' }}>
+                                            {vhosts.map(vh => <Option key={vh} value={vh}>{vh}</Option>)}
+                                        </Select>
+                                    </Form.Item>
+                                </Space>
+                            </Col>
+                            <Col>
+                                <Button
+                                    type="primary"
+                                    htmlType="submit"
+                                    icon={<PlusOutlined />}
+                                    style={{ borderRadius: '8px' }}
+                                >
+                                    Create Binding
+                                </Button>
+                            </Col>
+                        </Row>
+                    </Form>
+                </Card>
+
+                {/* Users Section */}
+                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
+                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Users</Text>
+                </Divider>
+
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    {users.length === 0 ? (
+                        <Text type="secondary" italic>No users configured.</Text>
+                    ) : (
+                        users.map((u, i) => (
+                            <Tag key={i} color="processing" style={{ borderRadius: '6px', padding: '4px 10px' }}>
+                                <Space>
+                                    <InteractionOutlined />
+                                    <Text strong style={{ fontSize: '12px' }}>{typeof u === 'string' ? u : u.name}</Text>
+                                    {typeof u === 'object' && u.tags && (
+                                        <Tag color="orange" style={{ marginLeft: '4px' }}>{u.tags}</Tag>
+                                    )}
+                                </Space>
+                            </Tag>
+                        ))
+                    )}
                 </div>
-            </div>
+            </Space>
         </div>
-    )
+    );
 }

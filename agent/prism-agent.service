@@ -5,8 +5,8 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/home/mriza/prism/agent
-ExecStart=/home/mriza/prism/agent/prism-agent -config /home/mriza/prism/agent/prism-agent.conf
+WorkingDirectory=/opt/prism/agent
+ExecStart=/opt/prism/agent/prism-agent -config /opt/prism/agent/prism-agent.conf
 Restart=always
 RestartSec=5
 

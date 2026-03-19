@@ -1,193 +1,165 @@
 import { useState } from 'react';
 import { useUsers } from '../hooks/useUsers';
 import { useAuth } from '../contexts/AuthContext';
-import { Button } from '../components/ui/Button';
-import { Plus, UserCog, Trash2, Shield, User as UserIcon, LogOut, KeyRound, Pencil } from 'lucide-react';
+import { 
+    Button, 
+    Card, 
+    Space, 
+    Typography, 
+    Tag, 
+    Tooltip, 
+    theme, 
+    Row, 
+    Col, 
+    Avatar,
+    Popconfirm,
+    Empty,
+    Spin
+} from 'antd';
+import { 
+    PlusOutlined, 
+    DeleteOutlined, 
+    SafetyOutlined, 
+    UserOutlined, 
+    KeyOutlined, 
+    EditOutlined, 
+    MailOutlined, 
+    PhoneOutlined, 
+    CalendarOutlined 
+} from '@ant-design/icons';
 import type { User } from '../types';
+import { UserFormModal } from '../components/modals/UserFormModal';
+import { PageContainer } from '../components/PageContainer';
 
-interface UserFormModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    onSave: (data: Partial<User>) => Promise<boolean>;
-    initial?: User;
-}
-
-function UserFormModal({ isOpen, onClose, onSave, initial }: UserFormModalProps) {
-    const [username, setUsername] = useState(initial?.username || '');
-    const [password, setPassword] = useState('');
-    const [role, setRole] = useState<User['role']>(initial?.role || 'user');
-    const [saving, setSaving] = useState(false);
-
-    if (!isOpen) return null;
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setSaving(true);
-        const data: Partial<User> & { password?: string } = { username, role };
-        if (password) data.password = password;
-        
-        const success = await onSave(data);
-        setSaving(false);
-        if (success) onClose();
-    };
-
-    return (
-        <div className="modal modal-open">
-            <div className="modal-box bg-base-200 border border-white/10 shadow-2xl">
-                <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
-                    <UserCog size={20} className="text-secondary" />
-                    {initial ? 'Edit User' : 'New User'}
-                </h3>
-                
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="form-control">
-                        <label className="label"><span className="label-text">Username</span></label>
-                        <input
-                            type="text"
-                            required
-                            className="input input-bordered focus:input-secondary bg-base-300"
-                            value={username}
-                            onChange={e => setUsername(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="form-control">
-                        <label className="label">
-                            <span className="label-text">Password {initial && '(Leave blank to keep unchanged)'}</span>
-                        </label>
-                        <input
-                            type="password"
-                            required={!initial}
-                            className="input input-bordered focus:input-secondary bg-base-300"
-                            value={password}
-                            onChange={e => setPassword(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="form-control">
-                        <label className="label"><span className="label-text">Role</span></label>
-                        <select
-                            className="select select-bordered focus:select-secondary bg-base-300"
-                            value={role}
-                            onChange={e => setRole(e.target.value as User['role'])}
-                        >
-                            <option value="user">User (Read Only)</option>
-                            <option value="manager">Manager (Read & Control)</option>
-                            <option value="admin">Admin (Full Access)</option>
-                        </select>
-                    </div>
-
-                    <div className="modal-action mt-6">
-                        <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>Cancel</Button>
-                        <Button type="submit" variant="secondary" disabled={saving}>
-                            {saving ? 'Saving...' : 'Save User'}
-                        </Button>
-                    </div>
-                </form>
-            </div>
-            <div className="modal-backdrop bg-black/50" onClick={onClose} />
-        </div>
-    );
-}
+const { Text } = Typography;
 
 export function UsersPage() {
     const { users, loading, createUser, updateUser, deleteUser } = useUsers();
     const { user: currentUser } = useAuth();
     const [showAdd, setShowAdd] = useState(false);
     const [editUser, setEditUser] = useState<User | null>(null);
+    const { token } = theme.useToken();
+
+    const isAdmin = currentUser?.role === 'admin';
 
     return (
-        <div className="space-y-6 max-w-5xl mx-auto">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold flex items-center gap-2">
-                        <Shield className="text-secondary" /> User Management
-                    </h1>
-                    <p className="text-neutral-content text-sm mt-1">
-                        Control administrative access and roles across PRISM 
-                    </p>
-                </div>
-                <Button icon={<Plus size={16} />} variant="secondary" onClick={() => setShowAdd(true)}>
-                    Add User
-                </Button>
-            </div>
-
+        <PageContainer
+            title="Identity & Access"
+            description="Manage administrative credentials, assign hierarchical roles, and control fleet-wide access policies."
+            extra={
+                isAdmin && (
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setShowAdd(true)} size="large" style={{ borderRadius: '12px' }}>
+                        Add User
+                    </Button>
+                )
+            }
+        >
             {loading && users.length === 0 ? (
-                <div className="flex items-center justify-center p-12">
-                    <span className="loading loading-spinner text-secondary loading-lg"></span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 0', gap: '16px' }}>
+                    <Spin size="large" />
+                    <Text type="secondary" style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Hydrating user directory...</Text>
                 </div>
+            ) : users.length === 0 ? (
+                <Empty description="No users found in the directory" />
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {users.map(u => (
-                        <div key={u.id} className="card bg-base-200 border border-white/5 hover:border-secondary/30 transition-colors shadow-sm relative overflow-hidden">
-                            {/* Color strip indicating role */}
-                            <div className={`absolute top-0 left-0 w-1 h-full ${
-                                u.role === 'admin' ? 'bg-error' : 
-                                u.role === 'manager' ? 'bg-warning' : 
-                                'bg-success'
-                            }`} />
-                            
-                            <div className="p-5 pl-6 flex flex-col h-full space-y-4">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-base-300 border border-white/10 flex items-center justify-center shrink-0">
-                                            {u.role === 'admin' ? <Shield size={18} className="text-error" /> :
-                                             u.role === 'manager' ? <KeyRound size={18} className="text-warning" /> :
-                                             <UserIcon size={18} className="text-success" />}
-                                        </div>
-                                        <div>
-                                            <div className="font-bold flex items-center gap-2">
-                                                {u.username}
-                                                {u.id === currentUser?.userId && <span className="badge badge-sm badge-outline">You</span>}
+                <Row gutter={[24, 24]}>
+                    {users.map(u => {
+                        const isSelf = u.id === currentUser?.userId;
+                        const RoleIcon = u.role === 'admin' ? SafetyOutlined : u.role === 'manager' ? KeyOutlined : UserOutlined;
+
+                        return (
+                            <Col xs={24} sm={24} md={12} lg={8} key={u.id}>
+                                <Card 
+                                    hoverable
+                                    style={{ borderRadius: '20px', overflow: 'hidden', border: `1px solid ${token.colorBorderSecondary}` }}
+                                    bodyStyle={{ padding: '24px' }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+                                        <Space size="middle">
+                                            <Avatar 
+                                                size={56} 
+                                                icon={<RoleIcon />} 
+                                                style={{ 
+                                                    backgroundColor: u.role === 'admin' ? `${token.colorError}15` : u.role === 'manager' ? `${token.colorWarning}15` : `${token.colorSuccess}15`,
+                                                    color: u.role === 'admin' ? token.colorError : u.role === 'manager' ? token.colorWarning : token.colorSuccess,
+                                                    border: `1px solid ${u.role === 'admin' ? `${token.colorError}30` : u.role === 'manager' ? `${token.colorWarning}30` : `${token.colorSuccess}30`}`,
+                                                    borderRadius: '16px'
+                                                }}
+                                            />
+                                            <div>
+                                                <Space>
+                                                    <Text strong style={{ fontSize: '16px' }}>{u.username}</Text>
+                                                    {isSelf && <Tag color="blue" style={{ borderRadius: '4px', fontSize: '9px', textTransform: 'uppercase' }}>Me</Tag>}
+                                                </Space>
+                                                <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', color: token.colorTextDisabled, fontWeight: 700 }}>
+                                                    {u.role} Authority
+                                                </div>
                                             </div>
-                                            <div className="text-xs text-neutral-content uppercase tracking-wider font-semibold mt-0.5">
-                                                {u.role}
-                                            </div>
+                                        </Space>
+                                        
+                                        {isAdmin && (
+                                            <Space>
+                                                <Tooltip title="Edit Profile">
+                                                    <Button type="text" icon={<EditOutlined />} onClick={() => setEditUser(u)} />
+                                                </Tooltip>
+                                                <Popconfirm
+                                                    title="Delete User"
+                                                    description={`Authorize permanent deletion of user "${u.username}"?`}
+                                                    onConfirm={() => deleteUser(u.id)}
+                                                    okText="Delete"
+                                                    cancelText="Cancel"
+                                                    okButtonProps={{ danger: true }}
+                                                    disabled={isSelf}
+                                                >
+                                                    <Tooltip title={isSelf ? "Self-termination is restricted" : "Delete User"}>
+                                                        <Button type="text" danger icon={<DeleteOutlined />} disabled={isSelf} />
+                                                    </Tooltip>
+                                                </Popconfirm>
+                                            </Space>
+                                        )}
+                                    </div>
+
+                                    <Space direction="vertical" size={12} style={{ width: '100%', marginBottom: '24px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <UserOutlined style={{ color: token.colorTextDisabled }} />
+                                            <Text style={{ fontSize: '13px' }}>{u.fullName}</Text>
                                         </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <MailOutlined style={{ color: token.colorTextDisabled }} />
+                                            <Text style={{ fontSize: '13px' }}>{u.email}</Text>
+                                        </div>
+                                        {u.phone && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <PhoneOutlined style={{ color: token.colorTextDisabled }} />
+                                                <Text style={{ fontSize: '13px' }}>{u.phone}</Text>
+                                            </div>
+                                        )}
+                                    </Space>
+
+                                    <div style={{ borderTop: `1px solid ${token.colorBorderSecondary}`, paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Space size={4} style={{ color: token.colorTextDisabled, fontSize: '10px', textTransform: 'uppercase', fontWeight: 600 }}>
+                                            <CalendarOutlined />
+                                            <span>Enrolled {new Date(u.createdAt).toLocaleDateString()}</span>
+                                        </Space>
+                                        <Tag style={{ margin: 0, borderRadius: '6px', fontSize: '10px', backgroundColor: token.colorFillAlter, border: 'none', color: token.colorTextDisabled }}>
+                                            <UserOutlined style={{ marginRight: '4px' }} />
+                                            {u.id.substring(0, 8)}
+                                        </Tag>
                                     </div>
-                                    
-                                    <div className="flex gap-1 shrink-0">
-                                        <button 
-                                            onClick={() => setEditUser(u)}
-                                            className="btn btn-ghost btn-square btn-sm text-neutral-content hover:text-secondary"
-                                            title="Edit Role/Password"
-                                        >
-                                            <Pencil size={15} />
-                                        </button>
-                                        <button 
-                                            onClick={() => {
-                                                if (u.id === currentUser?.userId) {
-                                                    alert("You cannot delete your own account.");
-                                                    return;
-                                                }
-                                                if (confirm(`Are you sure you want to delete the user "${u.username}"?`)) {
-                                                    deleteUser(u.id);
-                                                }
-                                            }}
-                                            className="btn btn-ghost btn-square btn-sm text-neutral-content hover:text-error hover:bg-error/10"
-                                            disabled={u.id === currentUser?.userId}
-                                            title={u.id === currentUser?.userId ? "Cannot delete yourself" : "Delete User"}
-                                        >
-                                            <Trash2 size={15} />
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <div className="mt-auto pt-4 border-t border-white/5 flex items-center gap-2 text-xs text-neutral-content">
-                                    <LogOut size={12} />
-                                    <span>Joined {new Date(u.createdAt).toLocaleDateString()}</span>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                                </Card>
+                            </Col>
+                        );
+                    })}
+                </Row>
             )}
 
-            <UserFormModal 
-                isOpen={showAdd} 
-                onClose={() => setShowAdd(false)} 
-                onSave={createUser} 
-            />
+            {showAdd && (
+                <UserFormModal 
+                    isOpen={true} 
+                    onClose={() => setShowAdd(false)} 
+                    onSave={createUser} 
+                />
+            )}
             
             {editUser && (
                 <UserFormModal 
@@ -197,6 +169,8 @@ export function UsersPage() {
                     initial={editUser} 
                 />
             )}
-        </div>
+        </PageContainer>
     );
 }
+
+export default UsersPage;

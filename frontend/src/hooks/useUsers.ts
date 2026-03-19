@@ -11,7 +11,11 @@ export function useUsers() {
         if (!token) return;
         setLoading(true);
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/users`, {});
+            const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/users`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
             if (res.ok) {
                 const data = await res.json();
                 setUsers(data || []);
@@ -28,11 +32,13 @@ export function useUsers() {
     }, [fetchUsers]);
 
     const createUser = async (data: Partial<User>) => {
+        if (!token) return false;
         try {
             const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/users`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify(data)
             });
@@ -46,11 +52,13 @@ export function useUsers() {
     };
 
     const updateUser = async (id: string, data: Partial<User>) => {
+        if (!token) return false;
         try {
             const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/users/${id}`, {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify(data)
             });
@@ -64,9 +72,13 @@ export function useUsers() {
     };
 
     const deleteUser = async (id: string) => {
+        if (!token) return false;
         try {
             const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/users/${id}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
             });
             if (!res.ok) throw new Error('Failed to delete user');
             setUsers(prev => prev.filter(u => u.id !== id));

@@ -13,17 +13,41 @@ var standardServices = []struct {
 	ServiceName string
 	Type        string
 }{
+	// Web Servers
 	{"nginx", "nginx", "systemd"},
 	{"caddy", "caddy", "systemd"},
+	
+	// Databases
 	{"mysql", "mysql", "systemd"},
+	{"mariadb", "mariadb", "systemd"},
 	{"postgresql", "postgresql", "systemd"},
 	{"mongodb", "mongod", "systemd"},
+	
+	// Message Queues
 	{"rabbitmq", "rabbitmq-server", "systemd"},
+	{"mosquitto", "mosquitto", "systemd"},
+	
+	// Storage (S3)
 	{"minio", "minio", "systemd"},
 	{"garage", "garage", "systemd"},
+	
+	// FTP/SFTP
+	{"vsftpd", "vsftpd", "systemd"},
 	{"sftpgo", "sftpgo", "systemd"},
+	
+	// Cache/Database
+	{"valkey", "valkey-server", "systemd"},
+	{"redis", "redis-server", "systemd"},
+	
+	// Process Managers
+	{"pm2", "pm2", "pm2"},
+	{"supervisor", "supervisor", "supervisor"},
+	
+	// Security
+	{"crowdsec", "crowdsec", "crowdsec"},
+	
+	// Others
 	{"seaweedfs", "seaweedfs", "systemd"},
-	{"crowdsec", "crowdsec", "crowdsec"}, // Special type
 }
 
 func Discover(registry *core.Registry, activeFirewall string) {

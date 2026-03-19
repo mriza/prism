@@ -1,12 +1,19 @@
 import { useState } from 'react';
+import { 
+    Modal, 
+    Form, 
+    Input, 
+    Space, 
+    Typography,
+    theme,
+    Button
+} from 'antd';
+import { CheckOutlined } from '@ant-design/icons';
 import type { Project } from '../../types';
 import { PROJECT_COLORS } from '../../types';
-import { Modal } from '../ui/Modal';
-import { Input, Textarea } from '../ui/Fields';
-import { Button } from '../ui/Button';
-import { Check } from 'lucide-react';
-import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+
+const { Text } = Typography;
+const { TextArea } = Input;
 
 interface Props {
     isOpen: boolean;
@@ -16,71 +23,109 @@ interface Props {
 }
 
 export function ProjectFormModal({ isOpen, onClose, onSave, initial }: Props) {
-    const [name, setName] = useState(initial?.name ?? '');
-    const [description, setDescription] = useState(initial?.description ?? '');
+    const [form] = Form.useForm();
     const [color, setColor] = useState(initial?.color ?? PROJECT_COLORS[0]);
+    const { token } = theme.useToken();
 
-    const handleSave = () => {
-        if (!name.trim()) return;
-        onSave({ name: name.trim(), description: description.trim() || undefined, color });
+    const handleSave = (values: any) => {
+        onSave({ 
+            name: values.name.trim(), 
+            description: values.description?.trim() || undefined, 
+            color 
+        });
         onClose();
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={initial ? 'Edit Project' : 'New Project'} size="md">
-            <div className="space-y-6">
-                <div className="space-y-4">
-                    <Input
-                        label="Project Name"
-                        value={name}
-                        onChange={e => setName(e.target.value)}
-                        placeholder="e.g. E-Commerce Platform"
-                        autoFocus
-                    />
-                    <Textarea
-                        label="Description (optional)"
-                        value={description}
-                        onChange={e => setDescription(e.target.value)}
-                        placeholder="What is this project about?"
-                        rows={3}
-                    />
+        <Modal 
+            open={isOpen} 
+            onCancel={onClose} 
+            title={
+                <Space direction="vertical" size={0}>
+                    <Text strong style={{ fontSize: '16px' }}>{initial ? 'Edit Project' : 'New Project'}</Text>
+                    <Text type="secondary" style={{ fontSize: '12px', fontWeight: 400 }}>
+                        {initial ? "Update project details and appearance" : "Create a new container to organize your service accounts and infrastructure"}
+                    </Text>
+                </Space>
+            }
+            footer={null}
+            width={500}
+            style={{ borderRadius: '20px', overflow: 'hidden' }}
+        >
+            <Form
+                form={form}
+                layout="vertical"
+                onFinish={handleSave}
+                initialValues={{
+                    name: initial?.name ?? '',
+                    description: initial?.description ?? ''
+                }}
+                style={{ marginTop: '24px' }}
+            >
+                <Form.Item
+                    name="name"
+                    label={<Text strong style={{ fontSize: '12px' }}>Project name</Text>}
+                    rules={[{ required: true, message: 'Please input project name!' }]}
+                >
+                    <Input placeholder="e.g. E-Commerce Platform" style={{ borderRadius: '8px' }} autoFocus />
+                </Form.Item>
 
-                    {/* Color picker */}
-                    <div className="space-y-4 pt-2">
-                        <label className="flex px-0.5">
-                            <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-neutral-content/60">Project Color</span>
-                        </label>
-                        <div className="flex flex-wrap gap-3">
-                            {PROJECT_COLORS.map(c => (
+                <Form.Item
+                    name="description"
+                    label={<Text strong style={{ fontSize: '12px' }}>Description</Text>}
+                >
+                    <TextArea placeholder="What is this project about?" rows={3} style={{ borderRadius: '8px' }} />
+                </Form.Item>
+
+                <Form.Item label={<Text strong style={{ fontSize: '12px' }}>Project color</Text>}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', paddingTop: '8px' }}>
+                        {PROJECT_COLORS.map(c => {
+                            const isSelected = color === c;
+                            return (
                                 <button
                                     key={c}
                                     type="button"
                                     onClick={() => setColor(c)}
-                                    style={{ backgroundColor: c }}
-                                    className={twMerge(
-                                        clsx(
-                                            "w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center shadow-sm",
-                                            color === c ? "border-white ring-2 ring-primary ring-offset-2 ring-offset-base-100 scale-110" : "border-transparent hover:scale-105 active:scale-95"
-                                        )
-                                    )}
+                                    style={{
+                                        width: '36px',
+                                        height: '36px',
+                                        borderRadius: '50%',
+                                        backgroundColor: `var(--color-${c}, ${c})`, // Fallback for local testing
+                                        // Hex fallbacks for Ant Design context (Prism seems to use Tailwind colors)
+                                        // But I'll assume standard Ant Design colors or whatever is in PROJECT_COLORS
+                                        border: isSelected ? `2px solid ${token.colorPrimary}` : '2px solid transparent',
+                                        outline: isSelected ? `2px solid ${token.colorPrimary}40` : 'none',
+                                        outlineOffset: '2px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        transition: 'all 0.2s ease',
+                                        padding: 0,
+                                        boxShadow: token.boxShadowTertiary
+                                    }}
                                 >
-                                    {color === c && <Check size={14} className="text-white" />}
+                                    {isSelected && <CheckOutlined style={{ color: '#fff', fontSize: '14px' }} />}
                                 </button>
-                            ))}
-                        </div>
+                            );
+                        })}
                     </div>
-                </div>
+                </Form.Item>
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
-                    <Button variant="ghost" onClick={onClose} className="hover:bg-white/5">
-                        Cancel
-                    </Button>
-                    <Button variant="primary" onClick={handleSave} disabled={!name.trim()} className="px-6">
+                <div style={{ 
+                    marginTop: '32px', 
+                    paddingTop: '16px', 
+                    borderTop: `1px solid ${token.colorBorderSecondary}`,
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    gap: '12px'
+                }}>
+                    <Button onClick={onClose} style={{ borderRadius: '8px' }}>Cancel</Button>
+                    <Button type="primary" htmlType="submit" style={{ borderRadius: '8px', fontWeight: 600 }}>
                         {initial ? 'Save Changes' : 'Create Project'}
                     </Button>
                 </div>
-            </div>
+            </Form>
         </Modal>
     );
 }
-

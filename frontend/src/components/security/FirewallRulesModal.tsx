@@ -1,7 +1,26 @@
 import { useState, useEffect } from 'react';
-import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { 
+    Modal, 
+    Table, 
+    Button, 
+    Form, 
+    Input, 
+    Select, 
+    Space, 
+    Tag, 
+    Typography, 
+    theme, 
+    Alert, 
+    Popconfirm
+} from 'antd';
+import { 
+    DeleteOutlined, 
+    PlusOutlined, 
+    SafetyCertificateOutlined
+} from '@ant-design/icons';
 import { useAuth } from '../../contexts/AuthContext';
+
+const { Text } = Typography;
 
 interface FirewallRule {
     ID: string;
@@ -25,11 +44,8 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const { token } = useAuth();
-
-    // Form states
-    const [newPort, setNewPort] = useState('');
-    const [newProtocol, setNewProtocol] = useState('tcp');
-    const [newAction, setNewAction] = useState('allow');
+    const { token: antdToken } = theme.useToken();
+    const [form] = Form.useForm();
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
@@ -38,6 +54,7 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
         } else {
             setRules([]);
             setError('');
+            form.resetFields();
         }
     }, [isOpen, agentId]);
 
@@ -62,12 +79,10 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
             if (!res.ok) throw new Error('Failed to fetch rules');
             const data = await res.json();
             
-            // Check if command succeeded
             if (data.success !== undefined && data.success === false) {
                 throw new Error(data.message || 'Error executing firewall_list');
             }
 
-            // The data.message usually contains the JSON string of rules
             if (data.message && data.message !== "OK") {
                 const parsedRules = JSON.parse(data.message);
                 setRules(parsedRules || []);
@@ -82,10 +97,7 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
         }
     };
 
-    const handleAddRule = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newPort) return;
-        
+    const handleAddRule = async (values: any) => {
         setSubmitting(true);
         setError('');
 
@@ -102,9 +114,9 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
                     service: activeFirewallName,
                     action: 'firewall_add',
                     options: {
-                        port: parseInt(newPort, 10),
-                        protocol: newProtocol,
-                        action: newAction
+                        port: parseInt(values.port, 10),
+                        protocol: values.protocol,
+                        action: values.action
                     }
                 })
             });
@@ -115,8 +127,8 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
                  throw new Error(data.message || 'Error executing firewall_add');
             }
 
-            setNewPort('');
-            await fetchRules(); // Refresh list
+            form.resetFields();
+            await fetchRules();
         } catch (err: any) {
             console.error(err);
             setError(err.message || 'Failed to add rule');
@@ -126,8 +138,6 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
     };
 
     const handleDeleteRule = async (ruleId: string) => {
-        if (!confirm('Are you sure you want to delete this rule?')) return;
-
         setLoading(true);
         setError('');
 
@@ -155,7 +165,7 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
                  throw new Error(data.message || 'Error executing firewall_delete');
             }
 
-            await fetchRules(); // Refresh list
+            await fetchRules();
         } catch (err: any) {
             console.error(err);
             setError(err.message || 'Failed to delete rule');
@@ -163,148 +173,139 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
         }
     };
 
-    if (!isOpen) return null;
+    const columns = [
+        {
+            title: 'ID',
+            dataIndex: 'ID',
+            key: 'ID',
+            render: (text: string) => <Text type="secondary" style={{ fontFamily: 'monospace', fontSize: '11px' }}>{text || '-'}</Text>
+        },
+        {
+            title: 'Action',
+            dataIndex: 'Action',
+            key: 'Action',
+            render: (action: string) => (
+                <Tag color={action.toUpperCase().includes('ALLOW') ? 'success' : 'error'} style={{ fontWeight: 800 }}>
+                    {action.toUpperCase()}
+                </Tag>
+            )
+        },
+        {
+            title: 'To Ports',
+            dataIndex: 'ToPorts',
+            key: 'ToPorts',
+            render: (text: string) => <Text strong style={{ fontFamily: 'monospace' }}>{text}</Text>
+        },
+        {
+            title: 'From',
+            dataIndex: 'FromIP',
+            key: 'FromIP',
+            render: (text: string) => <Text type="secondary" style={{ fontFamily: 'monospace' }}>{text}</Text>
+        },
+        {
+            title: 'Controls',
+            key: 'controls',
+            align: 'right' as const,
+            render: (_: any, record: FirewallRule) => (
+                <Popconfirm
+                    title="Delete Rule"
+                    description="Are you sure you want to delete this firewall rule?"
+                    onConfirm={() => handleDeleteRule(record.ID)}
+                    okText="Yes"
+                    cancelText="No"
+                    okButtonProps={{ danger: true }}
+                >
+                    <Button 
+                        type="text" 
+                        danger 
+                        icon={<DeleteOutlined />} 
+                        disabled={loading}
+                    />
+                </Popconfirm>
+            )
+        }
+    ];
 
     return (
-        <div className="modal modal-open">
-            <div className="modal-box w-11/12 max-w-4xl bg-base-100 shadow-2xl border border-white/10 rounded-xl flex flex-col max-h-[90vh]">
-                
-                {/* Header */}
-                <div className="flex justify-between items-center mb-6 shrink-0">
-                    <div>
-                        <h3 className="font-bold text-2xl tracking-tight">Firewall Rules</h3>
-                        <p className="text-sm text-neutral-content/70 mt-1">
-                            Managing <span className="text-primary font-bold uppercase">{activeFirewallName}</span> on server <span className="font-mono text-base-content">{agentName}</span>
-                        </p>
-                    </div>
-                    <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost">✕</button>
-                </div>
+        <Modal
+            title={<Space><SafetyCertificateOutlined /> <Text strong>Firewall Rules Management</Text></Space>}
+            open={isOpen}
+            onCancel={onClose}
+            width={850}
+            footer={null}
+            bodyStyle={{ padding: '24px 0 0 0' }}
+            style={{ borderRadius: '20px', overflow: 'hidden' }}
+        >
+            <div style={{ padding: '0 24px 24px 24px' }}>
+                <Text type="secondary" style={{ display: 'block', marginBottom: '24px' }}>
+                    Managing <Text strong style={{ color: antdToken.colorPrimary, textTransform: 'uppercase' }}>{activeFirewallName}</Text> on server <Text strong>{agentName}</Text>
+                </Text>
 
                 {error && (
-                    <div className="alert alert-error mb-4 shrink-0 shadow-sm rounded-lg py-3 text-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-5 w-5" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        <span>{error}</span>
-                    </div>
+                    <Alert
+                        message={error}
+                        type="error"
+                        showIcon
+                        style={{ marginBottom: '24px', borderRadius: '12px' }}
+                    />
                 )}
 
-                {/* Add Rule Form */}
-                <div className="bg-base-200/50 p-6 rounded-xl border border-white/5 mb-8 shrink-0 shadow-inner">
-                    <form onSubmit={handleAddRule} className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
-                        <div className="form-control gap-1.5">
-                            <label className="flex px-0.5">
-                                <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-neutral-content/60">Action</span>
-                            </label>
-                            <select 
-                                className="select select-bordered w-full bg-base-100 border-white/5 hover:border-white/10 transition-colors" 
-                                value={newAction} 
-                                onChange={e => setNewAction(e.target.value)}
+                <div style={{ backgroundColor: antdToken.colorFillAlter, padding: '24px', borderRadius: '16px', marginBottom: '32px' }}>
+                    <Form
+                        form={form}
+                        layout="vertical"
+                        onFinish={handleAddRule}
+                        initialValues={{ action: 'allow', protocol: 'tcp' }}
+                    >
+                        <Space align="end" size="middle" style={{ width: '100%', justifyContent: 'space-between' }}>
+                            <Form.Item name="action" label={<Text strong style={{ fontSize: '11px', textTransform: 'uppercase' }}>Action</Text>} style={{ marginBottom: 0 }}>
+                                <Select style={{ width: 120 }}>
+                                    <Select.Option value="allow">ALLOW</Select.Option>
+                                    <Select.Option value="deny">DENY</Select.Option>
+                                </Select>
+                            </Form.Item>
+                            
+                            <Form.Item 
+                                name="port" 
+                                label={<Text strong style={{ fontSize: '11px', textTransform: 'uppercase' }}>Port</Text>} 
+                                rules={[{ required: true, message: 'Required' }]}
+                                style={{ marginBottom: 0, flex: 1 }}
                             >
-                                <option value="allow">ALLOW</option>
-                                <option value="deny">DENY</option>
-                            </select>
-                        </div>
-                        <div className="form-control md:col-span-1 min-w-[140px] gap-1.5">
-                            <label className="flex px-0.5">
-                                <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-neutral-content/60">Port</span>
-                            </label>
-                            <input 
-                                type="number" 
-                                min="1" max="65535"
-                                placeholder="8080"
-                                className="input input-bordered w-full bg-base-100 border-white/5 hover:border-white/10 text-lg font-mono font-bold transition-colors" 
-                                value={newPort} 
-                                onChange={e => setNewPort(e.target.value)}
-                                required
-                            />
-                        </div>
-                        <div className="form-control gap-1.5">
-                            <label className="flex px-0.5">
-                                <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-neutral-content/60">Protocol</span>
-                            </label>
-                            <select 
-                                className="select select-bordered w-full bg-base-100 border-white/5 hover:border-white/10 transition-colors" 
-                                value={newProtocol} 
-                                onChange={e => setNewProtocol(e.target.value)}
-                            >
-                                <option value="tcp">TCP</option>
-                                <option value="udp">UDP</option>
-                            </select>
-                        </div>
-                        <button 
-                            type="submit" 
-                            className="btn btn-primary w-full h-[3rem] font-bold"
-                            disabled={submitting || !newPort}
-                        >
-                            {submitting ? <span className="loading loading-spinner loading-sm"></span> : 'Add Rule'}
-                        </button>
-                    </form>
+                                <Input placeholder="8080" style={{ fontFamily: 'monospace' }} />
+                            </Form.Item>
+
+                            <Form.Item name="protocol" label={<Text strong style={{ fontSize: '11px', textTransform: 'uppercase' }}>Protocol</Text>} style={{ marginBottom: 0 }}>
+                                <Select style={{ width: 100 }}>
+                                    <Select.Option value="tcp">TCP</Select.Option>
+                                    <Select.Option value="udp">UDP</Select.Option>
+                                </Select>
+                            </Form.Item>
+
+                            <Form.Item style={{ marginBottom: 0 }}>
+                                <Button 
+                                    type="primary" 
+                                    htmlType="submit" 
+                                    icon={<PlusOutlined />} 
+                                    loading={submitting}
+                                    style={{ height: '32px', fontWeight: 600 }}
+                                >
+                                    Add Rule
+                                </Button>
+                            </Form.Item>
+                        </Space>
+                    </Form>
                 </div>
 
-                {/* Rules Table */}
-                <div className="overflow-y-auto flex-1 rounded-lg border border-base-300 min-h-[300px]">
-                    <table className="table table-sm w-full">
-                        <thead className="bg-base-300/50 sticky top-0 backdrop-blur-md z-10">
-                            <tr>
-                                <th className="uppercase tracking-wider text-xs">ID</th>
-                                <th className="uppercase tracking-wider text-xs">Action</th>
-                                <th className="uppercase tracking-wider text-xs">To Ports</th>
-                                <th className="uppercase tracking-wider text-xs">From</th>
-                                <th className="uppercase tracking-wider text-xs text-right">Controls</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading && rules.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="text-center py-12">
-                                        <div className="flex flex-col items-center justify-center opacity-60">
-                                            <span className="loading loading-spinner loading-md text-primary mb-3"></span>
-                                            <span className="text-sm font-medium">Fetching active rules...</span>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ) : rules.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="text-center py-12 text-neutral-content/60 bg-base-200/20 italic">
-                                        No active firewall rules found on {agentName}.
-                                    </td>
-                                </tr>
-                            ) : (
-                                rules.map((r, i) => (
-                                    <tr key={i} className="hover:bg-base-200/40 transition-colors group">
-                                        <td className="font-mono text-xs opacity-60">{r.ID || '-'}</td>
-                                        <td>
-                                            <div className={twMerge(clsx(
-                                                "badge badge-xs font-bold border-none py-2 px-2 uppercase",
-                                                r.Action.toUpperCase().includes('ALLOW') ? "bg-success/20 text-success" : "bg-error/20 text-error"
-                                            ))}>
-                                                {r.Action}
-                                            </div>
-                                        </td>
-                                        <td className="font-mono font-medium">{r.ToPorts}</td>
-                                        <td className="font-mono text-neutral-content/80 text-sm">{r.FromIP}</td>
-                                        <td className="text-right">
-                                            <button 
-                                                onClick={() => handleDeleteRule(r.ID)}
-                                                className="btn btn-ghost btn-xs text-error opacity-0 group-hover:opacity-100 transition-opacity"
-                                                title="Delete Rule"
-                                                disabled={loading}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                <div style={{ border: `1px solid ${antdToken.colorBorderSecondary}`, borderRadius: '12px', overflow: 'hidden' }}>
+                    <Table
+                        columns={columns}
+                        dataSource={rules}
+                        loading={loading}
+                        rowKey={(record, index) => record.ID || index || 0}
+                        pagination={{ pageSize: 5, hideOnSinglePage: true }}
+                    />
                 </div>
             </div>
-            {/* Backdrop click to close */}
-            <form method="dialog" className="modal-backdrop bg-black/40 backdrop-blur-sm" onClick={onClose}>
-                <button>close</button>
-            </form>
-        </div>
+        </Modal>
     );
 }

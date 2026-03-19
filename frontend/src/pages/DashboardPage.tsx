@@ -1,115 +1,216 @@
-import { Link } from 'react-router-dom';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useProjects } from '../hooks/useProjects';
 import { useAccounts } from '../hooks/useAccounts';
 import { useAgents } from '../hooks/useAgents';
-import { FolderKanban, KeyRound, Server, Plus, ArrowRight } from 'lucide-react';
+import { 
+    Card, 
+    Row, 
+    Col, 
+    Statistic, 
+    Button, 
+    Typography, 
+    Space, 
+    List, 
+    theme 
+} from 'antd';
+import { 
+    FolderOpenOutlined, 
+    KeyOutlined, 
+    CloudServerOutlined, 
+    PlusOutlined, 
+    ArrowRightOutlined, 
+    LineChartOutlined,
+    ThunderboltOutlined
+} from '@ant-design/icons';
+import { PageContainer } from '../components/PageContainer';
 
-function StatCard({
-    label, value, icon, colorClass, href
-}: { label: string; value: number; icon: React.ReactNode; colorClass: string; href: string }) {
-    return (
-        <Link to={href} className="stats shadow bg-base-200 border border-white/5 hover:border-primary/30 transition-all duration-200">
-            <div className="stat">
-                <div className={`stat-figure ${colorClass}`}>
-                    {icon}
-                </div>
-                <div className="stat-value text-2xl">{value}</div>
-                <div className="stat-title text-neutral-content">{label}</div>
-            </div>
-        </Link>
-    );
-}
+const { Title, Text } = Typography;
 
 export function DashboardPage() {
     const { projects } = useProjects();
     const { accounts, independentAccounts } = useAccounts();
     const { agents, error } = useAgents();
+    const navigate = useNavigate();
+    const { token } = theme.useToken();
+
+    const onlineAgents = agents.filter(a => a.status === 'online').length;
+
+    const stats = [
+        { 
+            title: 'Total Projects', 
+            value: projects.length, 
+            icon: <FolderOpenOutlined style={{ color: token.colorPrimary }} />, 
+            color: token.colorPrimaryBg,
+            onClick: () => navigate('/projects')
+        },
+        { 
+            title: 'Active Services', 
+            value: accounts.length, 
+            icon: <KeyOutlined style={{ color: token.colorInfo }} />, 
+            color: token.colorInfoBg,
+            onClick: () => navigate('/accounts')
+        },
+        { 
+            title: 'Online Agents', 
+            value: onlineAgents, 
+            icon: <CloudServerOutlined style={{ color: error ? token.colorError : token.colorSuccess }} />, 
+            color: error ? token.colorErrorBg : token.colorSuccessBg,
+            onClick: () => navigate('/servers')
+        },
+        { 
+            title: 'Independent', 
+            value: independentAccounts.length, 
+            icon: <LineChartOutlined style={{ color: token.colorWarning }} />, 
+            color: token.colorWarningBg,
+            onClick: () => navigate('/accounts')
+        },
+    ];
 
     return (
-        <div className="space-y-8">
-            {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold">Dashboard</h1>
-                <p className="text-neutral-content text-sm">Overview of your infrastructure</p>
-            </div>
+        <PageContainer 
+            title="Dashboard" 
+            description="Fleet overview and immediate management actions."
+        >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                {/* Stats Grid */}
+                <Row gutter={[24, 24]}>
+                    {stats.map((stat, idx) => (
+                        <Col xs={24} sm={12} lg={6} key={idx}>
+                            <Card 
+                                hoverable 
+                                onClick={stat.onClick}
+                                style={{ borderRadius: '12px', border: 'none', boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}
+                                bodyStyle={{ padding: '24px' }}
+                            >
+                                <Statistic
+                                    title={<Text type="secondary" strong style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>{stat.title}</Text>}
+                                    value={stat.value}
+                                    prefix={React.cloneElement(stat.icon as React.ReactElement<any>, { 
+                                        style: { 
+                                            ...(stat.icon as React.ReactElement<any>).props.style, 
+                                            fontSize: '24px', 
+                                            marginRight: '12px' 
+                                        } 
+                                    })}
+                                    valueStyle={{ fontWeight: 800, fontSize: '28px' }}
+                                />
+                            </Card>
+                        </Col>
+                    ))}
+                </Row>
 
-            {/* Stat cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard label="Projects" value={projects.length} icon={<FolderKanban size={24} />} colorClass="text-primary" href="/projects" />
-                <StatCard label="Service Accounts" value={accounts.length} icon={<KeyRound size={24} />} colorClass="text-secondary" href="/accounts" />
-                <StatCard
-                    label="Agents Online"
-                    value={agents.length}
-                    icon={<Server size={24} />}
-                    colorClass={error ? 'text-error' : 'text-success'}
-                    href="/agents"
-                />
-                <StatCard label="Independent Accts" value={independentAccounts.length} icon={<KeyRound size={24} />} colorClass="text-accent" href="/accounts" />
-            </div>
-
-            {/* Quick actions */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Link to="/projects" className="card bg-base-200 border border-white/5 hover:border-primary/30 transition-all cursor-pointer">
-                    <div className="card-body p-6">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <Plus size={18} className="text-primary" />
-                                <span className="font-semibold">New Project</span>
+                {/* Quick Actions */}
+                <Row gutter={[24, 24]}>
+                    <Col xs={24} lg={12}>
+                        <Card 
+                            hoverable 
+                            onClick={() => navigate('/projects')}
+                            style={{ 
+                                borderRadius: '16px', 
+                                border: `1px solid ${token.colorBorderSecondary}`,
+                                background: `linear-gradient(135deg, ${token.colorBgContainer} 0%, ${token.colorPrimaryBg} 100%)`
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Space size="large">
+                                    <div style={{ 
+                                        padding: '16px', 
+                                        borderRadius: '12px', 
+                                        background: token.colorPrimary,
+                                        color: '#fff',
+                                        display: 'flex',
+                                        boxShadow: `0 4px 12px ${token.colorPrimary}40`
+                                    }}>
+                                        <PlusOutlined style={{ fontSize: '24px' }} />
+                                    </div>
+                                    <div>
+                                        <Title level={4} style={{ margin: 0 }}>Create Project</Title>
+                                        <Text type="secondary">Group and manage related infrastructure assets.</Text>
+                                    </div>
+                                </Space>
+                                <ArrowRightOutlined style={{ fontSize: '20px', opacity: 0.2 }} />
                             </div>
-                            <ArrowRight size={16} className="text-neutral-content" />
-                        </div>
-                        <p className="text-sm text-neutral-content mt-2">
-                            Create a project to group your service accounts
-                        </p>
-                    </div>
-                </Link>
-                <Link to="/accounts" className="card bg-base-200 border border-white/5 hover:border-primary/30 transition-all cursor-pointer">
-                    <div className="card-body p-6">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <Plus size={18} className="text-secondary" />
-                                <span className="font-semibold">Add Account</span>
+                        </Card>
+                    </Col>
+                    <Col xs={24} lg={12}>
+                        <Card 
+                            hoverable 
+                            onClick={() => navigate('/accounts')}
+                            style={{ 
+                                borderRadius: '16px', 
+                                border: `1px solid ${token.colorBorderSecondary}`,
+                                background: `linear-gradient(135deg, ${token.colorBgContainer} 0%, ${token.colorInfoBg} 100%)`
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Space size="large">
+                                    <div style={{ 
+                                        padding: '16px', 
+                                        borderRadius: '12px', 
+                                        background: token.colorInfo,
+                                        color: '#fff',
+                                        display: 'flex',
+                                        boxShadow: `0 4px 12px ${token.colorInfo}40`
+                                    }}>
+                                        <KeyOutlined style={{ fontSize: '24px' }} />
+                                    </div>
+                                    <div>
+                                        <Title level={4} style={{ margin: 0 }}>Provision Account</Title>
+                                        <Text type="secondary">Instantly add database, FTP or process credentials.</Text>
+                                    </div>
+                                </Space>
+                                <ArrowRightOutlined style={{ fontSize: '20px', opacity: 0.2 }} />
                             </div>
-                            <ArrowRight size={16} className="text-neutral-content" />
-                        </div>
-                        <p className="text-sm text-neutral-content mt-2">
-                            Add a DB, MQ, S3, FTP, or PM2 service account
-                        </p>
-                    </div>
-                </Link>
-            </div>
+                        </Card>
+                    </Col>
+                </Row>
 
-            {/* Recent projects */}
-            {projects.length > 0 && (
-                <div className="card bg-base-200 border border-white/5">
-                    <div className="card-body p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="card-title text-base font-bold text-neutral-content uppercase tracking-wider">Recent Projects</h2>
-                            <Link to="/projects" className="text-sm text-primary hover:underline italic">
-                                View all →
-                            </Link>
-                        </div>
-                        <div className="space-y-1">
-                            {projects.slice(0, 5).map(p => (
-                                <Link 
-                                    key={p.id} 
-                                    to={`/projects/${p.id}`} 
-                                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors group"
-                                >
-                                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: p.color }} />
-                                    <span className="font-medium group-hover:text-primary transition-colors">{p.name}</span>
-                                    {p.description && (
-                                        <span className="text-xs text-neutral-content ml-auto line-clamp-1">
-                                            {p.description}
-                                        </span>
-                                    )}
-                                </Link>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
+                {/* Recent Projects */}
+                {projects.length > 0 && (
+                    <Card 
+                        title={
+                            <Space>
+                                <ThunderboltOutlined style={{ color: token.colorPrimary }} />
+                                <Text strong style={{ textTransform: 'uppercase', letterSpacing: '1px', fontSize: '12px' }}>Recent Deployments</Text>
+                            </Space>
+                        }
+                        extra={<Button type="link" onClick={() => navigate('/projects')}>View All Assets</Button>}
+                        style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}
+                    >
+                        <List
+                            grid={{ gutter: 16, xs: 1, sm: 2, lg: 3 }}
+                            dataSource={projects.slice(0, 6)}
+                            renderItem={(project) => (
+                                <List.Item>
+                                    <Card 
+                                        hoverable 
+                                        size="small" 
+                                        onClick={() => navigate(`/projects/${project.id}`)}
+                                        style={{ borderRadius: '12px' }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <Space>
+                                                <div style={{ 
+                                                    width: '8px', 
+                                                    height: '8px', 
+                                                    borderRadius: '50%', 
+                                                    background: project.color === 'primary' ? token.colorPrimary : 
+                                                               project.color === 'secondary' ? token.colorInfo : 
+                                                               project.color === 'accent' ? token.colorWarning : token.colorPrimary
+                                                }} />
+                                                <Text strong>{project.name}</Text>
+                                            </Space>
+                                            <ArrowRightOutlined style={{ fontSize: '12px', opacity: 0.3 }} />
+                                        </div>
+                                    </Card>
+                                </List.Item>
+                            )}
+                        />
+                    </Card>
+                )}
+            </div>
+        </PageContainer>
     );
 }
 
