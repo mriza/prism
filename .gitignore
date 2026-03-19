@@ -46,3 +46,20 @@ coverage/
 
 # Temp
 tmp/
+
+# Claude
+.claude*
+
+# TypeScript/JS build artifacts
+*.tsbuildinfo
+
+# Test files
+frontend/src/test/
+tsc_errors.txt
+
+# Documentation
+server/docs/
+
+# Test files
+*_test.go
+test_*.go
