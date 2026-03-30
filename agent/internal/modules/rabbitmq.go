@@ -23,6 +23,9 @@ func NewRabbitMQModule() *RabbitMQModule {
 
 // Ensure Interface Compatibility
 var _ core.ServiceModule = (*RabbitMQModule)(nil)
+var _ core.RabbitMQModule = (*RabbitMQModule)(nil)
+var _ core.ServiceSettings = (*RabbitMQModule)(nil)
+var _ core.ConfigurableModule = (*RabbitMQModule)(nil)
 
 func (m *RabbitMQModule) GetFacts() (map[string]string, error) {
 	facts, _ := m.SystemdModule.GetFacts()

@@ -8,13 +8,11 @@ import {
     Col, 
     Input, 
     Slider,
-    Alert,
     Tag
 } from 'antd';
 import {
     SettingOutlined,
     SyncOutlined,
-    RocketOutlined,
     GlobalOutlined
 } from '@ant-design/icons';
 import { PageContainer } from '../components/PageContainer';
@@ -104,13 +102,7 @@ export function SettingsPage() {
                                 </Space>
                             </Card>
 
-                            <Alert
-                                message={<Space><RocketOutlined style={{ color: token.colorPrimary }} /> <Text strong style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Autonomous Engine Active</Text></Space>}
-                                description={<Text type="secondary" style={{ fontSize: '11px' }}>Adaptive AI Engine is monitoring these parameters globally to ensure infrastructure stability.</Text>}
-                                type="info"
-                                showIcon={false}
-                                style={{ borderRadius: '16px', border: `1px solid ${token.colorPrimaryBorder}`, backgroundColor: `${token.colorPrimary}05` }}
-                            />
+                            
                         </Space>
                     </Col>
                 </Row>

@@ -30,6 +30,7 @@ var logger *slog.Logger
 var wsHub *ws.Hub
 var serverConfig *config.Config // Global config for token access
 
+// WebSocket upgrader with per-message deflate compression (RFC 7692)
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		// Restrict CORS - only allow same origin or localhost in development
@@ -44,6 +45,7 @@ var upgrader = websocket.Upgrader{
 			strings.HasPrefix(origin, "ws://localhost") ||
 			strings.HasPrefix(origin, "ws://127.0.0.1")
 	},
+	EnableCompression: true, // Enable per-message deflate compression
 }
 
 type AgentSession struct {
@@ -149,7 +151,7 @@ func handleAgentConnection(w http.ResponseWriter, r *http.Request, cfg *config.C
 	osInfo, _ := payloadMap["os_info"].(string)
 	agentIDPayload, _ := payloadMap["agent_id"].(string)
 
-	var agent *models.Agent
+	var agent *models.LegacyAgent
 
 	if agentIDPayload != "" {
 		agent, err = db.GetAgentByID(agentIDPayload)
@@ -175,7 +177,7 @@ func handleAgentConnection(w http.ResponseWriter, r *http.Request, cfg *config.C
 
 		if agent == nil {
 			// Truly new agent: insert as 'pending'
-			newAgent := models.Agent{
+			newAgent := models.LegacyAgent{
 				ID:       agentIDPayload,
 				Hostname: hostname,
 				OSInfo:   osInfo,
@@ -708,7 +710,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize Database
+	// Initialize Database with SQLCipher encryption
 	dbPath := "prism.db"
 	if cfg != nil && cfg.Database.Path != "" {
 		dbPath = cfg.Database.Path
@@ -719,9 +721,22 @@ func main() {
 		api.JWTSecret = []byte(cfg.Auth.JwtSecret)
 	}
 
+	// Initialize database
 	if err := db.InitDB(dbPath); err != nil {
 		logger.Error("Failed to initialize database", "error", err)
 		os.Exit(1)
+	}
+
+	// Initialize SQLCipher encryption if password is provided
+	dbPassword := os.Getenv("PRISM_DB_PASSWORD")
+	if dbPassword != "" {
+		if err := db.InitializeSQLCipher(dbPassword); err != nil {
+			logger.Error("Failed to initialize SQLCipher encryption", "error", err)
+			os.Exit(1)
+		}
+		logger.Info("Database encryption enabled with SQLCipher")
+	} else {
+		logger.Info("Database encryption NOT enabled (set PRISM_DB_PASSWORD to enable)")
 	}
 
 	// Initialize Valkey cache
@@ -779,6 +794,9 @@ func main() {
 	http.HandleFunc("/api/projects/", api.AuthMiddleware(api.HandleProjectDetail, "admin", "manager", "user"))
 	http.HandleFunc("/api/accounts", api.AuthMiddleware(api.HandleAccounts, "admin", "manager", "user"))
 	http.HandleFunc("/api/accounts/", api.AuthMiddleware(api.HandleAccountDetail, "admin", "manager", "user"))
+
+	http.HandleFunc("/api/management-credentials", api.AuthMiddleware(api.HandleManagementCredentials, "admin", "manager"))
+	http.HandleFunc("/api/management-credentials/", api.AuthMiddleware(api.HandleManagementCredentialDetail, "admin", "manager"))
 
 	// REST API for Users (Admin only)
 	http.HandleFunc("/api/users", api.AuthMiddleware(api.HandleUsers, "admin"))
@@ -1023,6 +1041,44 @@ func handleServiceControl(w http.ResponseWriter, r *http.Request) {
 			} else {
 				http.Error(w, "No active firewall found on agent", http.StatusNotFound)
 				return
+			}
+		}
+	}
+
+	// Inject Management Credentials if available
+	svc, err := db.GetServiceByServerAndName(agentDB.ID, service)
+	if err == nil && svc != nil {
+		var mc *models.ManagementCredential
+		var reqCredID string
+		
+		if req.Options != nil {
+			if id, ok := req.Options["credential_id"].(string); ok {
+				reqCredID = id
+			}
+		}
+
+		if reqCredID != "" {
+			mc, _ = db.GetManagementCredentialByID(reqCredID)
+		} else {
+			creds, _ := db.GetManagementCredentialsByServiceID(svc.ID)
+			for _, c := range creds {
+				if c.Status == "active" {
+					mcCopy := c
+					mc = &mcCopy
+					break
+				}
+			}
+		}
+
+		if mc != nil && (mc.Status == "active" || req.Action == "verify_credential") {
+			if req.Options == nil {
+				req.Options = make(map[string]interface{})
+			}
+			req.Options["management_credentials"] = map[string]string{
+				"username":          string(mc.UsernameEncrypted),
+				"password":          string(mc.PasswordEncrypted),
+				"connection_params": string(mc.ConnectionParamsEncrypted),
+				"type":              mc.CredentialType,
 			}
 		}
 	}
@@ -1454,10 +1510,10 @@ func handleServiceImport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 3. Reverse Load into Database
-	existingAccounts, _ := db.GetServiceAccounts("")
+	existingAccounts, _ := db.GetServiceAccounts(db.ServiceAccountFilters{})
 	memo := make(map[string]bool)
 	for _, acc := range existingAccounts {
-		if acc.AgentID == req.AgentID && acc.Type == req.Service {
+		if acc.ServerID == req.AgentID && acc.Type == req.Service {
 			memo[acc.Name] = true
 		}
 	}
@@ -1484,15 +1540,15 @@ func handleServiceImport(w http.ResponseWriter, r *http.Request) {
 		}
 
 		acc := models.ServiceAccount{
-			AgentID: req.AgentID,
-			Type:    accType,
-			Name:    name,
-			Port:    port,
-			Tags:    []string{"imported", "discovered"},
+			ServerID: req.AgentID,
+			Type:     accType,
+			Name:     name,
+			Port:     port,
+			Tags:     []string{"imported", "discovered"},
 		}
 
 		// Field specific defaults
-		if accType == "s3-minio" || accType == "s3-garage" {
+		if accType == "s3-minio" || accType == "s3-garage" || accType == "minio" {
 			if root, ok := extra["root"].(string); ok {
 				acc.Bucket = root
 			}
@@ -1567,9 +1623,10 @@ func handleServiceImport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"added":   addedCount,
-		"message": fmt.Sprintf("Imported %d new items from %s", addedCount, req.Service),
+		"success":       true,
+		"added":         addedCount,
+		"import_errors": discovered.ImportErrors,
+		"message":       fmt.Sprintf("Imported %d new items from %s", addedCount, req.Service),
 	})
 }
 

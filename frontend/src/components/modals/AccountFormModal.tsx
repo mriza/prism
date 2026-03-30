@@ -31,13 +31,19 @@ interface Props {
     isOpen: boolean;
     onClose: () => void;
     onSave: (data: AccountDraft) => void;
+    /** When set, locks the category for all accounts created through this modal */
+    category?: AccountDraft['category'];
     projectId?: string;
     initial?: ServiceAccount;
 }
 
-const defaultDraft = (projectId?: string): AccountDraft => ({
+const defaultDraft = (category: AccountDraft['category'] = 'project', projectId?: string): AccountDraft => ({
+    category,
     type: 'mysql',
     projectId,
+    projectName: undefined,
+    serverId: '',
+    serviceId: '',
     agentId: '',
     name: '',
     host: 'localhost',
@@ -46,6 +52,9 @@ const defaultDraft = (projectId?: string): AccountDraft => ({
     databases: [],
     username: '',
     password: '',
+    permissions: undefined,
+    status: 'active',
+    lastActivity: undefined,
     role: '',
     targetEntity: '',
     vhost: '/',
@@ -59,6 +68,11 @@ const defaultDraft = (projectId?: string): AccountDraft => ({
     script: '',
     cwd: '',
     tags: [],
+    quota: undefined,
+    quotaEnabled: false,
+    pm2Port: undefined,
+    pm2ProxyType: undefined,
+    pm2ProxyDomain: undefined,
 });
 
 const DEFAULT_PORTS: Partial<Record<ServiceType, number>> = {
@@ -92,7 +106,7 @@ const SERVICE_NAME_MAP: Partial<Record<ServiceType, string[]>> = {
     'security-crowdsec': ['crowdsec'],
 };
 
-export function AccountFormModal({ isOpen, onClose, onSave, projectId, initial }: Props) {
+export function AccountFormModal({ isOpen, onClose, onSave, category = 'project', projectId, initial }: Props) {
     const [step, setStep] = useState<1 | 2>(initial ? 2 : 1);
     const [form] = Form.useForm();
     const { agents } = useAgents();
@@ -101,7 +115,7 @@ export function AccountFormModal({ isOpen, onClose, onSave, projectId, initial }
 
     const getMatchingAgents = (type: ServiceType) => {
         const names = SERVICE_NAME_MAP[type] || [];
-        return agents.filter(a => 
+        return agents.filter(a =>
             (a.status === 'approved' || a.status === 'online' || a.status === 'offline') &&
             a.services.some(s => names.includes(s.name))
         );
@@ -113,7 +127,7 @@ export function AccountFormModal({ isOpen, onClose, onSave, projectId, initial }
 
         setSelectedType(t);
         form.setFieldsValue({
-            ...defaultDraft(projectId),
+            ...defaultDraft(category, projectId),
             type: t,
             port: DEFAULT_PORTS[t],
             agentId: autoAgent ? autoAgent.id : '',
@@ -123,7 +137,8 @@ export function AccountFormModal({ isOpen, onClose, onSave, projectId, initial }
     };
 
     const handleSave = (values: any) => {
-        onSave({ ...values, type: selectedType, projectId });
+        const { agentId, ...rest } = values;
+        onSave({ ...rest, serverId: agentId, agentId, category, type: selectedType, projectId });
         onClose();
     };
 
@@ -190,7 +205,7 @@ export function AccountFormModal({ isOpen, onClose, onSave, projectId, initial }
                     form={form}
                     layout="vertical"
                     onFinish={handleSave}
-                    initialValues={initial ?? defaultDraft(projectId)}
+                    initialValues={initial ?? defaultDraft(category, projectId)}
                     style={{ marginTop: '24px' }}
                 >
                     {!initial && (

@@ -2,18 +2,52 @@ import { useState, useEffect, useCallback } from 'react';
 import type { ServiceAccount } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
+export interface AccountCrossReference {
+    id: string;
+    username: string;
+    name: string;
+    type: string;
+    category: string;
+    status: string;
+    createdAt: string;
+    projectName?: string;
+    serverName?: string;
+    hostname?: string;
+    ipAddress?: string;
+    serviceName?: string;
+    serviceType?: string;
+}
 
 export function useAccounts() {
     const [accounts, setAccounts] = useState<ServiceAccount[]>([]);
+    const [crossReference, setCrossReference] = useState<AccountCrossReference[]>([]);
     const [loading, setLoading] = useState(true);
     const { token } = useAuth();
 
     const apiBase = import.meta.env.VITE_API_URL || '';
 
-    const fetchAccounts = useCallback(async () => {
+    const fetchAccounts = useCallback(async (filters?: {
+        projectId?: string;
+        serverId?: string;
+        serviceId?: string;
+        category?: string;
+        type?: string;
+        status?: string;
+        search?: string;
+    }) => {
         if (!token) return;
         try {
-            const res = await fetch(`${apiBase}/api/accounts`, {
+            const params = new URLSearchParams();
+            if (filters?.projectId) params.append('projectId', filters.projectId);
+            if (filters?.serverId) params.append('serverId', filters.serverId);
+            if (filters?.serviceId) params.append('serviceId', filters.serviceId);
+            if (filters?.category) params.append('category', filters.category);
+            if (filters?.type) params.append('type', filters.type);
+            if (filters?.status) params.append('status', filters.status);
+            if (filters?.search) params.append('search', filters.search);
+
+            const url = `${apiBase}/api/accounts${params.toString() ? '?' + params.toString() : ''}`;
+            const res = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -29,9 +63,39 @@ export function useAccounts() {
         }
     }, [token, apiBase]);
 
+    const fetchCrossReference = useCallback(async (filters?: {
+        projectId?: string;
+        serverId?: string;
+        category?: string;
+        search?: string;
+    }) => {
+        if (!token) return;
+        try {
+            const params = new URLSearchParams();
+            if (filters?.projectId) params.append('projectId', filters.projectId);
+            if (filters?.serverId) params.append('serverId', filters.serverId);
+            if (filters?.category) params.append('category', filters.category);
+            if (filters?.search) params.append('search', filters.search);
+
+            const url = `${apiBase}/api/accounts/cross-reference${params.toString() ? '?' + params.toString() : ''}`;
+            const res = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setCrossReference(data || []);
+            }
+        } catch (err) {
+            console.error('Failed to fetch cross-reference', err);
+        }
+    }, [token, apiBase]);
+
     useEffect(() => {
         fetchAccounts();
-    }, [fetchAccounts]);
+        fetchCrossReference();
+    }, [fetchAccounts, fetchCrossReference]);
 
     const createAccount = useCallback(async (data: Omit<ServiceAccount, 'id' | 'createdAt'>) => {
         if (!token) return null;
@@ -107,18 +171,18 @@ export function useAccounts() {
         if (!token) return false;
         try {
             const service = action.startsWith('db_') ? (accounts.find(a => a.agentId === agentId)?.type || 'mongodb') : 'unknown';
-            
+
             const res = await fetch(`${apiBase}/api/control`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     agent_id: agentId,
                     service: service,
-                    action, 
-                    options 
+                    action,
+                    options
                 })
             });
             return res.ok;
@@ -128,10 +192,79 @@ export function useAccounts() {
         }
     }, [token, apiBase, accounts]);
 
+    const bulkUpdateProject = useCallback(async (accountIds: string[], projectId: string | null) => {
+        if (!token) return false;
+        try {
+            const res = await fetch(`${apiBase}/api/accounts/bulk-project`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ accountIds, projectId })
+            });
+            if (res.ok) {
+                fetchAccounts();
+                fetchCrossReference();
+                return true;
+            }
+        } catch (err) {
+            console.error('Failed to bulk update project', err);
+        }
+        return false;
+    }, [token, apiBase, fetchAccounts, fetchCrossReference]);
+
+    const bulkDisable = useCallback(async (accountIds: string[]) => {
+        if (!token) return false;
+        try {
+            const res = await fetch(`${apiBase}/api/accounts/bulk-disable`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ accountIds })
+            });
+            if (res.ok) {
+                fetchAccounts();
+                fetchCrossReference();
+                return true;
+            }
+        } catch (err) {
+            console.error('Failed to bulk disable accounts', err);
+        }
+        return false;
+    }, [token, apiBase, fetchAccounts, fetchCrossReference]);
+
     const accountsByProject = useCallback((projectId: string) =>
-        accounts.filter(a => a.projectId === projectId), [accounts]);
+        accounts.filter(a => a.category === 'project' && a.projectId === projectId), [accounts]);
 
-    const independentAccounts = accounts.filter(a => !a.projectId);
+    // Project accounts not yet assigned to any project
+    const independentAccounts = accounts.filter(a => a.category === 'independent' || (a.category === 'project' && !a.projectId));
 
-    return { accounts, loading, createAccount, updateAccount, deleteAccount, deleteAccountsByProject, provisionAccount, accountsByProject, independentAccounts };
+    // Management/root accounts used by PRISM to connect to and operate a service
+    const managementAccounts = accounts.filter(a => a.category === 'management');
+
+    const managementAccountsByService = useCallback((serverId: string, type: import('../types').ServiceType) =>
+        accounts.filter(a => a.category === 'management' && a.serverId === serverId && a.type === type),
+    [accounts]);
+
+    return { 
+        accounts, 
+        crossReference,
+        loading, 
+        createAccount, 
+        updateAccount, 
+        deleteAccount, 
+        deleteAccountsByProject, 
+        provisionAccount, 
+        accountsByProject, 
+        independentAccounts, 
+        managementAccounts, 
+        managementAccountsByService,
+        fetchAccounts,
+        fetchCrossReference,
+        bulkUpdateProject,
+        bulkDisable
+    };
 }

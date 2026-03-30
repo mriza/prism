@@ -11,7 +11,9 @@ import {
     Row,
     Col,
     Card,
-    Spin
+    Spin,
+    Empty,
+    Tag
 } from 'antd';
 import {
     ControlOutlined,
@@ -26,7 +28,9 @@ import {
     CheckCircleOutlined,
     LoadingOutlined,
     WifiOutlined,
-    FireOutlined
+    FireOutlined,
+    KeyOutlined,
+    SettingOutlined
 } from '@ant-design/icons';
 import { DatabaseManager } from './services/managers/DatabaseManager';
 import { RabbitMQManager } from './services/managers/RabbitMQManager';
@@ -35,8 +39,33 @@ import { StorageManager } from './services/managers/StorageManager';
 import { CacheManager } from './services/managers/CacheManager';
 import { MQTTManager } from './services/managers/MQTTManager';
 import { FTPManager } from './services/managers/FTPManager';
+import { ManagementCredentialsTab } from './services/ManagementCredentialsTab';
+import { ApplicationAccountsTab } from './services/ApplicationAccountsTab';
+import { ConfigurationTab } from './services/ConfigurationTab';
+import { LogsTab } from './services/LogsTab';
+import { useAccounts } from '../hooks/useAccounts';
+import type { ServiceType } from '../types';
 
 const { Text } = Typography;
+
+const SERVICE_NAME_TO_TYPE: Record<string, ServiceType> = {
+    mongodb: 'mongodb', mongod: 'mongodb',
+    mysql: 'mysql', mariadb: 'mysql',
+    postgresql: 'postgresql', postgres: 'postgresql',
+    rabbitmq: 'rabbitmq',
+    mosquitto: 'mqtt-mosquitto',
+    minio: 's3-minio',
+    garage: 's3-garage',
+    vsftpd: 'ftp-vsftpd',
+    sftpgo: 'ftp-sftpgo',
+    caddy: 'web-caddy',
+    nginx: 'web-nginx',
+    pm2: 'pm2',
+    supervisor: 'supervisor',
+    systemd: 'systemd',
+    crowdsec: 'security-crowdsec',
+    valkey: 'cache-valkey',
+};
 
 interface ServiceModalProps {
     isOpen: boolean;
@@ -53,6 +82,17 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
     const [error, setError] = useState<string | null>(null);
     const [actionOutput, setActionOutput] = useState<string | null>(null);
     const { token } = theme.useToken();
+    const { managementAccountsByService, accounts } = useAccounts();
+
+    const serviceType = SERVICE_NAME_TO_TYPE[serviceName.toLowerCase()];
+    const mgmtAccounts = serviceType ? managementAccountsByService(agentId, serviceType) : [];
+    
+    // Filter application accounts for this service
+    const appAccounts = accounts.filter(a => 
+        a.agentId === agentId && 
+        a.type === serviceType &&
+        a.category !== 'management'
+    );
 
     const isDatabase = ['mysql', 'mariadb', 'postgresql'].includes(serviceName);
     const isRabbitMQ = serviceName === 'rabbitmq';
@@ -204,6 +244,71 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
         }
     ];
 
+    // Add Accounts tab with nested tabs for Management Credentials and Application Accounts
+    tabItems.push({
+        key: 'accounts',
+        label: <Space><KeyOutlined />Accounts</Space>,
+        children: (
+            <Tabs
+                type="card"
+                items={[
+                    {
+                        key: 'management',
+                        label: 'Management Credentials',
+                        children: (
+                            <ManagementCredentialsTab
+                                agentId={agentId}
+                                serviceId=""
+                                serviceName={serviceName}
+                                serviceType={serviceType as any}
+                            />
+                        )
+                    },
+                    {
+                        key: 'application',
+                        label: `Application Accounts (${appAccounts.length})`,
+                        children: (
+                            <ApplicationAccountsTab
+                                agentId={agentId}
+                                serviceName={serviceName}
+                                serviceType={serviceType}
+                                accounts={appAccounts}
+                                onCreateAccount={() => {/* TODO */}}
+                                onEditAccount={() => {/* TODO */}}
+                                onDeleteAccount={() => {/* TODO */}}
+                            />
+                        )
+                    }
+                ]}
+            />
+        )
+    });
+
+    // Add Configuration tab
+    tabItems.push({
+        key: 'configuration',
+        label: <Space><SettingOutlined />Configuration</Space>,
+        children: (
+            <ConfigurationTab
+                _agentId={agentId}
+                _serviceName={serviceName}
+                _serviceType={serviceType}
+            />
+        )
+    });
+
+    // Add Logs tab
+    tabItems.push({
+        key: 'logs',
+        label: <Space><FireOutlined />Logs</Space>,
+        children: (
+            <LogsTab
+                _agentId={agentId}
+                _serviceName={serviceName}
+            />
+        )
+    });
+
     if (isDatabase) {
         tabItems.push({
             key: 'database',
@@ -259,6 +364,51 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
             children: <FTPManager sendCommand={sendCommand} />
         });
     }
+
+    tabItems.push({
+        key: 'mgmt-account',
+        label: <Space><KeyOutlined />Management Account</Space>,
+        children: (
+            <div style={{ padding: '12px 0' }}>
+                {mgmtAccounts.length === 0 ? (
+                    <Empty
+                        description="No management account configured for this service"
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    />
+                ) : (
+                    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                        {mgmtAccounts.map(a => (
+                            <Card
+                                key={a.id}
+                                style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}
+                                bodyStyle={{ padding: '20px 24px' }}
+                            >
+                                <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                                    <Space>
+                                        <Text strong style={{ fontSize: '15px' }}>{a.name}</Text>
+                                        <Tag color="orange" style={{ borderRadius: '4px', fontSize: '10px', textTransform: 'uppercase' }}>Management</Tag>
+                                    </Space>
+                                    <Descriptions size="small" column={2} bordered style={{ marginTop: '12px' }}>
+                                        {a.host && <Descriptions.Item label="Host"><Text code>{a.host}</Text></Descriptions.Item>}
+                                        {a.port && <Descriptions.Item label="Port"><Text code>{a.port}</Text></Descriptions.Item>}
+                                        {a.username && <Descriptions.Item label="Username"><Text code>{a.username}</Text></Descriptions.Item>}
+                                        {a.databases && a.databases.length > 0 && (
+                                            <Descriptions.Item label="Databases" span={2}>
+                                                <Space wrap>{a.databases.map(db => <Tag key={db}>{db}</Tag>)}</Space>
+                                            </Descriptions.Item>
+                                        )}
+                                        {a.accessKey && <Descriptions.Item label="Access Key"><Text code>{a.accessKey}</Text></Descriptions.Item>}
+                                        {a.bucket && <Descriptions.Item label="Bucket"><Text code>{a.bucket}</Text></Descriptions.Item>}
+                                        {a.rootPath && <Descriptions.Item label="Root Path"><Text code>{a.rootPath}</Text></Descriptions.Item>}
+                                    </Descriptions>
+                                </Space>
+                            </Card>
+                        ))}
+                    </Space>
+                )}
+            </div>
+        )
+    });
 
     return (
         <Modal

@@ -205,7 +205,12 @@ func getOSInfo() string {
 }
 
 func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt chan os.Signal, cfg *config.Config, cfgPath string) error {
-	c, _, err := websocket.DefaultDialer.Dial(urlStr, nil)
+	// Create WebSocket dialer with per-message deflate compression (RFC 7692)
+	dialer := websocket.Dialer{
+		EnableCompression: true, // Enable per-message deflate compression
+	}
+
+	c, _, err := dialer.Dial(urlStr, nil)
 	if err != nil {
 		return err
 	}
@@ -421,11 +426,17 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 								CommandID: cmdID,
 								Success:   success,
 								Message:   output,
-								Output:    func() string {
-									if success { return output }; return ""
+								Output: func() string {
+									if success {
+										return output
+									}
+									return ""
 								}(),
 								Error: func() string {
-									if !success { return output }; return ""
+									if !success {
+										return output
+									}
+									return ""
 								}(),
 							},
 						}

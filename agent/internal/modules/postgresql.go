@@ -10,6 +10,7 @@ import (
 
 type PostgresModule struct {
 	*SystemdModule
+	managementCreds map[string]string
 }
 
 func NewPostgresModule() *PostgresModule {
@@ -21,6 +22,13 @@ func NewPostgresModule() *PostgresModule {
 // Ensure Interface Compatibility
 var _ core.ServiceModule = (*PostgresModule)(nil)
 var _ core.DatabaseModule = (*PostgresModule)(nil)
+var _ core.ServiceSettings = (*PostgresModule)(nil)
+var _ core.ConfigurableModule = (*PostgresModule)(nil)
+var _ core.ManagementCredentialAware = (*PostgresModule)(nil)
+
+func (m *PostgresModule) SetManagementCredentials(creds map[string]string) {
+	m.managementCreds = creds
+}
 
 func (m *PostgresModule) GetFacts() (map[string]string, error) {
 	facts, _ := m.SystemdModule.GetFacts()
@@ -31,8 +39,32 @@ func (m *PostgresModule) GetFacts() (map[string]string, error) {
 	return facts, nil
 }
 
+func (m *PostgresModule) runPsql(query string, formatArgs ...string) *exec.Cmd {
+	var args []string
+	var env []string
+
+	if m.managementCreds != nil && m.managementCreds["username"] != "" {
+		args = append(args, "psql", "-U", m.managementCreds["username"], "-h", "127.0.0.1")
+		if pass := m.managementCreds["password"]; pass != "" {
+			env = append(os.Environ(), "PGPASSWORD="+pass)
+		}
+	} else {
+		args = append(args, "sudo", "-u", "postgres", "psql")
+	}
+
+	args = append(args, formatArgs...)
+	args = append(args, "-c", query)
+
+	cmd := exec.Command(args[0], args[1:]...)
+	if len(env) > 0 {
+		cmd.Env = env
+	}
+	return cmd
+}
+
 func (m *PostgresModule) ListDatabases() ([]string, error) {
-	out, err := exec.Command("sudo", "-u", "postgres", "psql", "-t", "-c", "SELECT datname FROM pg_database WHERE datistemplate = false;").Output()
+	cmd := m.runPsql("SELECT datname FROM pg_database WHERE datistemplate = false;", "-t")
+	out, err := cmd.Output()
 	if err != nil {
 		return nil, err
 	}
@@ -53,17 +85,19 @@ func (m *PostgresModule) CreateDatabase(name string) error {
 	}
 	// Check if already exists for idempotency
 	checkCmd := fmt.Sprintf("SELECT 1 FROM pg_database WHERE datname = '%s'", name)
-	out, _ := exec.Command("sudo", "-u", "postgres", "psql", "-t", "-c", checkCmd).Output()
+	cmd := m.runPsql(checkCmd, "-t")
+	out, _ := cmd.Output()
 	if strings.TrimSpace(string(out)) == "1" {
 		return nil // Already exists
 	}
 
-	// Use sudo -u postgres createdb
-	return exec.Command("sudo", "-u", "postgres", "createdb", name).Run()
+	createCmd := fmt.Sprintf("CREATE DATABASE \"%s\"", name)
+	return m.runPsql(createCmd).Run()
 }
 
 func (m *PostgresModule) ListUsers() ([]string, error) {
-	out, err := exec.Command("sudo", "-u", "postgres", "psql", "-t", "-c", "SELECT usename FROM pg_user;").Output()
+	cmd := m.runPsql("SELECT usename FROM pg_user;", "-t")
+	out, err := cmd.Output()
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +132,7 @@ func (m *PostgresModule) CreateUser(name, password, role, target string) error {
 	}
 
 	createUserCmd := fmt.Sprintf("CREATE USER \"%s\" WITH PASSWORD '%s';", name, password)
-	if err := exec.Command("sudo", "-u", "postgres", "psql", "-c", createUserCmd).Run(); err != nil {
+	if err := m.runPsql(createUserCmd).Run(); err != nil {
 		return fmt.Errorf("failed to create user: %v", err)
 	}
 
@@ -108,14 +142,14 @@ func (m *PostgresModule) CreateUser(name, password, role, target string) error {
 		grantCmd = fmt.Sprintf("GRANT %s ON TABLE \"%s\" TO \"%s\";", privileges, targetTables, name)
 	}
 
-	if err := exec.Command("sudo", "-u", "postgres", "psql", "-c", grantCmd).Run(); err != nil {
+	if err := m.runPsql(grantCmd).Run(); err != nil {
 		return fmt.Errorf("failed to grant privileges: %v", err)
 	}
 
 	// Alter default privileges for future tables/sequences (only if target is all tables)
 	if targetTables != target {
 		defaultPrivsCmd := fmt.Sprintf("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT %s ON TABLES TO \"%s\"; ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT %s ON SEQUENCES TO \"%s\";", privileges, name, privileges, name)
-		exec.Command("sudo", "-u", "postgres", "psql", "-c", defaultPrivsCmd).Run()
+		m.runPsql(defaultPrivsCmd).Run()
 	}
 
 	return nil

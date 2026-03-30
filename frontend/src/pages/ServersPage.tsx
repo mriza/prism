@@ -68,6 +68,7 @@ export function ServersPage() {
     const [selectedService, setSelectedService] = useState<{
         agentId: string;
         agentName: string;
+        serviceId: string;
         serviceName: string;
         serviceLabel: string;
         serviceType: ServiceType;
@@ -260,6 +261,7 @@ export function ServersPage() {
                                                                         : () => setSelectedService({
                                                                             agentId: server.id,
                                                                             agentName: server.name || server.hostname,
+                                                                            serviceId: svc.id,
                                                                             serviceName: svc.name,
                                                                             serviceLabel: label,
                                                                             serviceType: type,

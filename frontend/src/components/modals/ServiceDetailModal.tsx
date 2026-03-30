@@ -36,13 +36,15 @@ import {
     SettingOutlined,
     GlobalOutlined,
     SafetyCertificateOutlined,
-    CloudDownloadOutlined
+    CloudDownloadOutlined,
+    KeyOutlined
 } from '@ant-design/icons';
 import { useAgents } from '../../hooks/useAgents';
 import type { ServiceType } from '../../types';
 import { useAccounts } from '../../hooks/useAccounts';
 import { useProjects } from '../../hooks/useProjects';
 import { Link } from 'react-router-dom';
+import { ManagementCredentialsTab } from '../services/ManagementCredentialsTab';
 
 const { Text, Title } = Typography;
 const { TextArea } = Input;
@@ -61,6 +63,7 @@ interface ServiceDetailModalProps {
     onClose: () => void;
     agentId: string;
     agentName: string;
+    serviceId: string;
     serviceName: string;
     serviceLabel: string;
     serviceType: ServiceType;
@@ -97,6 +100,7 @@ export function ServiceDetailModal({
     onClose, 
     agentId, 
     agentName, 
+    serviceId,
     serviceName, 
     serviceLabel,
     serviceType,
@@ -1211,6 +1215,19 @@ const handleControl = async (action: string) => {
                         </Col>
                     </Row>
                 </div>
+            )
+        },
+        {
+            key: 'credentials',
+            label: <Space><KeyOutlined /> Credentials</Space>,
+            disabled: !['mysql', 'postgresql', 'mongodb', 'rabbitmq', 'mqtt-mosquitto'].includes(serviceType),
+            children: (
+                <ManagementCredentialsTab
+                    agentId={agentId}
+                    serviceId={serviceId}
+                    serviceName={serviceName}
+                    serviceType={serviceType}
+                />
             )
         }
     ];

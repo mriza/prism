@@ -10,6 +10,7 @@ import (
 
 type MongoDBModule struct {
 	*SystemdModule
+	managementCreds map[string]string
 }
 
 func NewMongoDBModule() *MongoDBModule {
@@ -20,6 +21,14 @@ func NewMongoDBModule() *MongoDBModule {
 
 // Ensure Interface Compatibility
 var _ core.ServiceModule = (*MongoDBModule)(nil)
+var _ core.DatabaseModule = (*MongoDBModule)(nil)
+var _ core.ServiceSettings = (*MongoDBModule)(nil)
+var _ core.ConfigurableModule = (*MongoDBModule)(nil)
+var _ core.ManagementCredentialAware = (*MongoDBModule)(nil)
+
+func (m *MongoDBModule) SetManagementCredentials(creds map[string]string) {
+	m.managementCreds = creds
+}
 
 func (m *MongoDBModule) GetFacts() (map[string]string, error) {
 	facts, _ := m.SystemdModule.GetFacts()
@@ -46,10 +55,42 @@ func getMongoCmd() string {
 	return "mongo"
 }
 
+// buildMongoCmdArgs appends credentials to args if available
+func (m *MongoDBModule) buildMongoCmdArgs(baseArgs ...string) []string {
+	var args []string
+	if m.managementCreds != nil {
+		if user, ok := m.managementCreds["username"]; ok && user != "" {
+			args = append(args, "-u", user)
+		}
+		if pass, ok := m.managementCreds["password"]; ok && pass != "" {
+			args = append(args, "-p", pass)
+		}
+		// Try to extract authSource from connectionParams, otherwise default to admin
+		authSource := "admin"
+		if params, ok := m.managementCreds["connection_params"]; ok && params != "" {
+			if strings.Contains(params, `"authSource"`) {
+				// quick extraction, could be improved
+				parts := strings.Split(params, `"authSource"`)
+				if len(parts) > 1 {
+					subparts := strings.Split(parts[1], `"`)
+					if len(subparts) > 1 {
+						authSource = subparts[1]
+					}
+				}
+			}
+		}
+		if authSource != "" && m.managementCreds["username"] != "" {
+			args = append(args, "--authenticationDatabase", authSource)
+		}
+	}
+	return append(args, baseArgs...)
+}
+
 // Database Management Methods
 func (m *MongoDBModule) ListDatabases() ([]string, error) {
 	cmd := getMongoCmd()
-	out, err := exec.Command(cmd, "--quiet", "--eval", "db.adminCommand('listDatabases').databases.forEach(d => print(d.name))").Output()
+	args := m.buildMongoCmdArgs("--quiet", "--eval", "db.adminCommand('listDatabases').databases.forEach(d => print(d.name))")
+	out, err := exec.Command(cmd, args...).Output()
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +114,8 @@ func (m *MongoDBModule) CreateDatabase(name string) error {
 func (m *MongoDBModule) ListUsers() ([]string, error) {
 	cmd := getMongoCmd()
 	evalCmd := "db.getSiblingDB('admin').system.users.find({}, {user:1, db:1}).forEach(u => print(u.user + '@' + u.db))"
-	out, err := exec.Command(cmd, "--quiet", "--eval", evalCmd).Output()
+	args := m.buildMongoCmdArgs("--quiet", "--eval", evalCmd)
+	out, err := exec.Command(cmd, args...).Output()
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +173,8 @@ func (m *MongoDBModule) CreateUser(name, password, role, target string) error {
 		}
 	`, database, username, password, roleDoc, database, username, password, roleDoc)
 
-	err := exec.Command(cmd, "--quiet", "--eval", script).Run()
+	args := m.buildMongoCmdArgs("--quiet", "--eval", script)
+	err := exec.Command(cmd, args...).Run()
 	if err != nil {
 		return fmt.Errorf("failed to create/update mongodb user: %v", err)
 	}
@@ -139,7 +182,8 @@ func (m *MongoDBModule) CreateUser(name, password, role, target string) error {
 	// 2. Create the dummy collection so the DB is actually instantiated
 	if database != "admin" {
 		createCollEval := fmt.Sprintf(`db.getSiblingDB('%s').createCollection('_prism_init')`, database)
-		exec.Command(cmd, "--quiet", "--eval", createCollEval).Run()
+		args := m.buildMongoCmdArgs("--quiet", "--eval", createCollEval)
+		exec.Command(cmd, args...).Run()
 	}
 
 	return nil
@@ -173,7 +217,8 @@ func (m *MongoDBModule) UpdatePrivileges(name, role, target string) error {
 		if (res) print(res);
 	`, database, username, roleDoc)
 
-	err := exec.Command(cmd, "--quiet", "--eval", updateUserEval).Run()
+	args := m.buildMongoCmdArgs("--quiet", "--eval", updateUserEval)
+	err := exec.Command(cmd, args...).Run()
 	if err != nil {
 		return fmt.Errorf("failed to update user privileges: %v", err)
 	}

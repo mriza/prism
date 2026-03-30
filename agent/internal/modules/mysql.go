@@ -10,6 +10,7 @@ import (
 
 type MySQLModule struct {
 	*SystemdModule
+	managementCreds map[string]string
 }
 
 func NewMySQLModule() *MySQLModule {
@@ -20,6 +21,11 @@ func NewMySQLModule() *MySQLModule {
 
 // Ensure Interface Compatibility
 var _ core.ServiceModule = (*MySQLModule)(nil)
+var _ core.ManagementCredentialAware = (*MySQLModule)(nil)
+
+func (m *MySQLModule) SetManagementCredentials(creds map[string]string) {
+	m.managementCreds = creds
+}
 
 func (m *MySQLModule) GetFacts() (map[string]string, error) {
 	facts, _ := m.SystemdModule.GetFacts()
@@ -33,8 +39,35 @@ func (m *MySQLModule) GetFacts() (map[string]string, error) {
 }
 
 // Database Management Methods
+
+func (m *MySQLModule) buildMysqlCmd(baseArgs ...string) *exec.Cmd {
+	var args []string
+	var env []string
+
+	args = append(args, "mysql")
+	if m.managementCreds != nil && m.managementCreds["username"] != "" {
+		args = append(args, "-u", m.managementCreds["username"])
+		if host := m.managementCreds["host"]; host != "" {
+			args = append(args, "-h", host)
+		} else {
+			args = append(args, "-h", "127.0.0.1")
+		}
+		if pass := m.managementCreds["password"]; pass != "" {
+			env = append(os.Environ(), "MYSQL_PWD="+pass)
+		}
+	}
+
+	args = append(args, baseArgs...)
+	cmd := exec.Command(args[0], args[1:]...)
+	if len(env) > 0 {
+		cmd.Env = env
+	}
+	return cmd
+}
+
 func (m *MySQLModule) ListDatabases() ([]string, error) {
-	out, err := exec.Command("mysql", "-e", "SHOW DATABASES;").Output()
+	cmd := m.buildMysqlCmd("-e", "SHOW DATABASES;")
+	out, err := cmd.Output()
 	if err != nil {
 		return nil, err
 	}
@@ -54,12 +87,13 @@ func (m *MySQLModule) CreateDatabase(name string) error {
 	if !isValidIdentifier(name) {
 		return fmt.Errorf("invalid database name")
 	}
-	return exec.Command("mysql", "-e", fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s`;", name)).Run()
+	return m.buildMysqlCmd("-e", fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s`;", name)).Run()
 }
 
 func (m *MySQLModule) ListUsers() ([]string, error) {
 	// Filter out system users
-	out, err := exec.Command("mysql", "-e", "SELECT User, Host FROM mysql.user WHERE User NOT IN ('mysql.sys', 'mysql.session', 'mysql.infoschema', 'root');").Output()
+	cmd := m.buildMysqlCmd("-e", "SELECT User, Host FROM mysql.user WHERE User NOT IN ('mysql.sys', 'mysql.session', 'mysql.infoschema', 'root');")
+	out, err := cmd.Output()
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +145,7 @@ func (m *MySQLModule) CreateUser(name, password, role, target string) error {
 
 	// Use CREATE USER IF NOT EXISTS for idempotency
 	query := fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%s' IDENTIFIED BY '%s'; GRANT %s ON %s TO '%s'@'%s' WITH GRANT OPTION; FLUSH PRIVILEGES;", name, host, password, privileges, targetDB, name, host)
-	cmd := exec.Command("mysql")
+	cmd := m.buildMysqlCmd()
 	cmd.Stdin = strings.NewReader(query)
 	return cmd.Run()
 }
@@ -139,7 +173,7 @@ func (m *MySQLModule) UpdatePrivileges(name, role, target string) error {
 	}
 
 	query := fmt.Sprintf("REVOKE ALL PRIVILEGES, GRANT OPTION FROM '%s'@'%s'; GRANT %s ON %s TO '%s'@'%s'; FLUSH PRIVILEGES;", name, host, privileges, targetDB, name, host)
-	cmd := exec.Command("mysql")
+	cmd := m.buildMysqlCmd()
 	cmd.Stdin = strings.NewReader(query)
 	return cmd.Run()
 }

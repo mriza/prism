@@ -71,19 +71,28 @@ export interface RMQBinding {
     routingKey: string;
 }
 
+export type AccountCategory = 'management' | 'project' | 'independent';
+
 export interface ServiceAccount {
     id: string;
-    projectId?: string;
-    agentId: string;
+    category: AccountCategory;
+    projectId?: string;   // only relevant when category === 'project'
+    projectName?: string; // denormalized for quick access
+    serverId: string;
+    serviceId: string;
+    agentId: string;  // Legacy, use serverId
     type: ServiceType;
     name: string;
+    username: string;
+    permissions?: string;
+    status: 'active' | 'disabled';
+    lastActivity?: string;
     // Common
     host?: string;
     port?: number;
     // DB
     database?: string;      // Legacy
     databases?: string[];   // Multi-DB
-    username?: string;
     password?: string;
     role?: string;
     targetEntity?: string;
@@ -121,6 +130,7 @@ export interface Agent {
     lastSeen: string;
     createdAt: string;
     services: {
+        id: string;
         name: string;
         status: string;
         metrics?: Record<string, number>;

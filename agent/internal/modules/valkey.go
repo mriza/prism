@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"prism-agent/internal/core"
 	"strconv"
 	"strings"
 )
@@ -12,6 +13,12 @@ import (
 type ValkeyModule struct {
 	*SystemdModule
 }
+
+// Ensure Interface Compatibility
+var _ core.ServiceModule = (*ValkeyModule)(nil)
+var _ core.DatabaseModule = (*ValkeyModule)(nil)
+var _ core.ConfigurableModule = (*ValkeyModule)(nil)
+var _ core.ServiceSettings = (*ValkeyModule)(nil)
 
 func NewValkeyModule() *ValkeyModule {
 	return &ValkeyModule{
@@ -425,11 +432,13 @@ func (m *ValkeyModule) ListUsers() ([]string, error) {
 	lines := strings.Split(output, "\n")
 	
 	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "user ") {
+			continue
+		}
 		parts := strings.Fields(line)
-		if len(parts) > 0 {
-			username := strings.TrimPrefix(parts[0], "user ")
-			username = strings.Split(username, " ")[0]
-			users = append(users, username)
+		if len(parts) > 1 {
+			users = append(users, parts[1])
 		}
 	}
 	

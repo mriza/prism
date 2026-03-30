@@ -430,6 +430,7 @@ export function ProjectDetailPage() {
                 isOpen={showAddAccount}
                 onClose={() => setShowAddAccount(false)}
                 onSave={data => createAccount(data)}
+                category="project"
                 projectId={project.id}
             />
             {editAccount && (

@@ -145,3 +145,8 @@ func (c *Client) Flush(ctx context.Context) error {
 	err := c.client.Do(ctx, c.client.B().Flushdb().Build()).Error()
 	return err
 }
+
+// GetRedisClient returns the underlying valkey.Client for advanced operations
+func (c *Client) GetRedisClient() valkey.Client {
+	return c.client
+}

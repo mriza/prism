@@ -27,6 +27,7 @@ func NewMinIOModule() *MinIOModule {
 // Ensure Interface Compatibility
 var _ core.ServiceModule = (*MinIOModule)(nil)
 var _ core.StorageModule = (*MinIOModule)(nil)
+var _ core.ServiceSettings = (*MinIOModule)(nil)
 
 func (m *MinIOModule) GetFacts() (map[string]string, error) {
 	facts, _ := m.SystemdModule.GetFacts()

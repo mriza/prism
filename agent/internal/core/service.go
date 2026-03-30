@@ -44,6 +44,10 @@ type ConfigurableModule interface {
 	WriteConfig(content string) error
 }
 
+type ManagementCredentialAware interface {
+	SetManagementCredentials(creds map[string]string)
+}
+
 type DatabaseModule interface {
 	ListDatabases() ([]string, error)
 	CreateDatabase(name string) error

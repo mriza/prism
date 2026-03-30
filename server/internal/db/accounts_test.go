@@ -24,11 +24,11 @@ func TestMain(m *testing.M) {
 
 func TestServiceAccountOperations(t *testing.T) {
 	acc := models.ServiceAccount{
-		Name:    "Test Account",
-		Type:    "mongodb",
-		AgentID: "agent-1",
-		Host:    "localhost",
-		Port:    27017,
+		Name:     "Test Account",
+		Type:     "mongodb",
+		ServerID: "agent-1",
+		Host:     "localhost",
+		Port:     27017,
 	}
 
 	// Test Create
@@ -41,7 +41,7 @@ func TestServiceAccountOperations(t *testing.T) {
 	}
 
 	// Test Get
-	accounts, err := GetServiceAccounts("")
+	accounts, err := GetServiceAccounts(ServiceAccountFilters{})
 	if err != nil {
 		t.Fatalf("Failed to get service accounts: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestServiceAccountOperations(t *testing.T) {
 		t.Fatalf("Failed to update service account: %v", err)
 	}
 
-	accounts, _ = GetServiceAccounts("")
+	accounts, _ = GetServiceAccounts(ServiceAccountFilters{})
 	if accounts[0].Name != "Updated Name" {
 		t.Errorf("Expected name 'Updated Name', got %s", accounts[0].Name)
 	}
@@ -67,7 +67,7 @@ func TestServiceAccountOperations(t *testing.T) {
 		t.Fatalf("Failed to delete service account: %v", err)
 	}
 
-	accounts, _ = GetServiceAccounts("")
+	accounts, _ = GetServiceAccounts(ServiceAccountFilters{})
 	for _, a := range accounts {
 		if a.ID == created.ID {
 			t.Error("Expected account to be deleted")

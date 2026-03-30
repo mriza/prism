@@ -127,6 +127,30 @@ func getInterfaceSliceOpt(p map[string]interface{}, key string) []map[string]int
 	return result
 }
 
+func injectCredentials(mod core.ServiceModule, p map[string]interface{}) {
+	if aware, ok := mod.(core.ManagementCredentialAware); ok {
+		optsRaw, ok := p["options"]
+		if !ok || optsRaw == nil {
+			return
+		}
+		opts, ok := optsRaw.(map[string]interface{})
+		if !ok || opts == nil {
+			return
+		}
+		credsRaw, ok := opts["management_credentials"]
+		if !ok {
+			return
+		}
+		if credsMap, ok := credsRaw.(map[string]interface{}); ok {
+			creds := make(map[string]string)
+			for k, v := range credsMap {
+				creds[k] = fmt.Sprint(v)
+			}
+			aware.SetManagementCredentials(creds)
+		}
+	}
+}
+
 var CommandHandlers = map[string]CommandHandlerFunc{
 	// --- Generic Service Control ---
 	"start": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
@@ -150,9 +174,48 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 		b, _ := json.Marshal(facts)
 		return string(b), nil
 	},
+	"verify_credential": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+		injectCredentials(mod, p)
+		if db, ok := mod.(core.DatabaseModule); ok {
+			_, err := db.ListDatabases()
+			if err != nil {
+				return "", fmt.Errorf("credential verification failed: %w", err)
+			}
+			return "Verification successful", nil
+		}
+		if rmq, ok := mod.(core.RabbitMQModule); ok {
+			_, err := rmq.ListUsers()
+			if err != nil {
+				return "", fmt.Errorf("credential verification failed: %w", err)
+			}
+			return "Verification successful", nil
+		}
+		if web, ok := mod.(core.WebServerModule); ok {
+			_, err := web.ListSites()
+			if err != nil {
+				return "", fmt.Errorf("credential verification failed: %w", err)
+			}
+			return "Verification successful", nil
+		}
+		if st, ok := mod.(core.StorageModule); ok {
+			_, err := st.ListBuckets()
+			if err != nil {
+				return "", fmt.Errorf("credential verification failed: %w", err)
+			}
+			return "Verification successful", nil
+		}
+
+		// Fallback for simple services
+		_, err := mod.GetFacts()
+		if err != nil {
+			return "", fmt.Errorf("credential verification failed: %w", err)
+		}
+		return "Verification successful (basic check)", nil
+	},
 
 	// --- Database ---
-	"db_list_dbs": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"db_list_dbs": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+		injectCredentials(mod, p)
 		if db, ok := mod.(core.DatabaseModule); ok {
 			dbs, err := db.ListDatabases()
 			if err != nil {
@@ -164,6 +227,7 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 		return "", fmt.Errorf("module does not support database operations")
 	},
 	"db_create_db": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+		injectCredentials(mod, p)
 		name := getStringOpt(p, "name")
 		if db, ok := mod.(core.DatabaseModule); ok {
 			return "", db.CreateDatabase(name)
@@ -173,7 +237,8 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 		}
 		return "", fmt.Errorf("module does not support database/vhost creation")
 	},
-	"db_list_users": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"db_list_users": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+		injectCredentials(mod, p)
 		if db, ok := mod.(core.DatabaseModule); ok {
 			users, err := db.ListUsers()
 			if err != nil {
@@ -182,26 +247,55 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 			b, _ := json.Marshal(users)
 			return string(b), nil
 		}
-		return "", fmt.Errorf("module does not support database operations")
+		if rmq, ok := mod.(core.RabbitMQModule); ok {
+			users, err := rmq.ListUsers()
+			if err != nil {
+				return "", err
+			}
+			// Convert to simple string list for parity with Generic DB
+			var names []string
+			for _, u := range users {
+				names = append(names, u.Name)
+			}
+			b, _ := json.Marshal(names)
+			return string(b), nil
+		}
+		return "", fmt.Errorf("module does not support user listing")
 	},
 	"db_create_user": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+		injectCredentials(mod, p)
+		user := getStringOpt(p, "username")
+		pass := getStringOpt(p, "password")
+		role := getStringOpt(p, "role")
+		target := getStringOpt(p, "target")
+		
 		if db, ok := mod.(core.DatabaseModule); ok {
-			user := getStringOpt(p, "username")
-			pass := getStringOpt(p, "password")
-			role := getStringOpt(p, "role")
-			target := getStringOpt(p, "target")
 			return "", db.CreateUser(user, pass, role, target)
 		}
-		return "", fmt.Errorf("module does not support database operations")
+		if rmq, ok := mod.(core.RabbitMQModule); ok {
+			if target == "" {
+				target = "/" // Default vhost
+			}
+			return "", rmq.CreateUser(user, pass, role, target)
+		}
+		return "", fmt.Errorf("module does not support user creation")
 	},
 	"db_update_privileges": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+		injectCredentials(mod, p)
+		user := getStringOpt(p, "username")
+		role := getStringOpt(p, "role")
+		target := getStringOpt(p, "target")
+
 		if db, ok := mod.(core.DatabaseModule); ok {
-			user := getStringOpt(p, "username")
-			role := getStringOpt(p, "role")
-			target := getStringOpt(p, "target")
 			return "", db.UpdatePrivileges(user, role, target)
 		}
-		return "", fmt.Errorf("module does not support database operations")
+		if rmq, ok := mod.(core.RabbitMQModule); ok {
+			if target == "" {
+				target = "/"
+			}
+			return "", rmq.SetPermissions(target, user, ".*", ".*", ".*")
+		}
+		return "", fmt.Errorf("module does not support privilege updates")
 	},
 	"db_create_binding": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
