@@ -210,6 +210,7 @@ func createTables() error {
 		status TEXT NOT NULL DEFAULT 'pending',
 		agent_version TEXT,
 		last_heartbeat TEXT,
+		runtimes TEXT DEFAULT '[]',
 		created_at TEXT NOT NULL,
 		updated_at TEXT NOT NULL
 	);`
@@ -441,6 +442,32 @@ func createTables() error {
 		FOREIGN KEY(snapshot_id) REFERENCES configuration_snapshots(id) ON DELETE CASCADE
 	);`
 
+	deploymentsTable := `
+	CREATE TABLE IF NOT EXISTS deployments (
+		id TEXT PRIMARY KEY,
+		project_id TEXT NOT NULL,
+		server_id TEXT NOT NULL,
+		name TEXT NOT NULL,
+		description TEXT,
+		source_url TEXT NOT NULL,
+		source_token TEXT,
+		runtime TEXT NOT NULL DEFAULT 'binary',
+		runtime_version TEXT,
+		process_manager TEXT NOT NULL DEFAULT 'pm2',
+		start_command TEXT,
+		env_vars TEXT DEFAULT '{}',
+		domain_name TEXT,
+		internal_port INTEGER DEFAULT 0,
+		proxy_type TEXT DEFAULT 'none',
+		status TEXT NOT NULL DEFAULT 'stopped',
+		last_deployed_revision TEXT,
+		last_deployed_at TEXT,
+		created_at TEXT NOT NULL,
+		updated_at TEXT NOT NULL,
+		FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
+		FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE
+	);`
+
 	if _, err := DB.Exec(projectTable); err != nil {
 		return fmt.Errorf("create projects table: %w", err)
 	}
@@ -516,6 +543,10 @@ func createTables() error {
 	if _, err := DB.Exec(eventsTable); err != nil {
 		return fmt.Errorf("create events table: %w", err)
 	}
+	// Create Deployments table
+	if _, err := DB.Exec(deploymentsTable); err != nil {
+		return fmt.Errorf("create deployments table: %w", err)
+	}
 
 	// Create indexes for telemetry table (critical for performance)
 	if _, err := DB.Exec(`CREATE INDEX IF NOT EXISTS idx_telemetry_server_time ON telemetry(server_id, collected_at)`); err != nil {
@@ -545,6 +576,13 @@ func createTables() error {
 	}
 
 	// Auto-migrate new columns for existing databases safely
+	DB.Exec("ALTER TABLE projects ADD COLUMN owner TEXT DEFAULT ''")
+	DB.Exec("ALTER TABLE projects ADD COLUMN team TEXT DEFAULT ''")
+	DB.Exec("ALTER TABLE projects ADD COLUMN status TEXT DEFAULT 'active'")
+	DB.Exec("ALTER TABLE projects ADD COLUMN updated_at TEXT DEFAULT ''")
+
+	DB.Exec("ALTER TABLE service_accounts DROP COLUMN agent_id")
+
 	DB.Exec("ALTER TABLE agents ADD COLUMN name TEXT DEFAULT ''")
 	DB.Exec("ALTER TABLE agents ADD COLUMN description TEXT DEFAULT ''")
 	DB.Exec("ALTER TABLE service_accounts ADD COLUMN role TEXT DEFAULT ''")
@@ -566,6 +604,8 @@ func createTables() error {
 	DB.Exec("ALTER TABLE users ADD COLUMN mfa_enabled INTEGER DEFAULT 0")
 	DB.Exec("ALTER TABLE users ADD COLUMN last_login TEXT DEFAULT ''")
 	DB.Exec("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'active'")
+
+	DB.Exec("ALTER TABLE servers ADD COLUMN runtimes TEXT DEFAULT '[]'")
 
 	log.Println("Database tables initialized successfully.")
 	return nil

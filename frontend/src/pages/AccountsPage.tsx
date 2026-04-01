@@ -71,21 +71,21 @@ export function AccountsPage() {
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
                 {/* Filters */}
                 {independentAccounts.length > 0 && (
-                    <Space wrap style={{ marginBottom: '8px' }}>
-                        <Text type="secondary" style={{ marginRight: '8px' }}><FilterOutlined /> Filter by type:</Text>
-                        <Button 
-                            type={filterType === 'all' ? 'primary' : 'default'} 
-                            shape="round" 
+                    <Space wrap style={{ marginBottom: token.marginXS }}>
+                        <Text type="secondary" style={{ marginRight: token.marginXS }}><FilterOutlined /> Filter by type:</Text>
+                        <Button
+                            type={filterType === 'all' ? 'primary' : 'default'}
+                            shape="round"
                             size="small"
                             onClick={() => setFilterType('all')}
                         >
                             All ({independentAccounts.length})
                         </Button>
                         {allTypes.filter(t => independentAccounts.some(a => a.type === t)).map(t => (
-                            <Button 
+                            <Button
                                 key={t}
-                                type={filterType === t ? 'primary' : 'default'} 
-                                shape="round" 
+                                type={filterType === t ? 'primary' : 'default'}
+                                shape="round"
                                 size="small"
                                 onClick={() => setFilterType(t)}
                             >
@@ -107,18 +107,18 @@ export function AccountsPage() {
                             const isStorage = type.includes('s3') || type.includes('minio');
 
                             return (
-                                <Card 
-                                    key={a.id} 
-                                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '16px' }}
-                                    bodyStyle={{ padding: '20px 24px' }}
+                                <Card
+                                    key={a.id}
+                                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusLG }}
+                                    styles={{ body: { padding: `${token.paddingMD}px ${token.paddingLG}` } }}
                                 >
                                     <Row gutter={24} align="middle">
                                         <Col flex="0 0 250px">
                                             <Space direction="vertical" size={2}>
-                                                <Text strong style={{ fontSize: '15px' }}>{a.name}</Text>
-                                                <Text type="secondary" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{SERVICE_TYPE_LABELS[a.type]}</Text>
-                                                <Space style={{ marginTop: '4px' }}>
-                                                    <Tag icon={<CloudServerOutlined />} style={{ borderRadius: '4px' }}>{a.agentId || 'External'}</Tag>
+                                                <Text strong style={{ fontSize: token.fontSize }}>{a.name}</Text>
+                                                <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{SERVICE_TYPE_LABELS[a.type]}</Text>
+                                                <Space style={{ marginTop: token.marginXXS }}>
+                                                    <Tag icon={<CloudServerOutlined />} style={{ borderRadius: token.borderRadiusSM }}>{a.agentId || 'External'}</Tag>
                                                 </Space>
                                             </Space>
                                         </Col>
@@ -127,11 +127,11 @@ export function AccountsPage() {
                                             <Space direction="vertical" style={{ width: '100%' }}>
                                                 {isDb && a.username && a.password && a.host && (
                                                     <Alert
-                                                        style={{ padding: '6px 12px' }}
+                                                        style={{ padding: `${token.paddingXS}px ${token.paddingSM}` }}
                                                         message={
                                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                                <code style={{ fontSize: '12px', color: token.colorSuccess }}>
-                                                                    {type.includes('mongodb') 
+                                                                <code style={{ fontSize: token.fontSizeSM, color: token.colorSuccess }}>
+                                                                    {type.includes('mongodb')
                                                                         ? `mongodb://${a.username}:${showPasswords[a.id] ? a.password : '••••••••'}@${a.host}:${a.port || 27017}/${a.database}`
                                                                         : `${a.type.split('-')[0]}://${a.username}:${showPasswords[a.id] ? a.password : '••••••••'}@${a.host}:${a.port}/${a.database}`
                                                                     }
@@ -159,16 +159,16 @@ export function AccountsPage() {
                                                 {isStorage && a.accessKey && (
                                                     <Alert
                                                         className="storage-details"
-                                                        style={{ padding: '6px 12px' }}
+                                                        style={{ padding: `${token.paddingXS}px ${token.paddingSM}` }}
                                                         message={
                                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                                 <Space split={<Text type="secondary" style={{ opacity: 0.3 }}>|</Text>}>
-                                                                    <Text style={{ fontSize: '11px' }}>
-                                                                        <Text type="secondary" style={{ fontSize: '10px', textTransform: 'uppercase', marginRight: '4px' }}>Key</Text>
+                                                                    <Text style={{ fontSize: token.fontSizeSM }}>
+                                                                        <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', marginRight: token.marginXXS }}>Key</Text>
                                                                         <code style={{ fontWeight: 600 }}>{a.accessKey}</code>
                                                                     </Text>
-                                                                    <Text style={{ fontSize: '11px' }}>
-                                                                        <Text type="secondary" style={{ fontSize: '10px', textTransform: 'uppercase', marginRight: '4px' }}>Secret</Text>
+                                                                    <Text style={{ fontSize: token.fontSizeSM }}>
+                                                                        <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', marginRight: token.marginXXS }}>Secret</Text>
                                                                         <code style={{ fontWeight: 600 }}>{showPasswords[a.id] ? a.secretKey : '••••••••••••••••'}</code>
                                                                     </Text>
                                                                 </Space>
@@ -180,10 +180,10 @@ export function AccountsPage() {
                                                     />
                                                 )}
 
-                                                <Space wrap style={{ fontSize: '12px' }}>
-                                                    {a.host && <Text type="secondary"><CloudServerOutlined style={{ marginRight: '4px' }} />{a.host}:{a.port}</Text>}
-                                                    {a.database && <Text type="secondary"><KeyOutlined style={{ marginRight: '4px' }} />{a.database}</Text>}
-                                                    {a.bucket && <Text type="secondary"><KeyOutlined style={{ marginRight: '4px' }} />{a.bucket}</Text>}
+                                                <Space wrap style={{ fontSize: token.fontSizeSM }}>
+                                                    {a.host && <Text type="secondary"><CloudServerOutlined style={{ marginRight: token.marginXXS }} />{a.host}:{a.port}</Text>}
+                                                    {a.database && <Text type="secondary"><KeyOutlined style={{ marginRight: token.marginXXS }} />{a.database}</Text>}
+                                                    {a.bucket && <Text type="secondary"><KeyOutlined style={{ marginRight: token.marginXXS }} />{a.bucket}</Text>}
                                                 </Space>
                                             </Space>
                                         </Col>

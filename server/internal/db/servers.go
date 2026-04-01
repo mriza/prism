@@ -28,10 +28,17 @@ func CreateServer(s models.Server) (models.Server, error) {
 		s.Status = "pending"
 	}
 
-	query := `INSERT INTO servers (id, name, description, hostname, ip_address, os, os_info, status, agent_version, last_heartbeat, created_at, updated_at) 
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	runtimesJSON := "[]"
+	if len(s.Runtimes) > 0 {
+		if b, err := json.Marshal(s.Runtimes); err == nil {
+			runtimesJSON = string(b)
+		}
+	}
 
-	_, err := DB.Exec(query, s.ID, s.Name, s.Description, s.Hostname, s.IPAddress, s.OS, s.OSInfo, s.Status, s.AgentVersion, s.LastHeartbeat, s.CreatedAt, s.UpdatedAt)
+	query := `INSERT INTO servers (id, name, description, hostname, ip_address, os, os_info, status, agent_version, last_heartbeat, runtimes, created_at, updated_at) 
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+	_, err := DB.Exec(query, s.ID, s.Name, s.Description, s.Hostname, s.IPAddress, s.OS, s.OSInfo, s.Status, s.AgentVersion, s.LastHeartbeat, runtimesJSON, s.CreatedAt, s.UpdatedAt)
 	if err != nil {
 		return s, err
 	}
@@ -53,7 +60,7 @@ func GetServers() ([]models.Server, error) {
 		log.Printf("[CACHE MISS] servers:all")
 	}
 
-	query := `SELECT id, name, description, hostname, ip_address, os, os_info, status, agent_version, last_heartbeat, created_at, updated_at 
+	query := `SELECT id, name, description, hostname, ip_address, os, os_info, status, agent_version, last_heartbeat, runtimes, created_at, updated_at 
 	FROM servers ORDER BY created_at DESC`
 
 	rows, err := DB.Query(query)
@@ -65,8 +72,12 @@ func GetServers() ([]models.Server, error) {
 	var servers []models.Server
 	for rows.Next() {
 		var s models.Server
-		if err := rows.Scan(&s.ID, &s.Name, &s.Description, &s.Hostname, &s.IPAddress, &s.OS, &s.OSInfo, &s.Status, &s.AgentVersion, &s.LastHeartbeat, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		var runtimesJSON sql.NullString
+		if err := rows.Scan(&s.ID, &s.Name, &s.Description, &s.Hostname, &s.IPAddress, &s.OS, &s.OSInfo, &s.Status, &s.AgentVersion, &s.LastHeartbeat, &runtimesJSON, &s.CreatedAt, &s.UpdatedAt); err != nil {
 			return nil, err
+		}
+		if runtimesJSON.Valid && runtimesJSON.String != "" {
+			json.Unmarshal([]byte(runtimesJSON.String), &s.Runtimes)
 		}
 		servers = append(servers, s)
 	}
@@ -80,13 +91,17 @@ func GetServers() ([]models.Server, error) {
 }
 
 func GetServerByID(id string) (*models.Server, error) {
-	query := `SELECT id, name, description, hostname, ip_address, os, os_info, status, agent_version, last_heartbeat, created_at, updated_at 
+	query := `SELECT id, name, description, hostname, ip_address, os, os_info, status, agent_version, last_heartbeat, runtimes, created_at, updated_at 
 	FROM servers WHERE id = ?`
 
 	row := DB.QueryRow(query, id)
 	var s models.Server
 
-	err := row.Scan(&s.ID, &s.Name, &s.Description, &s.Hostname, &s.IPAddress, &s.OS, &s.OSInfo, &s.Status, &s.AgentVersion, &s.LastHeartbeat, &s.CreatedAt, &s.UpdatedAt)
+	var runtimesJSON sql.NullString
+	err := row.Scan(&s.ID, &s.Name, &s.Description, &s.Hostname, &s.IPAddress, &s.OS, &s.OSInfo, &s.Status, &s.AgentVersion, &s.LastHeartbeat, &runtimesJSON, &s.CreatedAt, &s.UpdatedAt)
+	if err == nil && runtimesJSON.Valid && runtimesJSON.String != "" {
+		json.Unmarshal([]byte(runtimesJSON.String), &s.Runtimes)
+	}
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -98,13 +113,17 @@ func GetServerByID(id string) (*models.Server, error) {
 }
 
 func GetServerByHostname(hostname string) (*models.Server, error) {
-	query := `SELECT id, name, description, hostname, ip_address, os, os_info, status, agent_version, last_heartbeat, created_at, updated_at 
+	query := `SELECT id, name, description, hostname, ip_address, os, os_info, status, agent_version, last_heartbeat, runtimes, created_at, updated_at 
 	FROM servers WHERE hostname = ?`
 
 	row := DB.QueryRow(query, hostname)
 	var s models.Server
 
-	err := row.Scan(&s.ID, &s.Name, &s.Description, &s.Hostname, &s.IPAddress, &s.OS, &s.OSInfo, &s.Status, &s.AgentVersion, &s.LastHeartbeat, &s.CreatedAt, &s.UpdatedAt)
+	var runtimesJSON sql.NullString
+	err := row.Scan(&s.ID, &s.Name, &s.Description, &s.Hostname, &s.IPAddress, &s.OS, &s.OSInfo, &s.Status, &s.AgentVersion, &s.LastHeartbeat, &runtimesJSON, &s.CreatedAt, &s.UpdatedAt)
+	if err == nil && runtimesJSON.Valid && runtimesJSON.String != "" {
+		json.Unmarshal([]byte(runtimesJSON.String), &s.Runtimes)
+	}
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -124,10 +143,17 @@ func UpdateServerStatus(id string, status string, name string, description strin
 	return err
 }
 
-func UpdateServerHeartbeat(id string, osInfo string, agentVersion string) error {
+func UpdateServerHeartbeat(id string, osInfo string, agentVersion string, runtimes []models.RuntimeInfo) error {
+	runtimesJSON := "[]"
+	if len(runtimes) > 0 {
+		if b, err := json.Marshal(runtimes); err == nil {
+			runtimesJSON = string(b)
+		}
+	}
+
 	now := time.Now().UTC().Format(time.RFC3339)
-	query := `UPDATE servers SET last_heartbeat = ?, os_info = ?, agent_version = ?, updated_at = ? WHERE id = ?`
-	_, err := DB.Exec(query, now, osInfo, agentVersion, now, id)
+	query := `UPDATE servers SET last_heartbeat = ?, os_info = ?, agent_version = ?, runtimes = ?, updated_at = ? WHERE id = ?`
+	_, err := DB.Exec(query, now, osInfo, agentVersion, runtimesJSON, now, id)
 	return err
 }
 

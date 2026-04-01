@@ -134,7 +134,7 @@ export function MQTTManager({ sendCommand }: MQTTManagerProps) {
             title: 'Status',
             key: 'status',
             render: () => (
-                <Badge status="success" text={<Text style={{ fontSize: '12px' }}>Active</Text>} />
+                <Badge status="success" text={<Text style={{ fontSize: token.fontSizeSM }}>Active</Text>} />
             )
         },
         {
@@ -154,54 +154,54 @@ export function MQTTManager({ sendCommand }: MQTTManagerProps) {
     ];
 
     return (
-        <div style={{ padding: '4px 0' }}>
+        <div style={{ padding: `${token.paddingXXS}px 0` }}>
             {error && (
-                <Alert message={error} type="error" showIcon style={{ marginBottom: '24px', borderRadius: '12px' }} />
+                <Alert message={error} type="error" showIcon style={{ marginBottom: token.marginLG, borderRadius: token.borderRadiusLG }} />
             )}
 
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
                 {/* Header */}
                 <Card
-                    style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter }}
-                    bodyStyle={{ padding: '20px' }}
+                    style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter }}
+                    styles={{ body: { padding: token.paddingLG } }}
                 >
                     <Row gutter={24} align="middle">
                         <Col span={16}>
                             <Space size="middle">
                                 <div style={{
-                                    padding: '10px',
-                                    borderRadius: '12px',
+                                    padding: token.paddingSM,
+                                    borderRadius: token.borderRadiusLG,
                                     backgroundColor: `${token.colorInfo}15`,
                                     color: token.colorInfo,
-                                    fontSize: '20px',
+                                    fontSize: token.paddingLG,
                                     display: 'flex'
                                 }}>
                                     <WifiOutlined />
                                 </div>
                                 <div>
-                                    <Text strong style={{ fontSize: '15px', display: 'block' }}>MQTT Broker Configuration</Text>
-                                    <Text type="secondary" style={{ fontSize: '12px' }}>Manage MQTT users and broker settings.</Text>
+                                    <Text strong style={{ fontSize: token.fontSize, display: 'block' }}>MQTT Broker Configuration</Text>
+                                    <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Manage MQTT users and broker settings.</Text>
                                 </div>
                             </Space>
                         </Col>
                         <Col span={8} style={{ textAlign: 'right' }}>
                             <Space>
-                                <Button icon={<ReloadOutlined spin={loading} />} onClick={fetchData} style={{ borderRadius: '8px' }}>Refresh</Button>
-                                <Button icon={<CloudServerOutlined />} style={{ borderRadius: '8px' }}>Broker Logs</Button>
+                                <Button icon={<ReloadOutlined spin={loading} />} onClick={fetchData} style={{ borderRadius: token.borderRadius }}>Refresh</Button>
+                                <Button icon={<CloudServerOutlined />} style={{ borderRadius: token.borderRadius }}>Broker Logs</Button>
                             </Space>
                         </Col>
                     </Row>
                 </Card>
 
                 {/* Settings Section */}
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '0 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Service Settings</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: '0 0 16px 0' }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Service Settings</Text>
                 </Divider>
 
                 <Card
                     loading={loadingSettings}
-                    style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}
-                    bodyStyle={{ padding: '24px' }}
+                    style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}
+                    styles={{ body: { padding: token.paddingLG } }}
                 >
                     <Form
                         form={form}
@@ -213,46 +213,46 @@ export function MQTTManager({ sendCommand }: MQTTManagerProps) {
                             <Col span={8}>
                                 <Form.Item
                                     name="port"
-                                    label={<Text strong style={{ fontSize: '12px' }}>MQTT Port</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>MQTT Port</Text>}
                                     help="Port for MQTT connections (default: 1883)"
                                 >
-                                    <Input placeholder="1883" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="1883" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={8}>
                                 <Form.Item
                                     name="persistence"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Persistence</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Persistence</Text>}
                                     help="Enable message persistence (true/false)"
                                 >
-                                    <Input placeholder="true" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="true" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={8}>
                                 <Form.Item
                                     name="persistence_location"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Persistence Path</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Persistence Path</Text>}
                                     help="Path to store persistent messages"
                                 >
-                                    <Input placeholder="/var/lib/mosquitto/" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="/var/lib/mosquitto/" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={12}>
                                 <Form.Item
                                     name="config_path"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Config Path</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Config Path</Text>}
                                     help="Path to mosquitto.conf file"
                                 >
-                                    <Input placeholder="/etc/mosquitto/mosquitto.conf" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="/etc/mosquitto/mosquitto.conf" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={12}>
                                 <Form.Item
                                     name="log_path"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Log Path</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Log Path</Text>}
                                     help="Path to log file"
                                 >
-                                    <Input placeholder="/var/log/mosquitto/mosquitto.log" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="/var/log/mosquitto/mosquitto.log" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                         </Row>
@@ -261,7 +261,7 @@ export function MQTTManager({ sendCommand }: MQTTManagerProps) {
                             htmlType="submit"
                             loading={updatingSettings}
                             icon={<SettingOutlined />}
-                            style={{ borderRadius: '8px' }}
+                            style={{ borderRadius: token.borderRadius }}
                         >
                             Save Settings
                         </Button>
@@ -269,8 +269,8 @@ export function MQTTManager({ sendCommand }: MQTTManagerProps) {
                 </Card>
 
                 {/* Users Section */}
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>MQTT Users</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: `${token.marginLG}px 0 ${token.marginSM}px 0` }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>MQTT Users</Text>
                 </Divider>
 
                 <Table
@@ -279,10 +279,10 @@ export function MQTTManager({ sendCommand }: MQTTManagerProps) {
                     loading={loading}
                     pagination={false}
                     size="small"
-                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '12px', overflow: 'hidden' }}
+                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusLG, overflow: 'hidden' }}
                 />
 
-                <Card style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                <Card style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}>
                     <Form
                         layout="vertical"
                         onFinish={handleCreateUser}
@@ -292,10 +292,10 @@ export function MQTTManager({ sendCommand }: MQTTManagerProps) {
                             <Col flex="auto">
                                 <Space wrap style={{ width: '100%' }}>
                                     <Form.Item name="username" label="Username" required style={{ marginBottom: 0 }}>
-                                        <Input placeholder="Enter username" style={{ borderRadius: '8px', width: 200 }} />
+                                        <Input placeholder="Enter username" style={{ borderRadius: token.borderRadius, width: 200 }} />
                                     </Form.Item>
                                     <Form.Item name="password" label="Password" required style={{ marginBottom: 0 }}>
-                                        <Input.Password placeholder="Enter password" style={{ borderRadius: '8px', width: 200 }} />
+                                        <Input.Password placeholder="Enter password" style={{ borderRadius: token.borderRadius, width: 200 }} />
                                     </Form.Item>
                                 </Space>
                             </Col>
@@ -305,7 +305,7 @@ export function MQTTManager({ sendCommand }: MQTTManagerProps) {
                                     htmlType="submit"
                                     loading={creatingUser}
                                     icon={<PlusOutlined />}
-                                    style={{ borderRadius: '8px', marginTop: '19px' }}
+                                    style={{ borderRadius: token.borderRadius, marginTop: `${token.marginSM}px` }}
                                 >
                                     Create User
                                 </Button>

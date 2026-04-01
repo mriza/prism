@@ -1,26 +1,28 @@
 import { useState, useEffect } from 'react';
-import { 
-    Modal, 
-    Form, 
-    Input, 
-    Space, 
-    Typography, 
-    theme, 
-    Button, 
-    Alert, 
-    Divider, 
-    Row, 
-    Col, 
-    Spin 
+import {
+    Modal,
+    Form,
+    Input,
+    Space,
+    Typography,
+    theme,
+    Button,
+    Alert,
+    Divider,
+    Row,
+    Col,
+    Spin
 } from 'antd';
-import { 
-    UserOutlined, 
-    SafetyCertificateOutlined, 
-    IdcardOutlined, 
+import {
+    UserOutlined,
+    SafetyCertificateOutlined,
+    IdcardOutlined,
     CheckCircleOutlined,
-    LoadingOutlined
+    LoadingOutlined,
+    LockOutlined
 } from '@ant-design/icons';
 import { useAuth } from '../../contexts/AuthContext';
+import { ChangePasswordModal } from './ChangePasswordModal';
 
 const { Text } = Typography;
 
@@ -35,8 +37,9 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
-    const { token: designToken } = theme.useToken();
+    const { token: themeToken } = theme.useToken();
     const [form] = Form.useForm();
+    const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -109,17 +112,17 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
             title={
                 <Space size="middle">
                     <div style={{ 
-                        padding: '8px', 
+                        padding: themeToken.paddingXS, 
                         borderRadius: '10px', 
-                        backgroundColor: `${designToken.colorPrimary}15`, 
-                        color: designToken.colorPrimary,
+                        backgroundColor: `${themeToken.colorPrimary}15`, 
+                        color: themeToken.colorPrimary,
                         display: 'flex'
                     }}>
                         <UserOutlined />
                     </div>
                     <div>
-                        <Text strong style={{ fontSize: '16px' }}>My Profile</Text>
-                        <Text type="secondary" style={{ display: 'block', fontSize: '12px' }}>
+                        <Text strong style={{ fontSize: themeToken.fontSizeHeading5 }}>My Profile</Text>
+                        <Text type="secondary" style={{ display: 'block', fontSize: themeToken.fontSizeSM }}>
                             Manage your personal details and account security settings
                         </Text>
                     </div>
@@ -127,10 +130,10 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
             }
             footer={null}
             width={700}
-            style={{ borderRadius: '20px', overflow: 'hidden' }}
+            style={{ borderRadius: themeToken.paddingLG, overflow: 'hidden' }}
         >
             {loading ? (
-                <div style={{ padding: '60px 0', textAlign: 'center' }}>
+                <div style={{ padding: `${themeToken.paddingXL}px 0`, textAlign: 'center' }}>
                     <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} tip="Loading profile..." />
                 </div>
             ) : (
@@ -138,10 +141,10 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     form={form}
                     layout="vertical"
                     onFinish={handleSave}
-                    style={{ marginTop: '24px' }}
+                    style={{ marginTop: themeToken.marginLG }}
                 >
                     {error && (
-                        <Alert message={error} type="error" showIcon style={{ marginBottom: '24px', borderRadius: '12px' }} />
+                        <Alert message={error} type="error" showIcon style={{ marginBottom: themeToken.marginLG, borderRadius: themeToken.borderRadiusLG }} />
                     )}
                     
                     {success && (
@@ -150,88 +153,87 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                             type="success" 
                             showIcon 
                             icon={<CheckCircleOutlined />}
-                            style={{ marginBottom: '24px', borderRadius: '12px' }} 
+                            style={{ marginBottom: themeToken.marginLG, borderRadius: themeToken.borderRadiusLG }} 
                         />
                     )}
 
                     <Row gutter={24}>
                         <Col span={12}>
-                            <Divider orientation={'left' as any} style={{ margin: '0 0 20px 0' }}>
+                            <Divider titlePlacement="left" style={{ margin: '0 0 20px 0' }}>
                                 <Space size={4}>
-                                    <IdcardOutlined style={{ fontSize: '12px', opacity: 0.3 }} />
-                                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Basic Information</Text>
+                                    <IdcardOutlined style={{ fontSize: themeToken.fontSizeSM, opacity: 0.3 }} />
+                                    <Text strong style={{ fontSize: themeToken.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Basic Information</Text>
                                 </Space>
                             </Divider>
 
-                            <Form.Item label={<Text strong style={{ fontSize: '12px' }}>Username</Text>}>
-                                <Input value={currentUser?.username || ''} disabled style={{ borderRadius: '8px' }} />
-                                <Text type="secondary" style={{ fontSize: '11px' }}>Username cannot be changed</Text>
+                            <Form.Item label={<Text strong style={{ fontSize: themeToken.fontSizeSM }}>Username</Text>}>
+                                <Input value={currentUser?.username || ''} disabled style={{ borderRadius: themeToken.borderRadius }} />
+                                <Text type="secondary" style={{ fontSize: themeToken.fontSizeSM }}>Username cannot be changed</Text>
                             </Form.Item>
 
-                            <Form.Item name="fullName" label={<Text strong style={{ fontSize: '12px' }}>Full name</Text>}>
-                                <Input placeholder="Your full name" style={{ borderRadius: '8px' }} />
+                            <Form.Item name="fullName" label={<Text strong style={{ fontSize: themeToken.fontSizeSM }}>Full name</Text>}>
+                                <Input placeholder="Your full name" style={{ borderRadius: themeToken.borderRadius }} />
                             </Form.Item>
 
-                            <Form.Item name="email" label={<Text strong style={{ fontSize: '12px' }}>Email address</Text>} rules={[{ type: 'email' }]}>
-                                <Input placeholder="email@example.com" style={{ borderRadius: '8px' }} />
+                            <Form.Item name="email" label={<Text strong style={{ fontSize: themeToken.fontSizeSM }}>Email address</Text>} rules={[{ type: 'email' }]}>
+                                <Input placeholder="email@example.com" style={{ borderRadius: themeToken.borderRadius }} />
                             </Form.Item>
 
-                            <Form.Item name="phone" label={<Text strong style={{ fontSize: '12px' }}>Phone number</Text>}>
-                                <Input placeholder="+62..." style={{ borderRadius: '8px' }} />
+                            <Form.Item name="phone" label={<Text strong style={{ fontSize: themeToken.fontSizeSM }}>Phone number</Text>}>
+                                <Input placeholder="+62..." style={{ borderRadius: themeToken.borderRadius }} />
                             </Form.Item>
                         </Col>
 
                         <Col span={12}>
-                            <Divider orientation={'left' as any} style={{ margin: '0 0 20px 0' }}>
+                            <Divider titlePlacement="left" style={{ margin: '0 0 20px 0' }}>
                                 <Space size={4}>
-                                    <SafetyCertificateOutlined style={{ fontSize: '12px', opacity: 0.3 }} />
-                                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Account Security</Text>
+                                    <SafetyCertificateOutlined style={{ fontSize: themeToken.fontSizeSM, opacity: 0.3 }} />
+                                    <Text strong style={{ fontSize: themeToken.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Account Security</Text>
                                 </Space>
                             </Divider>
 
-                            <Form.Item 
-                                name="password" 
-                                label={<Text strong style={{ fontSize: '12px' }}>New password</Text>}
-                            >
-                                <Input.Password placeholder="••••••••" style={{ borderRadius: '8px' }} />
-                                <Text type="secondary" style={{ fontSize: '11px' }}>Leave blank to keep current password</Text>
-                            </Form.Item>
+                            <Alert
+                                message="To change your password"
+                                description="Click the 'Change Password' button below to securely update your password."
+                                type="info"
+                                showIcon
+                                style={{ marginBottom: themeToken.marginSM }}
+                            />
 
-                            <Form.Item 
-                                name="confirmPassword" 
-                                label={<Text strong style={{ fontSize: '12px' }}>Confirm password</Text>}
-                                dependencies={['password']}
-                                rules={[
-                                    ({ getFieldValue }) => ({
-                                        validator(_, value) {
-                                            if (!value || getFieldValue('password') === value) {
-                                                return Promise.resolve();
-                                            }
-                                            return Promise.reject(new Error('Passwords do not match'));
-                                        },
-                                    }),
-                                ]}
-                            >
-                                <Input.Password placeholder="••••••••" style={{ borderRadius: '8px' }} />
+                            <Form.Item label={<Text strong style={{ fontSize: themeToken.fontSizeSM }}>Role</Text>}>
+                                <Input value={currentUser?.role || ''} disabled style={{ borderRadius: themeToken.borderRadius }} />
+                                <Text type="secondary" style={{ fontSize: themeToken.fontSizeSM }}>Contact admin to change role</Text>
                             </Form.Item>
                         </Col>
                     </Row>
 
-                    <div style={{ 
-                        marginTop: '32px', 
-                        paddingTop: '16px', 
-                        borderTop: `1px solid ${designToken.colorBorderSecondary}`,
+                    <div style={{
+                        marginTop: themeToken.marginLG,
+                        paddingTop: themeToken.padding,
+                        borderTop: `1px solid ${themeToken.colorBorderSecondary}`,
                         display: 'flex',
                         justifyContent: 'flex-end',
-                        gap: '12px'
+                        gap: themeToken.marginSM
                     }}>
-                        <Button onClick={onClose} disabled={saving} style={{ borderRadius: '8px' }}>Cancel</Button>
-                        <Button type="primary" htmlType="submit" loading={saving} style={{ borderRadius: '8px', fontWeight: 600 }}>
+                        <Button onClick={onClose} disabled={saving} style={{ borderRadius: themeToken.borderRadius }}>Cancel</Button>
+                        <Button 
+                            icon={<LockOutlined />}
+                            onClick={() => setChangePasswordOpen(true)}
+                            style={{ borderRadius: themeToken.borderRadius }}
+                        >
+                            Change Password
+                        </Button>
+                        <Button type="primary" htmlType="submit" loading={saving} style={{ borderRadius: themeToken.borderRadius, fontWeight: 600 }}>
                             Save Changes
                         </Button>
                     </div>
                 </Form>
             )}
+
+            <ChangePasswordModal 
+                isOpen={changePasswordOpen} 
+                onClose={() => setChangePasswordOpen(false)} 
+            />
         </Modal>
     );
 }

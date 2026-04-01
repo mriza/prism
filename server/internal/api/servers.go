@@ -279,10 +279,11 @@ func HandleServerHeartbeat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		ServerID     string                 `json:"server_id"`
-		Hostname     string                 `json:"hostname"`
-		OSInfo       string                 `json:"os_info"`
-		AgentVersion string                 `json:"agent_version"`
+		ServerID     string               `json:"server_id"`
+		Hostname     string               `json:"hostname"`
+		OSInfo       string               `json:"os_info"`
+		AgentVersion string               `json:"agent_version"`
+		Runtimes     []models.RuntimeInfo `json:"runtimes"`
 		Metrics      map[string]interface{} `json:"metrics"`
 	}
 
@@ -317,7 +318,7 @@ func HandleServerHeartbeat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update heartbeat
-	err = db.UpdateServerHeartbeat(server.ID, req.OSInfo, req.AgentVersion)
+	err = db.UpdateServerHeartbeat(server.ID, req.OSInfo, req.AgentVersion, req.Runtimes)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
     Table,
     Card,
@@ -10,7 +10,7 @@ import {
     Select,
     Modal,
     Form,
-    message
+    message, theme
 } from 'antd';
 import {
     PlusOutlined,
@@ -20,6 +20,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { PageContainer } from '../components/PageContainer';
+import { usePermissions } from '../hooks/usePermissions';
 
 const { Text } = Typography;
 
@@ -33,36 +34,12 @@ interface Permission {
 }
 
 export function RBACPage() {
-    const [permissions, setPermissions] = useState<Permission[]>([]);
-    const [loading, setLoading] = useState(false);
+    const { permissions, loading, fetchPermissions, createPermission, deletePermission } = usePermissions();
     const [searchText, setSearchText] = useState('');
     const [resourceTypeFilter, setResourceTypeFilter] = useState<string>('all');
     const [isModalOpen, setIsModalOpen] = useState(false);
-
-    const apiBase = import.meta.env.VITE_API_URL || '';
-
-    const fetchPermissions = async () => {
-        setLoading(true);
-        try {
-            const params = new URLSearchParams();
-            if (resourceTypeFilter !== 'all') {
-                params.append('resourceType', resourceTypeFilter);
-            }
-            const res = await fetch(`${apiBase}/api/permissions?${params.toString()}`);
-            if (res.ok) {
-                const data = await res.json();
-                setPermissions(data);
-            }
-        } catch (err) {
-            message.error('Failed to fetch permissions');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchPermissions();
-    }, [resourceTypeFilter]);
+    const [form] = Form.useForm();
+    const { token } = theme.useToken();
 
     const filteredPermissions = permissions.filter(p =>
         p.name.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -101,10 +78,26 @@ export function RBACPage() {
         {
             title: 'Actions',
             key: 'actions',
-            render: () => (
+            render: (_, record) => (
                 <Space size="small">
-                    <Button type="text" size="small" icon={<EditOutlined />} />
-                    <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                    <Button 
+                        type="text" 
+                        size="small" 
+                        icon={<EditOutlined />}
+                        onClick={() => message.info('Edit permission - TODO')}
+                    />
+                    <Button 
+                        type="text" 
+                        size="small" 
+                        danger 
+                        icon={<DeleteOutlined />}
+                        onClick={async () => {
+                            if (confirm(`Delete permission "${record.name}"?`)) {
+                                await deletePermission(record.id);
+                                message.success('Permission deleted');
+                            }
+                        }}
+                    />
                 </Space>
             )
         }
@@ -125,7 +118,7 @@ export function RBACPage() {
             }
         >
             <Card>
-                <Space wrap style={{ marginBottom: 16, justifyContent: 'space-between' }}>
+                <Space wrap style={{ marginBottom: token.marginSM, justifyContent: 'space-between' }}>
                     <Space wrap>
                         <Input
                             placeholder="Search permissions..."
@@ -168,16 +161,32 @@ export function RBACPage() {
             <Modal
                 title="Create Permission"
                 open={isModalOpen}
-                onCancel={() => setIsModalOpen(false)}
+                onCancel={() => {
+                    setIsModalOpen(false);
+                    form.resetFields();
+                }}
                 footer={null}
             >
                 <Form
-                    onFinish={(values) => {
-                        console.log('Create permission:', values);
-                        message.success('Permission created (demo)');
-                        setIsModalOpen(false);
+                    form={form}
+                    onFinish={async (values) => {
+                        try {
+                            await createPermission({
+                                name: values.name,
+                                resourceType: values.resourceType,
+                                action: values.action,
+                                description: values.description || ''
+                            });
+                            message.success('Permission created successfully');
+                            setIsModalOpen(false);
+                            form.resetFields();
+                            fetchPermissions(resourceTypeFilter === 'all' ? undefined : resourceTypeFilter);
+                        } catch (err: any) {
+                            message.error(`Failed to create permission: ${err.message}`);
+                        }
                     }}
                     layout="vertical"
+                    autoComplete="off"
                 >
                     <Form.Item
                         name="name"

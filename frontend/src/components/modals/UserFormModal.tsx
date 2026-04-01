@@ -1,16 +1,17 @@
 import { useState } from 'react';
-import { 
-    Modal, 
-    Form, 
-    Input, 
-    Select, 
-    Space, 
-    Typography, 
-    theme, 
-    Button, 
-    Row, 
-    Col, 
-    Divider 
+import {
+    Modal,
+    Form,
+    Input,
+    Select,
+    Space,
+    Typography,
+    theme,
+    Button,
+    Row,
+    Col,
+    Divider,
+    Alert
 } from 'antd';
 import { UserAddOutlined, IdcardOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import type { User as UserType } from '../../types';
@@ -42,18 +43,18 @@ export function UserFormModal({ isOpen, onClose, onSave, initial }: UserFormModa
             onCancel={onClose}
             title={
                 <Space size="middle">
-                    <div style={{ 
-                        padding: '8px', 
-                        borderRadius: '10px', 
-                        backgroundColor: `${token.colorPrimary}15`, 
+                    <div style={{
+                        padding: token.paddingSM,
+                        borderRadius: token.borderRadius,
+                        backgroundColor: `${token.colorPrimary}15`,
                         color: token.colorPrimary,
                         display: 'flex'
                     }}>
                         <UserAddOutlined />
                     </div>
                     <div>
-                        <Text strong style={{ fontSize: '16px' }}>{initial ? 'Edit User' : 'Create New User'}</Text>
-                        <Text type="secondary" style={{ display: 'block', fontSize: '12px' }}>
+                        <Text strong style={{ fontSize: token.fontSizeHeading5 }}>{initial ? 'Edit User' : 'Create New User'}</Text>
+                        <Text type="secondary" style={{ display: 'block', fontSize: token.fontSizeSM }}>
                             {initial ? `Updating permissions and profile for ${initial.username}` : "Provision a new account with specific access roles"}
                         </Text>
                     </div>
@@ -61,42 +62,42 @@ export function UserFormModal({ isOpen, onClose, onSave, initial }: UserFormModa
             }
             footer={null}
             width={700}
-            style={{ borderRadius: '20px', overflow: 'hidden' }}
+            style={{ borderRadius: token.borderRadiusLG, overflow: 'hidden' }}
         >
             <Form
                 form={form}
                 layout="vertical"
                 onFinish={handleSubmit}
                 initialValues={initial ? { ...initial, password: '' } : { role: 'user' }}
-                style={{ marginTop: '24px' }}
+                style={{ marginTop: token.marginLG }}
             >
                 <Row gutter={24}>
                     <Col span={12}>
-                        <Divider orientation={'left' as any} style={{ margin: '0 0 20px 0' }}>
+                        <Divider titlePlacement="left" style={{ margin: `0 0 ${token.marginLG}px 0` }}>
                             <Space size={4}>
-                                <IdcardOutlined style={{ fontSize: '12px', opacity: 0.3 }} />
-                                <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Identity & Role</Text>
+                                <IdcardOutlined style={{ fontSize: token.fontSizeSM, opacity: 0.3 }} />
+                                <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Identity & Role</Text>
                             </Space>
                         </Divider>
-                        
-                        <Form.Item 
-                            name="username" 
-                            label={<Text strong style={{ fontSize: '12px' }}>Username</Text>} 
+
+                        <Form.Item
+                            name="username"
+                            label={<Text strong style={{ fontSize: token.fontSizeSM }}>Username</Text>}
                             rules={[{ required: true }]}
                         >
-                            <Input placeholder="johndoe" disabled={!!initial} style={{ borderRadius: '8px' }} />
+                            <Input placeholder="johndoe" disabled={!!initial} style={{ borderRadius: token.borderRadius }} />
                         </Form.Item>
 
-                        <Form.Item 
-                            name="fullName" 
-                            label={<Text strong style={{ fontSize: '12px' }}>Full name</Text>}
+                        <Form.Item
+                            name="fullName"
+                            label={<Text strong style={{ fontSize: token.fontSizeSM }}>Full name</Text>}
                         >
-                            <Input placeholder="John Doe" style={{ borderRadius: '8px' }} />
+                            <Input placeholder="John Doe" style={{ borderRadius: token.borderRadius }} />
                         </Form.Item>
 
-                        <Form.Item 
-                            name="role" 
-                            label={<Text strong style={{ fontSize: '12px' }}>Access Role</Text>} 
+                        <Form.Item
+                            name="role"
+                            label={<Text strong style={{ fontSize: token.fontSizeSM }}>Access Role</Text>}
                             rules={[{ required: true }]}
                         >
                             <Select
@@ -105,55 +106,56 @@ export function UserFormModal({ isOpen, onClose, onSave, initial }: UserFormModa
                                     { value: 'manager', label: 'Manager (Read & Control)' },
                                     { value: 'admin', label: 'Admin (Full Access)' }
                                 ]}
-                                style={{ borderRadius: '8px' }}
+                                style={{ borderRadius: token.paddingXS }}
                             />
                         </Form.Item>
                     </Col>
 
                     <Col span={12}>
-                        <Divider orientation={'left' as any} style={{ margin: '0 0 20px 0' }}>
+                        <Divider titlePlacement="left" style={{ margin: '0 0 20px 0' }}>
                             <Space size={4}>
-                                <SafetyCertificateOutlined style={{ fontSize: '12px', opacity: 0.3 }} />
-                                <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Contact & Security</Text>
+                                <SafetyCertificateOutlined style={{ fontSize: token.paddingSM, opacity: 0.3 }} />
+                                <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Contact Information</Text>
                             </Space>
                         </Divider>
 
-                        <Form.Item 
-                            name="email" 
-                            label={<Text strong style={{ fontSize: '12px' }}>Email address</Text>}
+                        <Form.Item
+                            name="email"
+                            label={<Text strong style={{ fontSize: token.paddingSM }}>Email address</Text>}
                             rules={[{ type: 'email' }]}
                         >
-                            <Input placeholder="john@example.com" style={{ borderRadius: '8px' }} />
+                            <Input placeholder="john@example.com" style={{ borderRadius: token.paddingXS }} />
                         </Form.Item>
 
-                        <Form.Item 
-                            name="phone" 
-                            label={<Text strong style={{ fontSize: '12px' }}>Phone number</Text>}
+                        <Form.Item
+                            name="phone"
+                            label={<Text strong style={{ fontSize: token.paddingSM }}>Phone number</Text>}
                         >
-                            <Input placeholder="+62..." style={{ borderRadius: '8px' }} />
+                            <Input placeholder="+62..." style={{ borderRadius: token.paddingXS }} />
                         </Form.Item>
 
-                        <Form.Item 
-                            name="password" 
-                            label={<Text strong style={{ fontSize: '12px' }}>{initial ? "New password" : "Account password"}</Text>}
-                            rules={[{ required: !initial }]}
-                            extra={<Text type="secondary" style={{ fontSize: '11px' }}>{initial ? "Leave blank to keep current" : "Required for first-time login"}</Text>}
-                        >
-                            <Input.Password placeholder="••••••••" style={{ borderRadius: '8px' }} />
-                        </Form.Item>
+                        {initial && (
+                            <Alert
+                                message="To reset user password"
+                                description="Go to Users page and click the key icon on user card to reset their password."
+                                type="info"
+                                showIcon
+                                style={{ marginBottom: token.padding }}
+                            />
+                        )}
                     </Col>
                 </Row>
 
                 <div style={{ 
-                    marginTop: '32px', 
-                    paddingTop: '16px', 
+                    marginTop: token.marginLG, 
+                    paddingTop: token.padding, 
                     borderTop: `1px solid ${token.colorBorderSecondary}`,
                     display: 'flex',
                     justifyContent: 'flex-end',
-                    gap: '12px'
+                    gap: token.paddingSM
                 }}>
-                    <Button onClick={onClose} style={{ borderRadius: '8px' }} disabled={saving}>Cancel</Button>
-                    <Button type="primary" htmlType="submit" loading={saving} style={{ borderRadius: '8px', fontWeight: 600 }}>
+                    <Button onClick={onClose} style={{ borderRadius: token.paddingXS }} disabled={saving}>Cancel</Button>
+                    <Button type="primary" htmlType="submit" loading={saving} style={{ borderRadius: token.paddingXS, fontWeight: 600 }}>
                         {initial ? 'Save Changes' : 'Create User'}
                     </Button>
                 </div>

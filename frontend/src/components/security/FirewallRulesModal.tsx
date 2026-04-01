@@ -44,7 +44,7 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const { token } = useAuth();
-    const { token: antdToken } = theme.useToken();
+    const { token: themeToken } = theme.useToken();
     const [form] = Form.useForm();
     const [submitting, setSubmitting] = useState(false);
 
@@ -178,7 +178,7 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
             title: 'ID',
             dataIndex: 'ID',
             key: 'ID',
-            render: (text: string) => <Text type="secondary" style={{ fontFamily: 'monospace', fontSize: '11px' }}>{text || '-'}</Text>
+            render: (text: string) => <Text type="secondary" style={{ fontFamily: 'monospace', fontSize: themeToken.fontSizeSM }}>{text || '-'}</Text>
         },
         {
             title: 'Action',
@@ -233,12 +233,12 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
             onCancel={onClose}
             width={850}
             footer={null}
-            bodyStyle={{ padding: '24px 0 0 0' }}
-            style={{ borderRadius: '20px', overflow: 'hidden' }}
+            styles={{ body: { padding: '24px 0 0 0' } }}
+            style={{ borderRadius: themeToken.paddingLG, overflow: 'hidden' }}
         >
             <div style={{ padding: '0 24px 24px 24px' }}>
-                <Text type="secondary" style={{ display: 'block', marginBottom: '24px' }}>
-                    Managing <Text strong style={{ color: antdToken.colorPrimary, textTransform: 'uppercase' }}>{activeFirewallName}</Text> on server <Text strong>{agentName}</Text>
+                <Text type="secondary" style={{ display: 'block', marginBottom: themeToken.marginLG }}>
+                    Managing <Text strong style={{ color: themeToken.colorPrimary, textTransform: 'uppercase' }}>{activeFirewallName}</Text> on server <Text strong>{agentName}</Text>
                 </Text>
 
                 {error && (
@@ -246,11 +246,11 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
                         message={error}
                         type="error"
                         showIcon
-                        style={{ marginBottom: '24px', borderRadius: '12px' }}
+                        style={{ marginBottom: themeToken.marginLG, borderRadius: themeToken.borderRadiusLG }}
                     />
                 )}
 
-                <div style={{ backgroundColor: antdToken.colorFillAlter, padding: '24px', borderRadius: '16px', marginBottom: '32px' }}>
+                <div style={{ backgroundColor: themeToken.colorFillAlter, padding: themeToken.paddingLG, borderRadius: themeToken.padding, marginBottom: themeToken.marginLG }}>
                     <Form
                         form={form}
                         layout="vertical"
@@ -258,7 +258,7 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
                         initialValues={{ action: 'allow', protocol: 'tcp' }}
                     >
                         <Space align="end" size="middle" style={{ width: '100%', justifyContent: 'space-between' }}>
-                            <Form.Item name="action" label={<Text strong style={{ fontSize: '11px', textTransform: 'uppercase' }}>Action</Text>} style={{ marginBottom: 0 }}>
+                            <Form.Item name="action" label={<Text strong style={{ fontSize: themeToken.fontSizeSM, textTransform: 'uppercase' }}>Action</Text>} style={{ marginBottom: 0 }}>
                                 <Select style={{ width: 120 }}>
                                     <Select.Option value="allow">ALLOW</Select.Option>
                                     <Select.Option value="deny">DENY</Select.Option>
@@ -267,14 +267,14 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
                             
                             <Form.Item 
                                 name="port" 
-                                label={<Text strong style={{ fontSize: '11px', textTransform: 'uppercase' }}>Port</Text>} 
+                                label={<Text strong style={{ fontSize: themeToken.fontSizeSM, textTransform: 'uppercase' }}>Port</Text>} 
                                 rules={[{ required: true, message: 'Required' }]}
                                 style={{ marginBottom: 0, flex: 1 }}
                             >
                                 <Input placeholder="8080" style={{ fontFamily: 'monospace' }} />
                             </Form.Item>
 
-                            <Form.Item name="protocol" label={<Text strong style={{ fontSize: '11px', textTransform: 'uppercase' }}>Protocol</Text>} style={{ marginBottom: 0 }}>
+                            <Form.Item name="protocol" label={<Text strong style={{ fontSize: themeToken.fontSizeSM, textTransform: 'uppercase' }}>Protocol</Text>} style={{ marginBottom: 0 }}>
                                 <Select style={{ width: 100 }}>
                                     <Select.Option value="tcp">TCP</Select.Option>
                                     <Select.Option value="udp">UDP</Select.Option>
@@ -287,7 +287,7 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
                                     htmlType="submit" 
                                     icon={<PlusOutlined />} 
                                     loading={submitting}
-                                    style={{ height: '32px', fontWeight: 600 }}
+                                    style={{ height: themeToken.marginLG, fontWeight: 600 }}
                                 >
                                     Add Rule
                                 </Button>
@@ -296,7 +296,7 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
                     </Form>
                 </div>
 
-                <div style={{ border: `1px solid ${antdToken.colorBorderSecondary}`, borderRadius: '12px', overflow: 'hidden' }}>
+                <div style={{ border: `1px solid ${themeToken.colorBorderSecondary}`, borderRadius: themeToken.borderRadiusLG, overflow: 'hidden' }}>
                     <Table
                         columns={columns}
                         dataSource={rules}

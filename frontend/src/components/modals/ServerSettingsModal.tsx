@@ -81,7 +81,7 @@ export function ServerSettingsModal({ isOpen, onClose, agentId, agentName }: Ser
             title={
                 <Space size="middle">
                     <div style={{ 
-                        padding: '8px', 
+                        padding: token.paddingXS, 
                         borderRadius: '10px', 
                         backgroundColor: `${token.colorPrimary}15`, 
                         color: token.colorPrimary,
@@ -90,8 +90,8 @@ export function ServerSettingsModal({ isOpen, onClose, agentId, agentName }: Ser
                         <SettingOutlined />
                     </div>
                     <div>
-                        <Text strong style={{ fontSize: '16px' }}>Server Settings</Text>
-                        <Text type="secondary" style={{ display: 'block', fontSize: '12px' }}>
+                        <Text strong style={{ fontSize: token.fontSizeHeading5 }}>Server Settings</Text>
+                        <Text type="secondary" style={{ display: 'block', fontSize: token.fontSizeSM }}>
                             Configuring infrastructure policies for {agentName}
                         </Text>
                     </div>
@@ -99,36 +99,36 @@ export function ServerSettingsModal({ isOpen, onClose, agentId, agentName }: Ser
             }
             footer={null}
             width={500}
-            style={{ borderRadius: '20px', overflow: 'hidden' }}
+            style={{ borderRadius: token.borderRadiusLG, overflow: 'hidden' }}
         >
-            <div style={{ marginTop: '24px' }}>
+            <div style={{ marginTop: token.paddingLG }}>
                 {error && (
                     <Alert
                         message="Configuration Error"
                         description={error}
                         type="error"
                         showIcon
-                        style={{ marginBottom: '24px', borderRadius: '12px' }}
+                        style={{ marginBottom: token.marginLG, borderRadius: token.borderRadiusLG }}
                     />
                 )}
 
-                <Divider orientation={"left" as any} style={{ margin: '0 0 20px 0' }}>
+                <Divider titlePlacement="left" style={{ margin: '0 0 20px 0' }}>
                     <Space>
-                        <SafetyOutlined style={{ fontSize: '12px', opacity: 0.3 }} />
-                        <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Firewall Engine</Text>
+                        <SafetyOutlined style={{ fontSize: token.fontSizeSM, opacity: 0.3 }} />
+                        <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Firewall Engine</Text>
                     </Space>
                 </Divider>
 
-                <div style={{ marginBottom: '24px' }}>
-                    <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginBottom: '16px' }}>
+                <div style={{ marginBottom: token.marginLG }}>
+                    <Text type="secondary" style={{ fontSize: token.fontSizeSM, display: 'block', marginBottom: token.marginSM }}>
                         Select which firewall engine should be active. Only one can be primary at a time.
                     </Text>
 
                     <Space direction="vertical" style={{ width: '100%' }} size="small">
                         {firewalls.length === 0 ? (
                             <Card 
-                                style={{ textAlign: 'center', borderRadius: '16px', borderStyle: 'dashed' }}
-                                bodyStyle={{ padding: '32px' }}
+                                style={{ textAlign: 'center', borderRadius: token.borderRadiusLG, borderStyle: 'dashed' }}
+                                styles={{ body: { padding: token.marginLG } }}
                             >
                                 <Text type="secondary" italic>No firewall engines detected on this server.</Text>
                             </Card>
@@ -141,21 +141,21 @@ export function ServerSettingsModal({ isOpen, onClose, agentId, agentName }: Ser
                                         hoverable={!isActive && !switchingFw}
                                         onClick={() => handleSwitchFirewall(fw.name)}
                                         style={{ 
-                                            borderRadius: '16px', 
+                                            borderRadius: token.borderRadiusLG, 
                                             border: isActive ? `1px solid ${token.colorPrimary}` : `1px solid ${token.colorBorderSecondary}`,
                                             backgroundColor: isActive ? `${token.colorPrimary}05` : token.colorFillAlter,
                                             cursor: isActive || switchingFw ? 'default' : 'pointer'
                                         }}
-                                        bodyStyle={{ padding: '16px 20px' }}
+                                        styles={{ body: { padding: '16px 20px' } }}
                                     >
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <Space size="middle">
                                                 <Badge status={fw.status === 'running' ? 'success' : 'default'} />
-                                                <Text strong style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '13px' }}>{fw.name}</Text>
+                                                <Text strong style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: token.fontSize }}>{fw.name}</Text>
                                             </Space>
                                             
                                             <div>
-                                                {isActive && <CheckOutlined style={{ color: token.colorPrimary, fontSize: '16px' }} />}
+                                                {isActive && <CheckOutlined style={{ color: token.colorPrimary, fontSize: token.fontSizeHeading5 }} />}
                                                 {switchingFw && !isActive && <LoadingOutlined style={{ opacity: 0.4 }} />}
                                             </div>
                                         </div>
@@ -167,13 +167,13 @@ export function ServerSettingsModal({ isOpen, onClose, agentId, agentName }: Ser
                 </div>
 
                 <div style={{ 
-                    marginTop: '32px', 
-                    paddingTop: '16px', 
+                    marginTop: token.marginLG, 
+                    paddingTop: token.padding, 
                     borderTop: `1px solid ${token.colorBorderSecondary}`,
                     display: 'flex',
                     justifyContent: 'flex-end'
                 }}>
-                    <Button onClick={onClose} style={{ borderRadius: '8px', padding: '0 24px' }}>Close</Button>
+                    <Button onClick={onClose} style={{ borderRadius: token.borderRadius, padding: '0 24px' }}>Close</Button>
                 </div>
             </div>
         </Modal>

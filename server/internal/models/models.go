@@ -107,20 +107,27 @@ type ManagementCredential struct {
 	UsernameMasked string `json:"usernameMasked,omitempty"`
 }
 
+type RuntimeInfo struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+	Path    string `json:"path"`
+}
+
 // Server represents a managed server (formerly Agent in v3.x)
 type Server struct {
-	ID            string `json:"id"`
-	Name          string `json:"name"`
-	Description   string `json:"description"`
-	Hostname      string `json:"hostname"`
-	IPAddress     string `json:"ipAddress,omitempty"`
-	OS            string `json:"os"`
-	OSInfo        string `json:"osInfo,omitempty"`
-	Status        string `json:"status"` // pending, active, unreachable, removed
-	AgentVersion  string `json:"agentVersion,omitempty"`
-	LastHeartbeat string `json:"lastHeartbeat,omitempty"`
-	CreatedAt     string `json:"createdAt"`
-	UpdatedAt     string `json:"updatedAt"`
+	ID            string        `json:"id"`
+	Name          string        `json:"name"`
+	Description   string        `json:"description"`
+	Hostname      string        `json:"hostname"`
+	IPAddress     string        `json:"ipAddress,omitempty"`
+	OS            string        `json:"os"`
+	OSInfo        string        `json:"osInfo,omitempty"`
+	Status        string        `json:"status"` // pending, active, unreachable, removed
+	AgentVersion  string        `json:"agentVersion,omitempty"`
+	LastHeartbeat string        `json:"lastHeartbeat,omitempty"`
+	Runtimes      []RuntimeInfo `json:"runtimes,omitempty"` // JSON-encoded in DB
+	CreatedAt     string        `json:"createdAt"`
+	UpdatedAt     string        `json:"updatedAt"`
 }
 
 // Service represents a managed service on a server
@@ -215,7 +222,19 @@ type Event struct {
 }
 
 // LegacyAgent is kept for backward compatibility with existing agents table
-// New code should use Server instead
+//
+// 🔵 DEPRECATED (v4.4.6): Use Server instead.
+// This struct and the agents table are deprecated and will be removed in v5.0.
+//
+// Migration path:
+// - v4.5: Deprecation warnings added
+// - v4.6: Data migration from agents → servers
+// - v5.0: LegacyAgent and agents table removed
+//
+// For new code, always use Server model and /api/servers endpoints.
+// See MIGRATION_GUIDE.md for detailed migration instructions.
+//
+// Tracking: BUG-008
 type LegacyAgent struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -320,4 +339,28 @@ type DriftEvent struct {
 	DetectedAt  time.Time  `json:"detectedAt"`
 	ResolvedAt  *time.Time `json:"resolvedAt,omitempty"`
 	ResolvedBy  string     `json:"resolvedBy,omitempty"`
+}
+
+// Deployment represents an application deployment via Git release artifacts
+type Deployment struct {
+	ID                   string            `json:"id"`
+	ProjectID            string            `json:"projectId"`
+	ServerID             string            `json:"serverId"`
+	Name                 string            `json:"name"`
+	Description          string            `json:"description,omitempty"`
+	SourceURL            string            `json:"sourceUrl"`                      // Git repo URL (releases)
+	SourceToken          string            `json:"sourceToken,omitempty"`          // PAT for private repos
+	Runtime              string            `json:"runtime"`                        // nodejs, python, php, go, binary
+	RuntimeVersion       string            `json:"runtimeVersion,omitempty"`       // e.g. 18.x, 3.11
+	ProcessManager       string            `json:"processManager"`                 // pm2, systemd, supervisor
+	StartCommand         string            `json:"startCommand"`                   // e.g. npm start, ./main
+	EnvVars              map[string]string `json:"envVars,omitempty"`              // KEY=VALUE pairs
+	DomainName           string            `json:"domainName,omitempty"`           // e.g. api.myapp.com
+	InternalPort         int               `json:"internalPort,omitempty"`         // port the app listens on
+	ProxyType            string            `json:"proxyType,omitempty"`            // caddy, nginx, none
+	Status               string            `json:"status"`                         // active, deploying, failed, stopped
+	LastDeployedRevision string            `json:"lastDeployedRevision,omitempty"` // tag/version
+	LastDeployedAt       string            `json:"lastDeployedAt,omitempty"`
+	CreatedAt            string            `json:"createdAt"`
+	UpdatedAt            string            `json:"updatedAt"`
 }

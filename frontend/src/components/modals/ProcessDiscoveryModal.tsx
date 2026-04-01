@@ -97,10 +97,10 @@ export function ProcessDiscoveryModal({ isOpen, onClose, agentId, agentName }: P
                 return (
                     <Space direction="vertical" size={0}>
                         <Space>
-                            <Text strong style={{ fontSize: '13px' }}>{name}</Text>
-                            {isManaged && <Tag color="success" style={{ fontSize: '9px', fontWeight: 800 }}>MANAGED</Tag>}
+                            <Text strong style={{ fontSize: token.fontSize }}>{name}</Text>
+                            {isManaged && <Tag color="success" style={{ fontSize: token.fontSizeSM, fontWeight: 800 }}>MANAGED</Tag>}
                         </Space>
-                        <Text type="secondary" style={{ fontSize: '11px', fontStyle: 'italic' }}>
+                        <Text type="secondary" style={{ fontSize: token.fontSizeSM, fontStyle: 'italic' }}>
                             {units.find(u => u.name === name)?.description || 'No description'}
                         </Text>
                     </Space>
@@ -115,7 +115,7 @@ export function ProcessDiscoveryModal({ isOpen, onClose, agentId, agentName }: P
             render: (active: string) => (
                 <Badge 
                     status={active === 'active' ? 'success' : 'default'} 
-                    text={<Text strong style={{ fontSize: '10px', textTransform: 'uppercase', opacity: 0.6 }}>{active}</Text>} 
+                    text={<Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', opacity: 0.6 }}>{active}</Text>} 
                 />
             )
         },
@@ -128,8 +128,8 @@ export function ProcessDiscoveryModal({ isOpen, onClose, agentId, agentName }: P
                 const isManaged = managedProcesses.includes(unit.name.replace(/\.service$/, ''));
                 if (isManaged) {
                     return (
-                        <div style={{ color: token.colorSuccess, padding: '8px' }}>
-                            <CheckOutlined style={{ fontSize: '16px' }} />
+                        <div style={{ color: token.colorSuccess, padding: token.paddingXS }}>
+                            <CheckOutlined style={{ fontSize: token.fontSizeHeading5 }} />
                         </div>
                     );
                 }
@@ -140,7 +140,7 @@ export function ProcessDiscoveryModal({ isOpen, onClose, agentId, agentName }: P
                         icon={<PlusOutlined />}
                         onClick={() => handleRegister(unit)}
                         loading={registering === unit.name}
-                        style={{ borderRadius: '6px', fontSize: '12px' }}
+                        style={{ borderRadius: token.borderRadiusSM, fontSize: token.fontSizeSM }}
                     >
                         Add
                     </Button>
@@ -156,7 +156,7 @@ export function ProcessDiscoveryModal({ isOpen, onClose, agentId, agentName }: P
             title={
                 <Space size="middle">
                     <div style={{ 
-                        padding: '8px', 
+                        padding: token.paddingXS, 
                         borderRadius: '10px', 
                         backgroundColor: `${token.colorPrimary}15`, 
                         color: token.colorPrimary,
@@ -165,40 +165,40 @@ export function ProcessDiscoveryModal({ isOpen, onClose, agentId, agentName }: P
                         <SearchOutlined />
                     </div>
                     <div>
-                        <Text strong style={{ fontSize: '16px' }}>Discover Processes</Text>
-                        <Text type="secondary" style={{ display: 'block', fontSize: '12px' }}>
+                        <Text strong style={{ fontSize: token.fontSizeHeading5 }}>Discover Processes</Text>
+                        <Text type="secondary" style={{ display: 'block', fontSize: token.fontSizeSM }}>
                             Scanning systemd units on {agentName}
                         </Text>
                     </div>
                 </Space>
             }
             footer={[
-                <Button key="done" onClick={onClose} style={{ borderRadius: '8px' }}>Done</Button>
+                <Button key="done" onClick={onClose} style={{ borderRadius: token.borderRadius }}>Done</Button>
             ]}
             width={800}
-            style={{ borderRadius: '20px', overflow: 'hidden' }}
+            style={{ borderRadius: token.borderRadiusLG, overflow: 'hidden' }}
         >
-            <div style={{ marginTop: '24px' }}>
-                <div style={{ marginBottom: '24px' }}>
+            <div style={{ marginTop: token.paddingLG }}>
+                <div style={{ marginBottom: token.marginLG }}>
                     <Input 
                         prefix={<SearchIcon style={{ opacity: 0.3 }} />} 
                         placeholder="Filter units (e.g. docker, redis, nginx...)" 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={{ 
-                            height: '48px', 
-                            borderRadius: '12px', 
-                            fontSize: '14px',
+                            height: 'auto', 
+                            borderRadius: token.borderRadiusLG, 
+                            fontSize: token.fontSize,
                             backgroundColor: token.colorFillAlter
                         }}
                     />
                 </div>
 
                 <div style={{ 
-                    borderRadius: '16px', 
+                    borderRadius: token.borderRadiusLG, 
                     overflow: 'hidden', 
                     border: `1px solid ${token.colorBorderSecondary}`,
-                    height: '400px',
+                    height: '100%',
                     display: 'flex',
                     flexDirection: 'column'
                 }}>

@@ -151,6 +151,22 @@ func handleAgentConnection(w http.ResponseWriter, r *http.Request, cfg *config.C
 	osInfo, _ := payloadMap["os_info"].(string)
 	agentIDPayload, _ := payloadMap["agent_id"].(string)
 
+	var runtimes []models.RuntimeInfo
+	if rtInterface, ok := payloadMap["runtimes"].([]interface{}); ok {
+		for _, rt := range rtInterface {
+			if rtMap, ok := rt.(map[string]interface{}); ok {
+				name, _ := rtMap["name"].(string)
+				version, _ := rtMap["version"].(string)
+				path, _ := rtMap["path"].(string)
+				runtimes = append(runtimes, models.RuntimeInfo{
+					Name:    name,
+					Version: version,
+					Path:    path,
+				})
+			}
+		}
+	}
+
 	var agent *models.LegacyAgent
 
 	if agentIDPayload != "" {
@@ -217,6 +233,10 @@ func handleAgentConnection(w http.ResponseWriter, r *http.Request, cfg *config.C
 	// Agent is approved or offline (previously approved). Update status to online and update last seen.
 	db.UpdateAgentStatus(agent.ID, "online", agent.Name, agent.Description)
 	db.UpdateAgentLastSeen(agent.ID, osInfo)
+
+	// UPDATE SERVER TABLE (v4.x structure)
+	db.UpdateServerHeartbeat(agent.ID, osInfo, "", runtimes)
+	db.UpdateServerStatus(agent.ID, "active", agent.Name, agent.Description)
 
 	log.Printf("Agent '%s' (%s) connected successfully (status: %s -> online)", hostname, agent.ID, agent.Status)
 
@@ -770,7 +790,14 @@ func main() {
 	http.HandleFunc("/api/auth/login", api.HandleLogin)
 
 	// Protected Endpoints
+
+	// 🔵 DEPRECATED (v4.4.6): Legacy agents endpoints - Use /api/servers instead
+	// These endpoints will be removed in v5.0
 	http.HandleFunc("/api/agents", api.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		// Add deprecation header to all /api/agents responses
+		w.Header().Set("X-API-Deprecation-Warning", "The /api/agents endpoint is deprecated and will be removed in v5.0. Use /api/servers instead. See MIGRATION_GUIDE.md.")
+		w.Header().Set("X-API-Sunset", "2026-12-31")
+
 		if r.Method == "GET" || r.Method == "OPTIONS" {
 			handleListAgents(w, r)
 		} else {
@@ -778,7 +805,11 @@ func main() {
 		}
 	}, "admin", "manager", "user"))
 
-	http.HandleFunc("/api/agents/", api.AuthMiddleware(handleAgentAction, "admin")) // Only admins can approve/delete agents
+	http.HandleFunc("/api/agents/", api.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		// Add deprecation header
+		w.Header().Set("X-API-Deprecation-Warning", "The /api/agents/{id} endpoint is deprecated. Use /api/servers/{id} instead.")
+		handleAgentAction(w, r)
+	}, "admin")) // Only admins can approve/delete agents
 
 	http.HandleFunc("/api/control", api.AuthMiddleware(handleServiceControl, "admin", "manager"))
 	http.HandleFunc("/api/control/import", api.AuthMiddleware(handleServiceImport, "admin", "manager"))
@@ -795,6 +826,9 @@ func main() {
 	http.HandleFunc("/api/accounts", api.AuthMiddleware(api.HandleAccounts, "admin", "manager", "user"))
 	http.HandleFunc("/api/accounts/", api.AuthMiddleware(api.HandleAccountDetail, "admin", "manager", "user"))
 
+	http.HandleFunc("/api/deployments", api.AuthMiddleware(api.HandleDeployments, "admin", "manager", "user"))
+	http.HandleFunc("/api/deployments/", api.AuthMiddleware(api.HandleDeploymentDetail, "admin", "manager", "user"))
+
 	http.HandleFunc("/api/management-credentials", api.AuthMiddleware(api.HandleManagementCredentials, "admin", "manager"))
 	http.HandleFunc("/api/management-credentials/", api.AuthMiddleware(api.HandleManagementCredentialDetail, "admin", "manager"))
 
@@ -802,6 +836,9 @@ func main() {
 	http.HandleFunc("/api/users", api.AuthMiddleware(api.HandleUsers, "admin"))
 	http.HandleFunc("/api/users/", api.AuthMiddleware(api.HandleUserDetail, "admin"))
 	http.HandleFunc("/api/users/me", api.AuthMiddleware(api.HandleMe, "admin", "manager", "user"))
+	// Password change endpoints
+	http.HandleFunc("/api/users/me/change-password", api.AuthMiddleware(api.HandleUserPasswordChange, "admin", "manager", "user"))
+	http.HandleFunc("/api/users/*/reset-password", api.AuthMiddleware(api.HandleAdminPasswordReset, "admin"))
 
 	// REST API for Settings
 	http.HandleFunc("/api/settings", api.AuthMiddleware(api.HandleSettings, "admin", "manager", "user"))
@@ -1050,7 +1087,7 @@ func handleServiceControl(w http.ResponseWriter, r *http.Request) {
 	if err == nil && svc != nil {
 		var mc *models.ManagementCredential
 		var reqCredID string
-		
+
 		if req.Options != nil {
 			if id, ok := req.Options["credential_id"].(string); ok {
 				reqCredID = id

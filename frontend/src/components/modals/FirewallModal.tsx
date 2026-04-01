@@ -124,7 +124,7 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
             dataIndex: 'id',
             key: 'id',
             width: 60,
-            render: (id: string) => <Text type="secondary" style={{ fontFamily: 'monospace', fontSize: '10px' }}>{id}</Text>
+            render: (id: string) => <Text type="secondary" style={{ fontFamily: 'monospace', fontSize: token.paddingSM }}>{id}</Text>
         },
         {
             title: 'Destination',
@@ -146,7 +146,7 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
                 if (isAllow) status = 'success';
                 if (isDeny) status = 'error';
 
-                return <Badge status={status} text={<Text strong style={{ fontSize: '10px', textTransform: 'uppercase' }}>{parsed.action}</Text>} />;
+                return <Badge status={status} text={<Text strong style={{ fontSize: token.paddingSM, textTransform: 'uppercase' }}>{parsed.action}</Text>} />;
             }
         },
         {
@@ -154,7 +154,7 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
             key: 'from',
             render: (_: any, record: FirewallRule) => {
                 const parsed = parseRule(record.description);
-                return <Text type="secondary" style={{ fontSize: '12px' }}>{parsed.from}</Text>;
+                return <Text type="secondary" style={{ fontSize: token.borderRadiusSM }}>{parsed.from}</Text>;
             }
         },
         {
@@ -188,8 +188,8 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
             title={
                 <Space size="middle">
                     <div style={{ 
-                        padding: '8px', 
-                        borderRadius: '10px', 
+                        padding: token.borderRadiusSM, 
+                        borderRadius: token.paddingSM, 
                         backgroundColor: `${token.colorSuccess}15`, 
                         color: token.colorSuccess,
                         display: 'flex'
@@ -197,8 +197,8 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
                         <SafetyCertificateOutlined />
                     </div>
                     <div>
-                        <Text strong style={{ fontSize: '16px' }}>Firewall Configuration</Text>
-                        <Text type="secondary" style={{ display: 'block', fontSize: '12px' }}>
+                        <Text strong style={{ fontSize: token.borderRadius }}>Firewall Configuration</Text>
+                        <Text type="secondary" style={{ display: 'block', fontSize: token.borderRadiusSM }}>
                             Managing inbound traffic rules for node <Text code>{agentId}</Text>
                         </Text>
                     </div>
@@ -206,28 +206,28 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
             }
             footer={null}
             width={800}
-            style={{ borderRadius: '20px', overflow: 'hidden' }}
+            style={{ borderRadius: token.borderRadiusLG, overflow: 'hidden' }}
         >
-            <div style={{ marginTop: '24px' }}>
+            <div style={{ marginTop: token.paddingLG }}>
                 {error && (
                     <Alert
                         message="Connection Error"
                         description={error}
                         type="error"
                         showIcon
-                        style={{ marginBottom: '24px', borderRadius: '12px' }}
+                        style={{ marginBottom: token.paddingLG, borderRadius: token.borderRadiusSM }}
                     />
                 )}
 
-                <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text strong style={{ fontSize: '12px', textTransform: 'uppercase', opacity: 0.5 }}>
+                <div style={{ marginBottom: token.paddingLG, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text strong style={{ fontSize: token.borderRadiusSM, textTransform: 'uppercase', opacity: 0.5 }}>
                         {rules.length} Active Rules
                     </Text>
                     <Space>
                         <Button 
                             icon={<ReloadOutlined spin={loading} />} 
                             onClick={fetchRules}
-                            style={{ borderRadius: '8px' }}
+                            style={{ borderRadius: token.borderRadiusSM }}
                         >
                             Refresh
                         </Button>
@@ -239,7 +239,7 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
                                 ]
                             }}
                         >
-                            <Button style={{ borderRadius: '8px' }}>
+                            <Button style={{ borderRadius: token.borderRadiusSM }}>
                                 Default Policy <DownOutlined />
                             </Button>
                         </Dropdown>
@@ -248,7 +248,7 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
 
                 {/* List Table */}
                 <div style={{ 
-                    borderRadius: '16px', 
+                    borderRadius: token.borderRadius, 
                     overflow: 'hidden', 
                     border: `1px solid ${token.colorBorderSecondary}`,
                     marginBottom: '32px'
@@ -265,10 +265,10 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
                 </div>
 
                 {/* Add Form */}
-                <Divider orientation={"left" as any} style={{ margin: '0 0 24px 0' }}>
+                <Divider titlePlacement="left" style={{ margin: '0 0 24px 0' }}>
                     <Space>
-                        <PlusOutlined style={{ color: token.colorPrimary, fontSize: '12px' }} />
-                        <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Create Inbound Rule</Text>
+                        <PlusOutlined style={{ color: token.colorPrimary, fontSize: token.borderRadiusSM }} />
+                        <Text strong style={{ fontSize: token.paddingSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Create Inbound Rule</Text>
                     </Space>
                 </Divider>
 
@@ -280,18 +280,18 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
                 >
                     <Row gutter={16} align="bottom">
                         <Col span={6}>
-                            <Form.Item name="port" label={<Text strong style={{ fontSize: '12px' }}>Port</Text>} rules={[{ required: true }]}>
-                                <Input placeholder="8080" style={{ borderRadius: '8px' }} />
+                            <Form.Item name="port" label={<Text strong style={{ fontSize: token.borderRadiusSM }}>Port</Text>} rules={[{ required: true }]}>
+                                <Input placeholder="8080" style={{ borderRadius: token.borderRadiusSM }} />
                             </Form.Item>
                         </Col>
                         <Col span={6}>
-                            <Form.Item name="protocol" label={<Text strong style={{ fontSize: '12px' }}>Protocol</Text>} rules={[{ required: true }]}>
-                                <Select options={[{ value: 'tcp', label: 'TCP' }, { value: 'udp', label: 'UDP' }]} style={{ borderRadius: '8px' }} />
+                            <Form.Item name="protocol" label={<Text strong style={{ fontSize: token.borderRadiusSM }}>Protocol</Text>} rules={[{ required: true }]}>
+                                <Select options={[{ value: 'tcp', label: 'TCP' }, { value: 'udp', label: 'UDP' }]} style={{ borderRadius: token.borderRadiusSM }} />
                             </Form.Item>
                         </Col>
                         <Col span={6}>
-                            <Form.Item name="action" label={<Text strong style={{ fontSize: '12px' }}>Action</Text>} rules={[{ required: true }]}>
-                                <Select options={[{ value: 'allow', label: 'Allow' }, { value: 'deny', label: 'Deny' }, { value: 'reject', label: 'Reject' }]} style={{ borderRadius: '8px' }} />
+                            <Form.Item name="action" label={<Text strong style={{ fontSize: token.borderRadiusSM }}>Action</Text>} rules={[{ required: true }]}>
+                                <Select options={[{ value: 'allow', label: 'Allow' }, { value: 'deny', label: 'Deny' }, { value: 'reject', label: 'Reject' }]} style={{ borderRadius: token.borderRadiusSM }} />
                             </Form.Item>
                         </Col>
                         <Col span={6}>
@@ -302,7 +302,7 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
                                     block 
                                     icon={<PlusOutlined />}
                                     loading={actionLoading === 'add'}
-                                    style={{ height: '40px', borderRadius: '10px', fontWeight: 600 }}
+                                    style={{ height: 'auto', borderRadius: token.paddingSM, fontWeight: 600 }}
                                 >
                                     Add Rule
                                 </Button>

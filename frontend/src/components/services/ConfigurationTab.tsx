@@ -149,7 +149,7 @@ export function ConfigurationTab({ configFields }: ConfigurationTabProps) {
     };
 
     return (
-        <div style={{ padding: '12px 0' }}>
+        <div style={{ padding: `${token.paddingSM}px 0` }}>
             <Alert
                 message={
                     <Space>

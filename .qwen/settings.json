@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(sed *)",
+      "Bash(do *)",
+      "Bash(done)",
+      "Bash(./run_tests.sh)",
+      "Bash(tee *)",
+      "Bash(timeout *)",
+      "Bash(strings)",
+      "Bash(find *)",
+      "Bash(mv *)",
+      "Bash(rm *)"
+    ]
+  },
+  "$version": 3
+}

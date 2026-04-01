@@ -134,7 +134,16 @@ func (m *MySQLModule) CreateUser(name, password, role, target string) error {
 
 	// Determine Role/Privileges (default to ALL PRIVILEGES)
 	privileges := "ALL PRIVILEGES"
-	if role != "" {
+	switch strings.ToLower(role) {
+	case "read":
+		privileges = "SELECT"
+	case "write":
+		privileges = "INSERT, UPDATE, DELETE"
+	case "readwrite":
+		privileges = "SELECT, INSERT, UPDATE, DELETE"
+	case "admin", "all privileges", "all", "":
+		privileges = "ALL PRIVILEGES"
+	default:
 		privileges = role
 	}
 
@@ -163,7 +172,16 @@ func (m *MySQLModule) UpdatePrivileges(name, role, target string) error {
 	}
 
 	privileges := "ALL PRIVILEGES"
-	if role != "" {
+	switch strings.ToLower(role) {
+	case "read":
+		privileges = "SELECT"
+	case "write":
+		privileges = "INSERT, UPDATE, DELETE"
+	case "readwrite":
+		privileges = "SELECT, INSERT, UPDATE, DELETE"
+	case "admin", "all privileges", "all", "":
+		privileges = "ALL PRIVILEGES"
+	default:
 		privileges = role
 	}
 

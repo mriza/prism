@@ -41,7 +41,11 @@ export function ServiceTypeIcons({ type, style }: ServiceTypeIconsProps) {
             return <SafetyOutlined style={style} />;
         case 'security-crowdsec':
             return <SecurityScanOutlined style={style} />;
-        case 'cache-valkey':
+        case 'valkey-nosql':
+            return <DatabaseOutlined style={style} />;
+        case 'valkey-broker':
+            return <ThunderboltOutlined style={style} />;
+        case 'valkey-cache':
             return <RocketOutlined style={style} />;
         case 'pm2':
         case 'supervisor':

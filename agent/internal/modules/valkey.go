@@ -452,16 +452,22 @@ func (m *ValkeyModule) CreateUser(name, password, role, target string) error {
 		cmd = append(cmd, ">"+password)
 	}
 	
+	// Determine key pattern
+	keys := "~*"
+	if target != "" && target != "*" && target != "*.*" {
+		keys = "~" + target + ":*"
+	}
+
 	// Set permissions based on role
 	switch role {
 	case "admin":
-		cmd = append(cmd, "on", "+@all")
+		cmd = append(cmd, "on", "+@all", keys)
 	case "read":
-		cmd = append(cmd, "on", "+@read")
+		cmd = append(cmd, "on", "+@read", keys)
 	case "write":
-		cmd = append(cmd, "on", "+@write")
+		cmd = append(cmd, "on", "+@write", keys)
 	default:
-		cmd = append(cmd, "on")
+		cmd = append(cmd, "on", keys)
 	}
 	
 	_, err := m.runValkeyCommand(cmd...)
@@ -471,13 +477,18 @@ func (m *ValkeyModule) CreateUser(name, password, role, target string) error {
 func (m *ValkeyModule) UpdatePrivileges(name, role, target string) error {
 	cmd := []string{"ACL", "SETUSER", name}
 	
+	keys := "~*"
+	if target != "" && target != "*" && target != "*.*" {
+		keys = "~" + target + ":*"
+	}
+
 	switch role {
 	case "admin":
-		cmd = append(cmd, "+@all")
+		cmd = append(cmd, "+@all", keys)
 	case "read":
-		cmd = append(cmd, "+@read")
+		cmd = append(cmd, "+@read", keys)
 	case "write":
-		cmd = append(cmd, "+@write")
+		cmd = append(cmd, "+@write", keys)
 	}
 	
 	_, err := m.runValkeyCommand(cmd...)

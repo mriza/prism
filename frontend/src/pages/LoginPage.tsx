@@ -73,41 +73,41 @@ export function LoginPage() {
 
     return (
         <Layout style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: token.colorBgLayout }}>
-            <Content style={{ width: '100%', maxWidth: '420px', padding: '16px' }}>
-                <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+            <Content style={{ width: '100%', maxWidth: '100%', padding: token.padding }}>
+                <div style={{ textAlign: 'center', marginBottom: token.marginXL }}>
                     <div style={{
                         width: '80px',
                         height: '80px',
                         backgroundColor: `${token.colorPrimary}10`,
-                        borderRadius: '24px',
+                        borderRadius: token.borderRadiusLG,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        margin: '0 auto 24px auto',
+                        margin: `0 auto ${token.marginLG} auto`,
                         border: `1px solid ${token.colorPrimary}30`,
                         transform: 'rotate(5deg)',
                         boxShadow: `0 8px 16px ${token.colorPrimary}15`
                     }}>
-                        <SafetyOutlined style={{ fontSize: '40px', color: token.colorPrimary }} />
+                        <SafetyOutlined style={{ fontSize: token.fontSizeHeading1, color: token.colorPrimary }} />
                     </div>
                     <Title level={1} style={{ margin: 0, fontWeight: 900, letterSpacing: '-0.05em' }}>PRISM</Title>
-                    <Text type="secondary" style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.3em' }}>Universal Fleet Control</Text>
+                    <Text type="secondary" style={{ fontSize: token.fontSizeSM, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.3em' }}>Universal Fleet Control</Text>
                 </div>
 
                 <Card
                     style={{
-                        borderRadius: '24px',
+                        borderRadius: token.borderRadiusLG,
                         boxShadow: '0 20px 40px rgba(0,0,0,0.05)',
                         border: `1px solid ${token.colorBorderSecondary}`
                     }}
-                    bodyStyle={{ padding: '40px' }}
+                    styles={{ body: { padding: token.paddingXL } }}
                 >
                     {error && (
                         <Alert
                             message={error}
                             type="error"
                             showIcon
-                            style={{ marginBottom: '24px', borderRadius: '12px' }}
+                            style={{ marginBottom: token.marginLG, borderRadius: token.borderRadiusLG }}
                         />
                     )}
 
@@ -115,27 +115,27 @@ export function LoginPage() {
                         <Space direction="vertical" align="center" style={{ width: '100%' }} size="large">
                             <Badge status="success">
                                 <div style={{
-                                    width: '64px',
-                                    height: '64px',
+                                    width: token.paddingXL,
+                                    height: token.paddingXL,
                                     borderRadius: '50%',
                                     backgroundColor: token.colorSuccessBg,
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center'
                                 }}>
-                                    <SafetyCertificateOutlined style={{ fontSize: '32px', color: token.colorSuccess }} />
+                                    <SafetyCertificateOutlined style={{ fontSize: token.fontSizeHeading3, color: token.colorSuccess }} />
                                 </div>
                             </Badge>
                             <div style={{ textAlign: 'center' }}>
                                 <Title level={4} style={{ margin: 0 }}>Verified Access</Title>
-                                <Text type="secondary" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Session Active</Text>
+                                <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Session Active</Text>
                             </div>
                             <Button
                                 type="primary"
                                 block
                                 size="large"
                                 onClick={() => navigate('/')}
-                                style={{ borderRadius: '12px', height: '48px' }}
+                                style={{ borderRadius: token.borderRadiusLG, height: token.paddingLG }}
                             >
                                 Enter Dashboard
                             </Button>
@@ -155,7 +155,7 @@ export function LoginPage() {
                                 <Input
                                     prefix={<UserOutlined style={{ color: token.colorTextDisabled }} />}
                                     placeholder="Username"
-                                    style={{ borderRadius: '12px', height: '54px' }}
+                                    style={{ borderRadius: token.borderRadiusLG, height: 'auto' }}
                                 />
                             </Form.Item>
 
@@ -166,21 +166,21 @@ export function LoginPage() {
                                 <Input.Password
                                     prefix={<LockOutlined style={{ color: token.colorTextDisabled }} />}
                                     placeholder="Password"
-                                    style={{ borderRadius: '12px', height: '54px' }}
+                                    style={{ borderRadius: token.borderRadiusLG, height: 'auto' }}
                                 />
                             </Form.Item>
 
-                            <Form.Item style={{ marginBottom: '16px', marginTop: '32px' }}>
+                            <Form.Item style={{ marginBottom: token.marginSM, marginTop: token.marginLG }}>
                                 <Button
                                     type="primary"
                                     htmlType="submit"
                                     block
                                     loading={loading}
                                     style={{
-                                        borderRadius: '14px',
+                                        borderRadius: token.borderRadiusLG,
                                         height: '56px',
                                         fontWeight: 800,
-                                        fontSize: '16px',
+                                        fontSize: token.fontSizeHeading5,
                                         boxShadow: `0 8px 20px ${token.colorPrimary}30`
                                     }}
                                 >
@@ -189,7 +189,7 @@ export function LoginPage() {
                             </Form.Item>
 
                             <div style={{ textAlign: 'center' }}>
-                                <Text style={{ fontSize: '10px', fontWeight: 800, color: token.colorTextDisabled, textTransform: 'uppercase', letterSpacing: '0.15em' }}>
+                                <Text style={{ fontSize: token.fontSizeSM, fontWeight: 800, color: token.colorTextDisabled, textTransform: 'uppercase', letterSpacing: '0.15em' }}>
                                     Authorized Personnel Only
                                 </Text>
                             </div>
@@ -197,9 +197,9 @@ export function LoginPage() {
                     )}
                 </Card>
 
-                <div style={{ textAlign: 'center', marginTop: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', opacity: 0.4 }}>
+                <div style={{ textAlign: 'center', marginTop: token.marginLG, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: token.marginSM, opacity: 0.4 }}>
                     <RocketOutlined />
-                    <Text style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Secured by PRISM Core AI</Text>
+                    <Text style={{ fontSize: token.fontSizeSM, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Secured by PRISM Core AI</Text>
                 </div>
             </Content>
         </Layout>

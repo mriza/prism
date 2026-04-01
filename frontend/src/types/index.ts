@@ -15,7 +15,9 @@ export type ServiceType =
     | 'systemd'
     | 'firewall'
     | 'security-crowdsec'
-    | 'cache-valkey';
+    | 'valkey-cache'
+    | 'valkey-broker'
+    | 'valkey-nosql';
 
 export type ProxyType = 'caddy' | 'nginx' | 'none';
 
@@ -42,18 +44,18 @@ export const SERVICE_TYPE_LABELS: Record<ServiceType, string> = {
     systemd: 'Systemd Process',
     firewall: 'Firewall',
     'security-crowdsec': 'CrowdSec',
-    'cache-valkey': 'Valkey (Cache)',
+    'valkey-cache': 'Valkey (Cache)',
+    'valkey-broker': 'Valkey (Pub/Sub)',
+    'valkey-nosql': 'Valkey (NoSQL DB)',
 };
 
 export const SERVICE_TYPE_CATEGORIES: Record<string, ServiceType[]> = {
-    'Databases': ['mongodb', 'mysql', 'postgresql'],
-    'Message Queue': ['rabbitmq', 'mqtt-mosquitto'],
+    'Databases': ['mongodb', 'mysql', 'postgresql', 'valkey-nosql'],
+    'Message Queue': ['rabbitmq', 'mqtt-mosquitto', 'valkey-broker'],
     'Storage': ['s3-minio', 's3-garage'],
     'File Transfer': ['ftp-vsftpd', 'ftp-sftpgo'],
-    'Web Servers': ['web-caddy', 'web-nginx'],
-    'Process Managers': ['pm2', 'supervisor', 'systemd'],
-    'Security': ['security-crowdsec', 'firewall'],
-    'Caching': ['cache-valkey'],
+    'Web Servers & Proxies': ['web-caddy', 'web-nginx'],
+    'Caching': ['valkey-cache'],
 };
 
 export interface Project {
@@ -116,8 +118,18 @@ export interface ServiceAccount {
     pm2Port?: number;         // app listen port
     pm2ProxyType?: ProxyType; // which proxy handles it
     pm2ProxyDomain?: string;  // e.g. myapp.example.com
+    // Valkey-specific fields
+    databaseIndex?: number;    // Valkey NoSQL database index (0-15)
+    aclCategory?: string;      // Valkey Cache ACL category
+    channelPattern?: string;   // Valkey Broker pub/sub channel pattern
     tags: string[];
     createdAt: string;
+}
+
+export interface RuntimeInfo {
+    name: string;
+    version: string;
+    path: string;
 }
 
 export interface Agent {
@@ -129,6 +141,7 @@ export interface Agent {
     status: 'pending' | 'approved' | 'online' | 'offline' | 'rejected';
     lastSeen: string;
     createdAt: string;
+    runtimes?: RuntimeInfo[];
     services: {
         id: string;
         name: string;
@@ -148,12 +161,10 @@ export interface User {
 }
 
 export const PROJECT_COLORS = [
-    'primary',
-    'secondary',
-    'accent',
-    'info',
-    'success',
-    'warning',
-    'error',
-    'neutral',
+    'primary',    // Blue - Ant Design primary color
+    'secondary',  // Purple - Link color
+    'success',    // Green - Success color
+    'warning',    // Orange - Warning color
+    'error',      // Red - Error color
+    'neutral',    // Gray - Text secondary color
 ];

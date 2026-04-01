@@ -31,6 +31,7 @@ import {
     LoadingOutlined
 } from '@ant-design/icons';
 import { PageContainer } from '../components/PageContainer';
+import { ProcessDiscoveryModal } from '../components/modals/ProcessDiscoveryModal';
 
 const { Text } = Typography;
 
@@ -50,17 +51,21 @@ interface ProcessItem {
 }
 
 export function ProcessesPage() {
-    const { agents, listSubProcesses, controlSubProcess, loading: agentsLoading, unregisterService } = useAgents();
+    const { agents, listSubProcesses, controlSubProcess, loading: agentsLoading, unregisterService, refreshAgents } = useAgents();
     const { accounts } = useAccounts();
     const { projects } = useProjects();
     const { token } = theme.useToken();
-    
+
     const [allProcesses, setAllProcesses] = useState<ProcessItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [scanning, setScanning] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     
+    // Discovery modal state
+    const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(false);
+    const [selectedAgent, setSelectedAgent] = useState<{ id: string; name: string } | null>(null);
+
     const initialized = useRef(false);
 
     const fetchAllProcesses = useCallback(async (isInitial = false) => {
@@ -143,22 +148,22 @@ export function ProcessesPage() {
             key: 'name',
             render: (_: any, p: ProcessItem) => (
                 <Space size="middle">
-                    <div style={{ 
-                        width: '40px', 
-                        height: '40px', 
-                        borderRadius: '10px', 
-                        display: 'flex', 
-                        alignItems: 'center', 
+                    <div style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: token.borderRadius,
+                        display: 'flex',
+                        alignItems: 'center',
                         justifyContent: 'center',
                         backgroundColor: p.manager === 'pm2' ? token.colorSuccessBg : p.manager === 'supervisor' ? token.colorWarningBg : token.colorInfoBg,
                         color: p.manager === 'pm2' ? token.colorSuccess : p.manager === 'supervisor' ? token.colorWarning : token.colorInfo,
                         border: `1px solid ${p.manager === 'pm2' ? token.colorSuccessBorder : p.manager === 'supervisor' ? token.colorWarningBorder : token.colorInfoBorder}`
                     }}>
-                        <DashboardOutlined style={{ fontSize: '20px' }} />
+                        <DashboardOutlined style={{ fontSize: token.fontSizeLG }} />
                     </div>
                     <div>
                         <Text strong style={{ display: 'block' }}>{p.name}</Text>
-                        <Text type="secondary" style={{ fontSize: '10px', textTransform: 'uppercase' }}>{p.id}</Text>
+                        <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>{p.id}</Text>
                     </div>
                 </Space>
             )
@@ -168,8 +173,8 @@ export function ProcessesPage() {
             key: 'environment',
             render: (_: any, p: ProcessItem) => (
                 <Space direction="vertical" size={0}>
-                    <Text style={{ fontSize: '12px' }}><CloudServerOutlined style={{ marginRight: '4px', opacity: 0.5 }} />{p.agentName}</Text>
-                    <Text type="secondary" style={{ fontSize: '10px', textTransform: 'uppercase' }}>Managed by {p.manager}</Text>
+                    <Text style={{ fontSize: token.fontSizeSM }}><CloudServerOutlined style={{ marginRight: token.marginXXS, opacity: 0.5 }} />{p.agentName}</Text>
+                    <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>Managed by {p.manager}</Text>
                 </Space>
             )
         },
@@ -178,16 +183,16 @@ export function ProcessesPage() {
             key: 'project',
             render: (_: any, p: ProcessItem) => p.projectId ? (
                 <Link to={`/projects/${p.projectId}`}>
-                    <Tag 
-                        color={p.projectColor === 'primary' ? 'blue' : p.projectColor === 'success' ? 'green' : p.projectColor} 
-                        style={{ cursor: 'pointer', borderRadius: '4px' }}
+                    <Tag
+                        color={p.projectColor === 'primary' ? 'blue' : p.projectColor === 'success' ? 'green' : p.projectColor}
+                        style={{ cursor: 'pointer', borderRadius: token.borderRadiusSM }}
                         icon={<ExportOutlined />}
                     >
                         {p.projectName}
                     </Tag>
                 </Link>
             ) : (
-                <Text type="secondary" italic style={{ fontSize: '11px' }}>Independent</Text>
+                <Text type="secondary" italic style={{ fontSize: token.fontSizeSM }}>Independent</Text>
             )
         },
         {
@@ -197,14 +202,14 @@ export function ProcessesPage() {
                 <Space size="large">
                     {p.cpu && (
                         <Space direction="vertical" size={0}>
-                            <Text type="secondary" style={{ fontSize: '9px', textTransform: 'uppercase' }}>CPU</Text>
-                            <Text strong style={{ fontSize: '12px', fontFamily: 'monospace' }}>{p.cpu}</Text>
+                            <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>CPU</Text>
+                            <Text strong style={{ fontSize: token.fontSizeSM, fontFamily: 'monospace' }}>{p.cpu}</Text>
                         </Space>
                     )}
                     {p.memory && (
                         <Space direction="vertical" size={0}>
-                            <Text type="secondary" style={{ fontSize: '9px', textTransform: 'uppercase' }}>MEM</Text>
-                            <Text strong style={{ fontSize: '12px', fontFamily: 'monospace' }}>{p.memory}</Text>
+                            <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>MEM</Text>
+                            <Text strong style={{ fontSize: token.fontSizeSM, fontFamily: 'monospace' }}>{p.memory}</Text>
                         </Space>
                     )}
                 </Space>
@@ -288,8 +293,8 @@ export function ProcessesPage() {
         onClick: ({ key }: any) => {
             const agent = agents.find(a => a.id === key);
             if (agent) {
-                // TODO: Open discovery modal if needed
-                console.log("Setting discovery agent", agent.id);
+                setSelectedAgent({ id: agent.id, name: agent.name || agent.hostname });
+                setIsDiscoveryOpen(true);
             }
         }
     };
@@ -313,18 +318,18 @@ export function ProcessesPage() {
                 </Space>
             }
         >
-            <div style={{ marginBottom: '24px' }}>
-                <Input 
-                    placeholder="Search processes, agents, or projects..." 
+            <div style={{ marginBottom: token.marginLG }}>
+                <Input
+                    placeholder="Search processes, agents, or projects..."
                     prefix={<SearchOutlined style={{ color: token.colorTextPlaceholder }} />}
                     size="large"
-                    style={{ borderRadius: '12px', maxWidth: '400px' }}
+                    style={{ borderRadius: token.borderRadiusLG, maxWidth: '100%' }}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
             </div>
 
-            <Card bodyStyle={{ padding: 0 }} style={{ borderRadius: '16px', overflow: 'hidden', border: `1px solid ${token.colorBorderSecondary}` }}>
+            <Card styles={{ body: { padding: 0 } }} style={{ borderRadius: token.borderRadiusLG, overflow: 'hidden', border: `1px solid ${token.colorBorderSecondary}` }}>
                 <Table 
                     columns={columns} 
                     dataSource={filteredProcesses} 
@@ -338,6 +343,17 @@ export function ProcessesPage() {
             {/* Reuse existing Discovery Modal */}
             {/* The Discovery Modal should ideally be migrated too if it uses custom UI */}
             {/* But for now we just keep the integration */}
+            
+            <ProcessDiscoveryModal
+                isOpen={isDiscoveryOpen}
+                onClose={() => {
+                    setIsDiscoveryOpen(false);
+                    setSelectedAgent(null);
+                    refreshAgents(); // Refresh to show newly registered processes
+                }}
+                agentId={selectedAgent?.id || ''}
+                agentName={selectedAgent?.name || ''}
+            />
         </PageContainer>
     );
 }

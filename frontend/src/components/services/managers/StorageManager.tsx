@@ -178,7 +178,7 @@ export function StorageManager({ sendCommand }: StorageManagerProps) {
             title: 'Status',
             key: 'status',
             render: () => (
-                <Badge status="success" text={<Text style={{ fontSize: '12px' }}>Active</Text>} />
+                <Badge status="success" text={<Text style={{ fontSize: token.fontSizeSM }}>Active</Text>} />
             )
         },
         {
@@ -221,7 +221,7 @@ export function StorageManager({ sendCommand }: StorageManagerProps) {
             title: 'Status',
             key: 'status',
             render: () => (
-                <Badge status="success" text={<Text style={{ fontSize: '12px' }}>Active</Text>} />
+                <Badge status="success" text={<Text style={{ fontSize: token.fontSizeSM }}>Active</Text>} />
             )
         },
         {
@@ -243,40 +243,40 @@ export function StorageManager({ sendCommand }: StorageManagerProps) {
     const dataSource = buckets.map(b => ({ key: b, name: b }));
 
     return (
-        <div style={{ padding: '4px 0' }}>
+        <div style={{ padding: `${token.paddingXXS}px 0` }}>
             {error && (
-                <Alert message={error} type="error" showIcon style={{ marginBottom: '24px', borderRadius: '12px' }} />
+                <Alert message={error} type="error" showIcon style={{ marginBottom: token.marginLG, borderRadius: token.borderRadiusLG }} />
             )}
 
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
                 {/* Header Info */}
                 <Card
-                    style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter }}
-                    bodyStyle={{ padding: '20px' }}
+                    style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter }}
+                    styles={{ body: { padding: token.paddingLG } }}
                 >
                     <Row gutter={24} align="middle">
                         <Col span={16}>
                             <Space size="middle">
                                 <div style={{
-                                    padding: '10px',
-                                    borderRadius: '12px',
+                                    padding: token.paddingSM,
+                                    borderRadius: token.borderRadiusLG,
                                     backgroundColor: `${token.colorPrimary}15`,
                                     color: token.colorPrimary,
-                                    fontSize: '20px',
+                                    fontSize: token.paddingLG,
                                     display: 'flex'
                                 }}>
                                     <HddOutlined />
                                 </div>
                                 <div>
-                                    <Text strong style={{ fontSize: '15px', display: 'block' }}>Object Storage Management</Text>
-                                    <Text type="secondary" style={{ fontSize: '12px' }}>Provision buckets and manage data lifecycle.</Text>
+                                    <Text strong style={{ fontSize: token.fontSize, display: 'block' }}>Object Storage Management</Text>
+                                    <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Provision buckets and manage data lifecycle.</Text>
                                 </div>
                             </Space>
                         </Col>
                         <Col span={8} style={{ textAlign: 'right' }}>
                             <Space>
-                                <Button icon={<ReloadOutlined spin={loading} />} onClick={fetchData} style={{ borderRadius: '8px' }}>Refresh</Button>
-                                <Button icon={<CloudServerOutlined />} style={{ borderRadius: '8px' }}>Storage Nodes</Button>
+                                <Button icon={<ReloadOutlined spin={loading} />} onClick={fetchData} style={{ borderRadius: token.borderRadius }}>Refresh</Button>
+                                <Button icon={<CloudServerOutlined />} style={{ borderRadius: token.borderRadius }}>Storage Nodes</Button>
                             </Space>
                         </Col>
                     </Row>
@@ -286,32 +286,32 @@ export function StorageManager({ sendCommand }: StorageManagerProps) {
                 {Object.keys(metrics).length > 0 && (
                     <Row gutter={16}>
                         <Col span={8}>
-                            <Card style={{ borderRadius: '12px' }}>
+                            <Card style={{ borderRadius: token.borderRadiusLG }}>
                                 <Statistic
                                     title="Total Buckets"
                                     value={buckets.length}
                                     prefix={<FolderOpenOutlined />}
-                                    valueStyle={{ fontSize: '20px' }}
+                                    valueStyle={{ fontSize: token.paddingLG }}
                                 />
                             </Card>
                         </Col>
                         <Col span={8}>
-                            <Card style={{ borderRadius: '12px' }}>
+                            <Card style={{ borderRadius: token.borderRadiusLG }}>
                                 <Statistic
                                     title="Total Users"
                                     value={users.length}
                                     prefix={<UserOutlined />}
-                                    valueStyle={{ fontSize: '20px' }}
+                                    valueStyle={{ fontSize: token.paddingLG }}
                                 />
                             </Card>
                         </Col>
                         <Col span={8}>
-                            <Card style={{ borderRadius: '12px' }}>
+                            <Card style={{ borderRadius: token.borderRadiusLG }}>
                                 <Statistic
                                     title="Total Objects"
                                     value={metrics.total_objects || 0}
                                     prefix={<DashboardOutlined />}
-                                    valueStyle={{ fontSize: '20px' }}
+                                    valueStyle={{ fontSize: token.paddingLG }}
                                 />
                             </Card>
                         </Col>
@@ -319,14 +319,14 @@ export function StorageManager({ sendCommand }: StorageManagerProps) {
                 )}
 
                 {/* Settings Section */}
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '0 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Service Settings</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: '0 0 16px 0' }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Service Settings</Text>
                 </Divider>
 
                 <Card
                     loading={loadingSettings}
-                    style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}
-                    bodyStyle={{ padding: '24px' }}
+                    style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}
+                    styles={{ body: { padding: token.paddingLG } }}
                 >
                     <Form
                         form={form}
@@ -338,28 +338,28 @@ export function StorageManager({ sendCommand }: StorageManagerProps) {
                             <Col span={16}>
                                 <Form.Item
                                     name="endpoint"
-                                    label={<Text strong style={{ fontSize: '12px' }}>API Endpoint</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>API Endpoint</Text>}
                                     help="S3 API endpoint URL (e.g. http://localhost:9000)"
                                 >
-                                    <Input placeholder="http://localhost:9000" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                                    <Input placeholder="http://localhost:9000" style={{ borderRadius: token.borderRadius, fontFamily: 'monospace' }} />
                                 </Form.Item>
                             </Col>
                             <Col span={8}>
                                 <Form.Item
                                     name="access_key"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Admin Access Key</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Admin Access Key</Text>}
                                     help="Administrator access key"
                                 >
-                                    <Input placeholder="minioadmin" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="minioadmin" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={24}>
                                 <Form.Item
                                     name="secret_key"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Admin Secret Key</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Admin Secret Key</Text>}
                                     help="Leave blank to keep current secret"
                                 >
-                                    <Input.Password placeholder="••••••••" style={{ borderRadius: '8px' }} />
+                                    <Input.Password placeholder="••••••••" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                         </Row>
@@ -368,7 +368,7 @@ export function StorageManager({ sendCommand }: StorageManagerProps) {
                             htmlType="submit"
                             loading={updatingSettings}
                             icon={<SettingOutlined />}
-                            style={{ borderRadius: '8px' }}
+                            style={{ borderRadius: token.borderRadius }}
                         >
                             Save Settings
                         </Button>
@@ -376,8 +376,8 @@ export function StorageManager({ sendCommand }: StorageManagerProps) {
                 </Card>
 
                 {/* Buckets Section */}
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Active Buckets</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: `${token.marginLG}px 0 ${token.marginSM}px 0` }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Active Buckets</Text>
                 </Divider>
 
                 <Table
@@ -388,18 +388,18 @@ export function StorageManager({ sendCommand }: StorageManagerProps) {
                     size="small"
                     style={{
                         border: `1px solid ${token.colorBorderSecondary}`,
-                        borderRadius: '12px',
+                        borderRadius: token.borderRadiusLG,
                         overflow: 'hidden'
                     }}
                 />
 
-                <Card style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                <Card style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}>
                     <Row gutter={16}>
                         <Col flex="auto">
                             <Input
                                 placeholder="Enter bucket name..."
                                 prefix={<SearchOutlined style={{ opacity: 0.3 }} />}
-                                style={{ borderRadius: '8px', height: '40px' }}
+                                style={{ borderRadius: token.borderRadius, height: token.paddingLG }}
                                 id="new-bucket-name"
                             />
                         </Col>
@@ -411,7 +411,7 @@ export function StorageManager({ sendCommand }: StorageManagerProps) {
                                     const input = document.getElementById('new-bucket-name') as HTMLInputElement;
                                     handleCreateBucket(input.value);
                                 }}
-                                style={{ borderRadius: '8px', height: '40px', fontWeight: 600, padding: '0 24px' }}
+                                style={{ borderRadius: token.borderRadius, height: token.paddingLG, fontWeight: 600, padding: '0 24px' }}
                             >
                                 Provision Bucket
                             </Button>
@@ -420,8 +420,8 @@ export function StorageManager({ sendCommand }: StorageManagerProps) {
                 </Card>
 
                 {/* Users Section */}
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Storage Users</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: `${token.marginLG}px 0 ${token.marginSM}px 0` }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Storage Users</Text>
                 </Divider>
 
                 <Table
@@ -432,12 +432,12 @@ export function StorageManager({ sendCommand }: StorageManagerProps) {
                     size="small"
                     style={{
                         border: `1px solid ${token.colorBorderSecondary}`,
-                        borderRadius: '12px',
+                        borderRadius: token.borderRadiusLG,
                         overflow: 'hidden'
                     }}
                 />
 
-                <Card style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                <Card style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}>
                     <Form
                         layout="vertical"
                         onFinish={handleCreateUser}
@@ -447,10 +447,10 @@ export function StorageManager({ sendCommand }: StorageManagerProps) {
                             <Col flex="auto">
                                 <Space wrap style={{ width: '100%' }}>
                                     <Form.Item name="access_key" label="Access Key" required style={{ marginBottom: 0 }}>
-                                        <Input placeholder="Enter access key" style={{ borderRadius: '8px', width: 200 }} />
+                                        <Input placeholder="Enter access key" style={{ borderRadius: token.borderRadius, width: 200 }} />
                                     </Form.Item>
                                     <Form.Item name="secret_key" label="Secret Key" style={{ marginBottom: 0 }}>
-                                        <Input.Password placeholder="Leave empty to auto-generate" style={{ borderRadius: '8px', width: 250 }} />
+                                        <Input.Password placeholder="Leave empty to auto-generate" style={{ borderRadius: token.borderRadius, width: 250 }} />
                                     </Form.Item>
                                 </Space>
                             </Col>
@@ -459,7 +459,7 @@ export function StorageManager({ sendCommand }: StorageManagerProps) {
                                     type="primary"
                                     htmlType="submit"
                                     icon={<PlusOutlined />}
-                                    style={{ borderRadius: '8px', marginTop: '19px' }}
+                                    style={{ borderRadius: token.borderRadius, marginTop: `${token.marginSM}px` }}
                                 >
                                     Create User
                                 </Button>

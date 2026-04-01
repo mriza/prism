@@ -11,10 +11,10 @@ import {
     Row, 
     Col, 
     Divider, 
-    Card
+    Card,
+    Radio
 } from 'antd';
 import { 
-    LeftOutlined,
     PlusOutlined,
     DeleteOutlined
 } from '@ant-design/icons';
@@ -73,6 +73,10 @@ const defaultDraft = (category: AccountDraft['category'] = 'project', projectId?
     pm2Port: undefined,
     pm2ProxyType: undefined,
     pm2ProxyDomain: undefined,
+    // Valkey-specific fields
+    databaseIndex: undefined,
+    aclCategory: undefined,
+    channelPattern: undefined,
 });
 
 const DEFAULT_PORTS: Partial<Record<ServiceType, number>> = {
@@ -85,7 +89,9 @@ const DEFAULT_PORTS: Partial<Record<ServiceType, number>> = {
     'ftp-sftpgo': 22,
     'web-caddy': 80,
     'web-nginx': 80,
-    'security-crowdsec': 8080,
+    'valkey-cache': 6379,
+    'valkey-broker': 6379,
+    'valkey-nosql': 6379,
 };
 
 const SERVICE_NAME_MAP: Partial<Record<ServiceType, string[]>> = {
@@ -100,14 +106,12 @@ const SERVICE_NAME_MAP: Partial<Record<ServiceType, string[]>> = {
     'ftp-sftpgo': ['sftpgo'],
     'web-caddy': ['caddy'],
     'web-nginx': ['nginx'],
-    pm2: ['pm2'],
-    supervisor: ['supervisor'],
-    systemd: ['systemd'],
-    'security-crowdsec': ['crowdsec'],
+    'valkey-cache': ['valkey'],
+    'valkey-broker': ['valkey'],
+    'valkey-nosql': ['valkey'],
 };
 
 export function AccountFormModal({ isOpen, onClose, onSave, category = 'project', projectId, initial }: Props) {
-    const [step, setStep] = useState<1 | 2>(initial ? 2 : 1);
     const [form] = Form.useForm();
     const { agents } = useAgents();
     const { token } = theme.useToken();
@@ -126,23 +130,46 @@ export function AccountFormModal({ isOpen, onClose, onSave, category = 'project'
         const autoAgent = matches.length === 1 ? matches[0] : null;
 
         setSelectedType(t);
+        // We only reset specific fields so we don't obliterate everything if the user was just switching types,
+        // although usually this is only useful when first opening.
         form.setFieldsValue({
-            ...defaultDraft(category, projectId),
             type: t,
             port: DEFAULT_PORTS[t],
-            agentId: autoAgent ? autoAgent.id : '',
+            agentId: autoAgent ? autoAgent.id : undefined,
             host: autoAgent ? (autoAgent.hostname || 'localhost') : 'localhost'
         });
-        setStep(2);
     };
 
     const handleSave = (values: any) => {
-        const { agentId, ...rest } = values;
-        onSave({ ...rest, serverId: agentId, agentId, category, type: selectedType, projectId });
+        const { agentId, databases, databaseIndex, aclCategory, channelPattern, ...rest } = values;
+        
+        // Auto-set primary database from first item in databases array
+        // For Valkey NoSQL, convert databaseIndex to databases array
+        let finalDatabases = databases || [];
+        if (selectedType === 'valkey-nosql' && databaseIndex !== undefined) {
+            finalDatabases = [`db${databaseIndex}`];
+        }
+        
+        const data = {
+            ...rest,
+            serverId: agentId,
+            agentId,
+            category,
+            type: selectedType,
+            projectId,
+            database: finalDatabases.length > 0 ? finalDatabases[0] : '',
+            databases: finalDatabases,
+            // Store Valkey-specific fields
+            aclCategory: selectedType === 'valkey-cache' ? aclCategory : undefined,
+            channelPattern: selectedType === 'valkey-broker' ? channelPattern : undefined,
+        };
+        
+        onSave(data);
         onClose();
     };
 
     const matchingAgents = getMatchingAgents(selectedType);
+    const isProxy = ['web-caddy', 'web-nginx'].includes(selectedType);
 
     return (
         <Modal
@@ -150,137 +177,211 @@ export function AccountFormModal({ isOpen, onClose, onSave, category = 'project'
             onCancel={onClose}
             title={
                 <Space direction="vertical" size={0}>
-                    <Text strong style={{ fontSize: '16px' }}>
-                        {initial ? 'Edit Account' : step === 1 ? 'Select Service Type' : `Add ${SERVICE_TYPE_LABELS[selectedType]} Account`}
+                    <Text strong style={{ fontSize: token.fontSizeHeading5 }}>
+                        {initial ? (isProxy ? 'Edit Web Proxy' : 'Edit Account') : (isProxy ? 'Provision Web Proxy' : 'Provision Account')}
                     </Text>
-                    <Text type="secondary" style={{ fontSize: '12px', fontWeight: 400 }}>
-                        {step === 1 ? "Choose the infrastructure layer for this new credential" : "Enter the final connection parameters and access roles"}
+                    <Text type="secondary" style={{ fontSize: token.fontSizeSM, fontWeight: 400 }}>
+                        {isProxy ? 'Configure reverse proxy domains and routing' : 'Configure service connection and access credentials'}
                     </Text>
                 </Space>
             }
             footer={null}
             width={800}
-            style={{ borderRadius: '20px', overflow: 'hidden' }}
+            style={{ borderRadius: token.borderRadiusLG, overflow: 'hidden' }}
+            destroyOnClose
         >
-            {step === 1 ? (
-                /* Step 1: Service type picker */
-                <div style={{ padding: '24px 0' }}>
-                    {Object.entries(SERVICE_TYPE_CATEGORIES).map(([category, types]) => (
-                        <div key={category} style={{ marginBottom: '32px' }}>
-                            <Divider orientation={"left" as any} style={{ margin: '0 0 20px 0' }}>
-                                <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', opacity: 0.3 }}>{category}</Text>
-                            </Divider>
-                            <Row gutter={[16, 16]}>
-                                {types.map(t => (
-                                    <Col xs={12} sm={8} md={6} key={t}>
-                                        <Card 
-                                            hoverable 
-                                            onClick={() => handleSelectType(t)}
-                                            style={{ 
-                                                textAlign: 'center', 
-                                                borderRadius: '16px', 
-                                                border: `1px solid ${token.colorBorderSecondary}`,
-                                                backgroundColor: token.colorFillAlter
-                                            }}
-                                            bodyStyle={{ padding: '24px 12px' }}
-                                        >
-                                            <div style={{ 
-                                                fontSize: '32px', 
-                                                marginBottom: '12px',
-                                                color: token.colorPrimary
-                                            }}>
-                                                <ServiceTypeIcons type={t} />
-                                            </div>
-                                            <Text strong style={{ fontSize: '13px' }}>{SERVICE_TYPE_LABELS[t]}</Text>
-                                        </Card>
-                                    </Col>
+            <Form
+                form={form}
+                layout="vertical"
+                onFinish={handleSave}
+                initialValues={initial ?? defaultDraft(category, projectId)}
+                style={{ marginTop: token.marginLG }}
+            >
+                <Row gutter={24}>
+                    <Col span={24}>
+                        <Form.Item name="type" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Service Type</Text>} rules={[{ required: true }]}>
+                            <Select
+                                placeholder="Select Service Type"
+                                style={{ width: '100%', borderRadius: token.borderRadius }}
+                                onChange={handleSelectType}
+                                disabled={!!initial}
+                            >
+                                {Object.entries(SERVICE_TYPE_CATEGORIES).map(([cat, types]) => (
+                                    <Select.OptGroup label={cat} key={cat}>
+                                        {types.map(t => (
+                                            <Select.Option key={t} value={t}>
+                                                <Space>
+                                                    <ServiceTypeIcons type={t} />
+                                                    {SERVICE_TYPE_LABELS[t]}
+                                                </Space>
+                                            </Select.Option>
+                                        ))}
+                                    </Select.OptGroup>
                                 ))}
-                            </Row>
-                        </div>
-                    ))}
-                </div>
-            ) : (
-                /* Step 2: Account details */
-                <Form
-                    form={form}
-                    layout="vertical"
-                    onFinish={handleSave}
-                    initialValues={initial ?? defaultDraft(category, projectId)}
-                    style={{ marginTop: '24px' }}
-                >
-                    {!initial && (
-                        <Button 
-                            type="text" 
-                            icon={<LeftOutlined />} 
-                            onClick={() => setStep(1)}
-                            style={{ 
-                                marginBottom: '24px', 
-                                fontSize: '11px', 
-                                fontWeight: 800, 
-                                textTransform: 'uppercase', 
-                                letterSpacing: '0.1em',
-                                color: token.colorTextDisabled
-                            }}
-                        >
-                            Back to service types
-                        </Button>
-                    )}
+                            </Select>
+                        </Form.Item>
+                    </Col>
+                </Row>
 
-                    <Row gutter={24}>
+                <Row gutter={24}>
                         <Col span={24}>
-                            <Form.Item name="name" label={<Text strong style={{ fontSize: '12px' }}>Display name</Text>} rules={[{ required: true }]}>
-                                <Input placeholder="e.g. main-db" style={{ borderRadius: '8px' }} />
+                            <Form.Item name="name" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Display name</Text>} rules={[{ required: true }]}>
+                                <Input placeholder="e.g. main-db" style={{ borderRadius: token.borderRadius }} />
                             </Form.Item>
                         </Col>
-                        
+
                         <Col span={12}>
-                            <Form.Item name="agentId" label={<Text strong style={{ fontSize: '12px' }}>Service instance</Text>} rules={[{ required: true }]}>
-                                <Select 
+                            <Form.Item name="agentId" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Service instance</Text>} rules={[{ required: true }]}>
+                                <Select
                                     placeholder="Select server instance"
-                                    style={{ borderRadius: '8px' }}
-                                    options={matchingAgents.map(a => ({ 
-                                        value: a.id, 
-                                        label: `${SERVICE_TYPE_LABELS[selectedType]} on ${a.name || a.id}` 
+                                    style={{ borderRadius: token.borderRadius }}
+                                    options={matchingAgents.map(a => ({
+                                        value: a.id,
+                                        label: `${SERVICE_TYPE_LABELS[selectedType]} on ${a.name || a.id}`
                                     }))}
                                 />
                             </Form.Item>
                         </Col>
-                        
-                        {(['mongodb', 'mysql', 'postgresql', 'rabbitmq', 'mqtt-mosquitto', 'web-caddy', 'web-nginx', 'ftp-vsftpd', 'ftp-sftpgo'].includes(selectedType)) && (
+
+                        {(['mongodb', 'mysql', 'postgresql', 'rabbitmq', 'mqtt-mosquitto', 'web-caddy', 'web-nginx', 'ftp-vsftpd', 'ftp-sftpgo', 'valkey-cache', 'valkey-broker', 'valkey-nosql'].includes(selectedType)) && (
                             <>
                                 <Col span={8}>
-                                    <Form.Item name="host" label={<Text strong style={{ fontSize: '12px' }}>Host</Text>}>
-                                        <Input placeholder="localhost" style={{ borderRadius: '8px' }} />
+                                    <Form.Item name="host" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Host</Text>}>
+                                        <Input placeholder="localhost" style={{ borderRadius: token.borderRadius }} />
                                     </Form.Item>
                                 </Col>
                                 <Col span={4}>
-                                    <Form.Item name="port" label={<Text strong style={{ fontSize: '12px' }}>Port</Text>}>
-                                        <Input placeholder={String(DEFAULT_PORTS[selectedType])} style={{ borderRadius: '8px' }} />
+                                    <Form.Item name="port" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Port</Text>}>
+                                        <Input placeholder={String(DEFAULT_PORTS[selectedType])} style={{ borderRadius: token.borderRadius }} />
                                     </Form.Item>
                                 </Col>
                             </>
                         )}
                     </Row>
 
-                    <Divider style={{ margin: '24px 0' }} />
+                    <Divider style={{ margin: `${token.marginLG}px 0` }} />
+
+                    {isProxy && (
+                        <>
+                            <Divider titlePlacement="left" style={{ marginTop: 0 }}>
+                                <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Site Configuration</Text>
+                            </Divider>
+                            <Row gutter={24}>
+                                <Col span={24}>
+                                    <Form.Item name="vhost" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Domain Name</Text>} rules={[{ required: true }]}>
+                                        <Input placeholder="e.g. example.com or api.example.com" style={{ borderRadius: token.borderRadius }} />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={24}>
+                                    <Form.Item name="proxyTypeConfig" initialValue="proxy" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Website Mode</Text>}>
+                                        <Radio.Group optionType="button" buttonStyle="solid">
+                                            <Radio.Button value="website">Static / PHP Website</Radio.Button>
+                                            <Radio.Button value="proxy">Reverse Proxy</Radio.Button>
+                                        </Radio.Group>
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+
+                            <Form.Item
+                                noStyle
+                                shouldUpdate={(prev, curr) => prev.proxyTypeConfig !== curr.proxyTypeConfig}
+                            >
+                                {({ getFieldValue }) => {
+                                    const pType = getFieldValue('proxyTypeConfig');
+                                    if (pType === 'proxy') {
+                                        return (
+                                            <Row gutter={24}>
+                                                <Col span={24}>
+                                                    <Form.Item name="endpoint" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Target/Upstream URL</Text>} rules={[{ required: true }]} help="The internal URL where your app is running (e.g., PM2 / Node.js node)">
+                                                        <Input placeholder="http://localhost:3000" style={{ borderRadius: token.borderRadius }} />
+                                                    </Form.Item>
+                                                </Col>
+                                            </Row>
+                                        );
+                                    } else {
+                                        return (
+                                            <Row gutter={24}>
+                                                <Col span={12}>
+                                                    <Form.Item name="rootPath" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Web Root Directory</Text>} rules={[{ required: true }]} help="Absolute path to your static/php files">
+                                                        <Input placeholder="/var/www/html/mysite" style={{ borderRadius: token.borderRadius }} />
+                                                    </Form.Item>
+                                                </Col>
+                                                <Col span={12}>
+                                                    <Form.Item name="targetEntity" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Dynamic Interpreter</Text>} help="Leave empty for static sites. E.g. unix//var/run/php/php8.1-fpm.sock">
+                                                        <Input placeholder="PHP-FPM socket path or URL" style={{ borderRadius: token.borderRadius }} />
+                                                    </Form.Item>
+                                                </Col>
+                                            </Row>
+                                        );
+                                    }
+                                }}
+                            </Form.Item>
+                        </>
+                    )}
 
                     {/* Service specific fields */}
-                    {['mongodb', 'mysql', 'postgresql', 'rabbitmq'].includes(selectedType) && (
+                    {['mongodb', 'mysql', 'postgresql', 'rabbitmq', 'valkey-nosql', 'valkey-broker', 'valkey-cache'].includes(selectedType) && (
                         <Row gutter={24}>
                             <Col span={12}>
-                                <Form.Item name="username" label={<Text strong style={{ fontSize: '12px' }}>Username</Text>}>
-                                    <Input style={{ borderRadius: '8px' }} />
+                                <Form.Item name="username" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Username</Text>}>
+                                    <Input style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={12}>
-                                <Form.Item name="password" label={<Text strong style={{ fontSize: '12px' }}>Password</Text>}>
-                                    <Input.Password style={{ borderRadius: '8px' }} />
+                                <Form.Item name="password" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Password</Text>}>
+                                    <Input.Password style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
-                            {selectedType !== 'rabbitmq' && (
+
+                            {/* RabbitMQ: No databases field */}
+                            {selectedType === 'rabbitmq' && (
                                 <Col span={24}>
-                                    <Form.Item name="databases" label={<Text strong style={{ fontSize: '12px' }}>Databases (Multi-value available in API)</Text>}>
-                                        <Select mode="tags" placeholder="Press enter to add databases" style={{ width: '100%', borderRadius: '8px' }} />
+                                    <Form.Item name="vhost" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Default VHost</Text>}>
+                                        <Input placeholder="/" style={{ borderRadius: token.borderRadius }} />
+                                    </Form.Item>
+                                </Col>
+                            )}
+
+                            {/* Valkey NoSQL: Database index selector (0-15) */}
+                            {selectedType === 'valkey-nosql' && (
+                                <Col span={24}>
+                                    <Form.Item name="databaseIndex" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Database Index (0-15)</Text>}>
+                                        <Select placeholder="Select database index" style={{ width: '100%', borderRadius: token.borderRadius }}>
+                                            {Array.from({ length: 16 }, (_, i) => (
+                                                <Select.Option key={i} value={i}>{i}</Select.Option>
+                                            ))}
+                                        </Select>
+                                    </Form.Item>
+                                </Col>
+                            )}
+                            
+                            {/* Valkey Cache: ACL Category selector */}
+                            {selectedType === 'valkey-cache' && (
+                                <Col span={24}>
+                                    <Form.Item name="aclCategory" label={<Text strong style={{ fontSize: token.paddingSM }}>ACL Category</Text>}>
+                                        <Select placeholder="Select ACL category" style={{ width: '100%', borderRadius: token.paddingXS }}>
+                                            <Select.Option value="@read">Read Only (+@read)</Select.Option>
+                                            <Select.Option value="@write">Write Only (+@write)</Select.Option>
+                                            <Select.Option value="@all">All Commands (+@all)</Select.Option>
+                                        </Select>
+                                    </Form.Item>
+                                </Col>
+                            )}
+                            
+                            {/* Valkey Broker: Pub/Sub channel pattern */}
+                            {selectedType === 'valkey-broker' && (
+                                <Col span={24}>
+                                    <Form.Item name="channelPattern" label={<Text strong style={{ fontSize: token.paddingSM }}>Pub/Sub Channel Pattern</Text>}>
+                                        <Input placeholder="e.g. events:* or #" style={{ borderRadius: token.paddingXS }} />
+                                    </Form.Item>
+                                </Col>
+                            )}
+                            
+                            {/* Traditional databases (MySQL, PostgreSQL, MongoDB): Multi-tag databases field */}
+                            {['mongodb', 'mysql', 'postgresql'].includes(selectedType) && (
+                                <Col span={24}>
+                                    <Form.Item name="databases" label={<Text strong style={{ fontSize: token.paddingSM }}>Databases (Multi-value available in API)</Text>}>
+                                        <Select mode="tags" placeholder="Press enter to add databases" style={{ width: '100%', borderRadius: token.paddingXS }} />
                                     </Form.Item>
                                 </Col>
                             )}
@@ -288,15 +389,15 @@ export function AccountFormModal({ isOpen, onClose, onSave, category = 'project'
                     )}
 
                     {selectedType === 'rabbitmq' && (
-                        <div style={{ marginTop: '16px' }}>
-                            <Divider orientation={"left" as any}>
-                                <Text strong style={{ fontSize: '12px' }}>VHosts & MQTT Bindings</Text>
+                        <div style={{ marginTop: token.padding }}>
+                            <Divider titlePlacement="left">
+                                <Text strong style={{ fontSize: token.paddingSM }}>VHosts & MQTT Bindings</Text>
                             </Divider>
                             <Form.List name="bindings">
                                 {(fields, { add, remove }) => (
                                     <>
                                         {fields.map(({ key, name, ...restField }) => (
-                                            <Card key={key} size="small" style={{ marginBottom: '16px', borderRadius: '12px' }}>
+                                            <Card key={key} size="small" style={{ marginBottom: token.padding, borderRadius: token.paddingSM }}>
                                                 <Row gutter={16}>
                                                     <Col span={10}>
                                                         <Form.Item
@@ -337,7 +438,7 @@ export function AccountFormModal({ isOpen, onClose, onSave, category = 'project'
                                                             <Input placeholder="topic/+" />
                                                         </Form.Item>
                                                     </Col>
-                                                    <Col span={2} style={{ display: 'flex', alignItems: 'center', marginTop: '10px' }}>
+                                                    <Col span={2} style={{ display: 'flex', alignItems: 'center', marginTop: `${token.marginSM}px` }}>
                                                         <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
                                                     </Col>
                                                 </Row>
@@ -352,21 +453,20 @@ export function AccountFormModal({ isOpen, onClose, onSave, category = 'project'
                         </div>
                     )}
                     
-                    <div style={{ 
-                        marginTop: '32px', 
-                        paddingTop: '16px', 
-                        borderTop: `1px solid ${token.colorBorderSecondary}`,
-                        display: 'flex',
-                        justifyContent: 'flex-end',
-                        gap: '12px'
-                    }}>
-                        <Button onClick={onClose} style={{ borderRadius: '8px' }}>Cancel</Button>
-                        <Button type="primary" htmlType="submit" style={{ borderRadius: '8px', fontWeight: 600 }}>
-                            {initial ? 'Save Account' : 'Confirm & Create'}
-                        </Button>
-                    </div>
-                </Form>
-            )}
+                <div style={{ 
+                    marginTop: token.marginLG, 
+                    paddingTop: token.padding, 
+                    borderTop: `1px solid ${token.colorBorderSecondary}`,
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    gap: token.paddingSM
+                }}>
+                    <Button onClick={onClose} style={{ borderRadius: token.paddingXS }}>Cancel</Button>
+                    <Button type="primary" htmlType="submit" style={{ borderRadius: token.paddingXS, fontWeight: 600 }}>
+                        {initial ? 'Save Changes' : (isProxy ? 'Create Proxy' : 'Confirm & Create')}
+                    </Button>
+                </div>
+            </Form>
         </Modal>
     );
 }

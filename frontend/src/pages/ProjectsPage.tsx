@@ -46,17 +46,17 @@ export function ProjectsPage() {
     );
 
     return (
-        <PageContainer 
-            title="Project Portfolio" 
+        <PageContainer
+            title="Project Portfolio"
             description="Group and orchestrate your service accounts by logical project domains for unified management."
             extra={
                 user?.role !== 'user' && (
-                    <Button 
-                        type="primary" 
-                        size="large" 
-                        icon={<PlusOutlined />} 
+                    <Button
+                        type="primary"
+                        size="large"
+                        icon={<PlusOutlined />}
                         onClick={() => setShowCreate(true)}
-                        style={{ borderRadius: '8px', fontWeight: 600 }}
+                        style={{ borderRadius: token.borderRadius, fontWeight: 600 }}
                     >
                         New Project
                     </Button>
@@ -71,7 +71,7 @@ export function ProjectsPage() {
                         prefix={<SearchOutlined style={{ color: token.colorTextDisabled }} />}
                         value={search}
                         onChange={e => setSearch(e.target.value)}
-                        style={{ maxWidth: '400px', borderRadius: '10px' }}
+                        style={{ maxWidth: '100%', borderRadius: token.borderRadiusLG }}
                         size="large"
                     />
                 )}
@@ -91,61 +91,66 @@ export function ProjectsPage() {
                     <Row gutter={[24, 24]}>
                         {filtered.map(p => {
                             const accountCount = accountsByProject(p.id).length;
-                            const projectColor = p.color === 'primary' ? token.colorPrimary : 
-                                               p.color === 'secondary' ? '#722ed1' : 
-                                               p.color === 'accent' ? '#fa8c16' : token.colorPrimary;
+                            // Map project color names to distinct Ant Design token values
+                            // 6 distinct colors: Blue, Purple, Green, Orange, Red, Gray
+                            const projectColor = p.color === 'primary' ? token.colorPrimary :
+                                               p.color === 'secondary' ? token.colorLink :
+                                               p.color === 'success' ? token.colorSuccess :
+                                               p.color === 'warning' ? token.colorWarning :
+                                               p.color === 'error' ? token.colorError :
+                                               token.colorTextSecondary;
                             return (
                                 <Col xs={24} md={12} lg={8} key={p.id}>
                                     <Card
                                         hoverable
-                                        style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '16px' }}
-                                        bodyStyle={{ padding: '24px', display: 'flex', flexDirection: 'column', height: '100%' }}
+                                        style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusLG }}
+                                        styles={{ body: { padding: token.paddingLG, display: 'flex', flexDirection: 'column', height: '100%' } }}
                                     >
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: token.marginSM }}>
                                             <Space align="center">
-                                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: projectColor }} />
+                                                <div style={{ width: token.paddingSM, height: token.paddingSM, borderRadius: '50%', background: projectColor }} />
                                                 <Title level={4} style={{ margin: 0, cursor: 'pointer' }} onClick={() => navigate(`/projects/${p.id}`)}>
                                                     {p.name}
                                                 </Title>
                                             </Space>
-                                            
+
                                             {user?.role !== 'user' && (
                                                 <Space size="small">
                                                     <Tooltip title="Edit Project">
                                                         <Button type="text" size="small" icon={<EditOutlined />} onClick={() => setEditing(p)} />
                                                     </Tooltip>
                                                     <Tooltip title="Delete Project">
-                                                        <Button type="text" size="small" danger icon={<DeleteOutlined />} onClick={() => { 
-                                                            if (confirm(`Authorize permanent deletion of project "${p.name}" and all associated assets?`)) { 
-                                                                deleteAccountsByProject(p.id); 
-                                                                deleteProject(p.id); 
-                                                            } 
+                                                        <Button type="text" size="small" danger icon={<DeleteOutlined />} onClick={() => {
+                                                            if (confirm(`Authorize permanent deletion of project "${p.name}" and all associated assets?`)) {
+                                                                deleteAccountsByProject(p.id);
+                                                                deleteProject(p.id);
+                                                            }
                                                         }} />
                                                     </Tooltip>
                                                 </Space>
                                             )}
                                         </div>
 
-                                        <Paragraph type="secondary" style={{ fontSize: '13px', minHeight: '40px' }} ellipsis={{ rows: 2 }}>
+                                        <Paragraph type="secondary" style={{ fontSize: token.fontSizeSM, minHeight: token.paddingLG }} ellipsis={{ rows: 2 }}>
                                             {p.description || <Text type="secondary" italic>No description provided</Text>}
                                         </Paragraph>
 
-                                        <Divider style={{ margin: '16px 0' }} />
+                                        <Divider style={{ margin: `${token.marginSM}px 0` }} />
 
-                                        <Space style={{ marginBottom: '24px' }}>
+                                        <Space style={{ marginBottom: token.marginLG }}>
                                             <KeyOutlined style={{ color: token.colorTextDisabled }} />
-                                            <Text strong style={{ fontSize: '12px' }}>{accountCount} Assets</Text>
+                                            <Text strong style={{ fontSize: token.fontSizeSM }}>{accountCount} Assets</Text>
                                         </Space>
 
                                         <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <Text type="secondary" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                            <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '1px' }}>
                                                 ID {p.id.substring(0, 8)}
                                             </Text>
-                                            <Button 
-                                                type="link" 
-                                                icon={<RocketOutlined />} 
+                                            <Button
+                                                type="link"
+                                                icon={<RocketOutlined />}
                                                 onClick={() => navigate(`/projects/${p.id}`)}
-                                                style={{ display: 'flex', alignItems: 'center', fontWeight: 700, textTransform: 'uppercase', fontSize: '11px' }}
+                                                style={{ display: 'flex', alignItems: 'center', fontWeight: 700, textTransform: 'uppercase', fontSize: token.fontSizeSM }}
                                             >
                                                 Orchestrate
                                             </Button>

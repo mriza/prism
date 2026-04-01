@@ -109,13 +109,13 @@ export function CrowdSecModal({ isOpen, onClose, agentId }: Props) {
             dataIndex: 'id',
             key: 'id',
             width: 60,
-            render: (id: number) => <Text type="secondary" style={{ fontFamily: 'monospace', fontSize: '10px' }}>{id}</Text>
+            render: (id: number) => <Text type="secondary" style={{ fontFamily: 'monospace', fontSize: token.paddingSM }}>{id}</Text>
         },
         {
             title: 'Origin',
             dataIndex: 'origin',
             key: 'origin',
-            render: (origin: string) => <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', opacity: 0.5 }}>{origin}</Text>
+            render: (origin: string) => <Text strong style={{ fontSize: token.paddingSM, textTransform: 'uppercase', opacity: 0.5 }}>{origin}</Text>
         },
         {
             title: 'IP / Target',
@@ -127,7 +127,7 @@ export function CrowdSecModal({ isOpen, onClose, agentId }: Props) {
             title: 'Reason',
             dataIndex: 'reason',
             key: 'reason',
-            render: (reason: string) => <Text type="secondary" style={{ fontSize: '11px' }}>{reason}</Text>,
+            render: (reason: string) => <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{reason}</Text>,
             ellipsis: true
         },
         {
@@ -137,7 +137,7 @@ export function CrowdSecModal({ isOpen, onClose, agentId }: Props) {
             render: (type: string) => (
                 <Badge 
                     status={type === 'ban' ? 'error' : 'warning'} 
-                    text={<Text strong style={{ fontSize: '10px', textTransform: 'uppercase' }}>{type}</Text>} 
+                    text={<Text strong style={{ fontSize: token.paddingSM, textTransform: 'uppercase' }}>{type}</Text>} 
                 />
             )
         },
@@ -145,7 +145,7 @@ export function CrowdSecModal({ isOpen, onClose, agentId }: Props) {
             title: 'TTL',
             dataIndex: 'duration',
             key: 'duration',
-            render: (d: string) => <Text type="secondary" style={{ fontFamily: 'monospace', fontSize: '11px' }}>{d}</Text>
+            render: (d: string) => <Text type="secondary" style={{ fontFamily: 'monospace', fontSize: token.fontSizeSM }}>{d}</Text>
         },
         {
             title: 'Actions',
@@ -178,8 +178,8 @@ export function CrowdSecModal({ isOpen, onClose, agentId }: Props) {
             title={
                 <Space size="middle">
                     <div style={{ 
-                        padding: '8px', 
-                        borderRadius: '10px', 
+                        padding: token.borderRadiusSM, 
+                        borderRadius: token.paddingSM, 
                         backgroundColor: `${token.colorWarning}15`, 
                         color: token.colorWarning,
                         display: 'flex'
@@ -187,8 +187,8 @@ export function CrowdSecModal({ isOpen, onClose, agentId }: Props) {
                         <SafetyOutlined />
                     </div>
                     <div>
-                        <Text strong style={{ fontSize: '16px' }}>CrowdSec Firewall</Text>
-                        <Text type="secondary" style={{ display: 'block', fontSize: '12px' }}>
+                        <Text strong style={{ fontSize: token.borderRadius }}>CrowdSec Firewall</Text>
+                        <Text type="secondary" style={{ display: 'block', fontSize: token.borderRadiusSM }}>
                             Managing active security decisions for node <Text code>{agentId}</Text>
                         </Text>
                     </div>
@@ -196,27 +196,27 @@ export function CrowdSecModal({ isOpen, onClose, agentId }: Props) {
             }
             footer={null}
             width={900}
-            style={{ borderRadius: '20px', overflow: 'hidden' }}
+            style={{ borderRadius: token.borderRadiusLG, overflow: 'hidden' }}
         >
-            <div style={{ marginTop: '24px' }}>
+            <div style={{ marginTop: token.paddingLG }}>
                 {error && (
                     <Alert
                         message="Security Node Unreachable"
                         description={error}
                         type="error"
                         showIcon
-                        style={{ marginBottom: '24px', borderRadius: '12px' }}
+                        style={{ marginBottom: token.paddingLG, borderRadius: token.borderRadiusSM }}
                     />
                 )}
 
-                <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text strong style={{ fontSize: '12px', textTransform: 'uppercase', opacity: 0.5 }}>
+                <div style={{ marginBottom: token.paddingLG, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text strong style={{ fontSize: token.borderRadiusSM, textTransform: 'uppercase', opacity: 0.5 }}>
                         {decisions.length} Active Decisions
                     </Text>
                     <Button 
                         icon={<ReloadOutlined spin={loading} />} 
                         onClick={fetchDecisions}
-                        style={{ borderRadius: '8px' }}
+                        style={{ borderRadius: token.borderRadiusSM }}
                     >
                         Refresh
                     </Button>
@@ -224,10 +224,10 @@ export function CrowdSecModal({ isOpen, onClose, agentId }: Props) {
 
                 {/* List Table */}
                 <div style={{ 
-                    borderRadius: '16px', 
+                    borderRadius: token.borderRadius, 
                     overflow: 'hidden', 
                     border: `1px solid ${token.colorBorderSecondary}`,
-                    marginBottom: '32px'
+                    marginBottom: token.marginLG
                 }}>
                     <Table 
                         dataSource={decisions}
@@ -241,10 +241,10 @@ export function CrowdSecModal({ isOpen, onClose, agentId }: Props) {
                 </div>
 
                 {/* Add Form */}
-                <Divider orientation={"left" as any} style={{ margin: '0 0 24px 0' }}>
+                <Divider titlePlacement="left" style={{ margin: '0 0 24px 0' }}>
                     <Space>
-                        <WarningOutlined style={{ color: token.colorWarning, fontSize: '12px' }} />
-                        <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Manual Decision (BAN)</Text>
+                        <WarningOutlined style={{ color: token.colorWarning, fontSize: token.borderRadiusSM }} />
+                        <Text strong style={{ fontSize: token.paddingSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Manual Decision (BAN)</Text>
                     </Space>
                 </Divider>
 
@@ -256,23 +256,23 @@ export function CrowdSecModal({ isOpen, onClose, agentId }: Props) {
                 >
                     <Row gutter={16}>
                         <Col span={8}>
-                            <Form.Item name="ip" label={<Text strong style={{ fontSize: '12px' }}>IP / Range</Text>} rules={[{ required: true }]}>
-                                <Input placeholder="e.g. 1.2.3.4" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                            <Form.Item name="ip" label={<Text strong style={{ fontSize: token.borderRadiusSM }}>IP / Range</Text>} rules={[{ required: true }]}>
+                                <Input placeholder="e.g. 1.2.3.4" style={{ borderRadius: token.borderRadiusSM, fontFamily: 'monospace' }} />
                             </Form.Item>
                         </Col>
                         <Col span={4}>
-                            <Form.Item name="duration" label={<Text strong style={{ fontSize: '12px' }}>TTL</Text>} rules={[{ required: true }]}>
-                                <Input placeholder="4h" style={{ borderRadius: '8px' }} />
+                            <Form.Item name="duration" label={<Text strong style={{ fontSize: token.borderRadiusSM }}>TTL</Text>} rules={[{ required: true }]}>
+                                <Input placeholder="4h" style={{ borderRadius: token.borderRadiusSM }} />
                             </Form.Item>
                         </Col>
                         <Col span={4}>
-                            <Form.Item name="type" label={<Text strong style={{ fontSize: '12px' }}>Action</Text>} rules={[{ required: true }]}>
-                                <Select options={[{ value: 'ban', label: 'BAN' }, { value: 'captcha', label: 'CAPTCHA' }, { value: 'throttle', label: 'THROTTLE' }]} style={{ borderRadius: '8px' }} />
+                            <Form.Item name="type" label={<Text strong style={{ fontSize: token.borderRadiusSM }}>Action</Text>} rules={[{ required: true }]}>
+                                <Select options={[{ value: 'ban', label: 'BAN' }, { value: 'captcha', label: 'CAPTCHA' }, { value: 'throttle', label: 'THROTTLE' }]} style={{ borderRadius: token.borderRadiusSM }} />
                             </Form.Item>
                         </Col>
                         <Col span={8}>
-                            <Form.Item name="reason" label={<Text strong style={{ fontSize: '12px' }}>Reason</Text>}>
-                                <Input placeholder="e.g. repeated failed logins" style={{ borderRadius: '8px' }} />
+                            <Form.Item name="reason" label={<Text strong style={{ fontSize: token.borderRadiusSM }}>Reason</Text>}>
+                                <Input placeholder="e.g. repeated failed logins" style={{ borderRadius: token.borderRadiusSM }} />
                             </Form.Item>
                         </Col>
                     </Row>
@@ -282,7 +282,7 @@ export function CrowdSecModal({ isOpen, onClose, agentId }: Props) {
                         block 
                         icon={<PlusOutlined />}
                         loading={actionLoading === 'add'}
-                        style={{ height: '40px', borderRadius: '10px', fontWeight: 600, backgroundColor: token.colorWarning, borderColor: 'transparent' }}
+                        style={{ height: 'auto', borderRadius: token.paddingSM, fontWeight: 600, backgroundColor: token.colorWarning, borderColor: 'transparent' }}
                     >
                         Apply Decision
                     </Button>

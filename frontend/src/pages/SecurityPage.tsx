@@ -156,13 +156,13 @@ export function SecurityPage() {
             title: 'Incident Scenario',
             dataIndex: 'scenario',
             key: 'scenario',
-            render: (s: string) => <Text style={{ fontSize: '12px' }}>{s}</Text>
+            render: (s: string) => <Text style={{ fontSize: antdToken.fontSizeSM }}>{s}</Text>
         },
         {
             title: 'TTL',
             dataIndex: 'duration',
             key: 'duration',
-            render: (d: string) => <Tag color="default" style={{ fontFamily: 'monospace', borderRadius: '4px' }}>{d}</Tag>
+            render: (d: string) => <Tag color="default" style={{ fontFamily: 'monospace', borderRadius: antdToken.borderRadiusSM }}>{d}</Tag>
         },
         {
             title: 'Enforcement Node',
@@ -170,7 +170,7 @@ export function SecurityPage() {
             render: (_: any, d: any) => (
                 <Space>
                     <CloudServerOutlined style={{ opacity: 0.3 }} />
-                    <Text type="secondary" style={{ fontSize: '11px', fontWeight: 600 }}>{d.agent_name}</Text>
+                    <Text type="secondary" style={{ fontSize: antdToken.fontSizeSM, fontWeight: 600 }}>{d.agent_name}</Text>
                 </Space>
             )
         },
@@ -179,10 +179,10 @@ export function SecurityPage() {
             key: 'action',
             align: 'right' as const,
             render: (_: any, d: any) => user?.role !== 'user' && (
-                <Button 
-                    type="link" 
-                    danger 
-                    size="small" 
+                <Button
+                    type="link"
+                    danger
+                    size="small"
                     icon={unbanningIp === d.value ? <SyncOutlined spin /> : <StopOutlined />}
                     disabled={unbanningIp === d.value}
                     onClick={() => handleGlobalUnban(d.value)}
@@ -218,10 +218,10 @@ export function SecurityPage() {
                 const isRunning = activeFw?.status === 'running';
                 return (
                     <Space direction="vertical" size={0}>
-                        <Tag color={isRunning ? 'blue' : 'default'} style={{ borderRadius: '4px', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase' }}>
+                        <Tag color={isRunning ? 'blue' : 'default'} style={{ borderRadius: antdToken.borderRadiusSM, fontSize: antdToken.fontSizeSM, fontWeight: 800, textTransform: 'uppercase' }}>
                             {activeFw?.status || 'disarmed'}
                         </Tag>
-                        {activeFw && <Text type="secondary" style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{activeFw.name}</Text>}
+                        {activeFw && <Text type="secondary" style={{ fontSize: antdToken.fontSizeSM, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{activeFw.name}</Text>}
                     </Space>
                 );
             }
@@ -233,7 +233,7 @@ export function SecurityPage() {
                 const csSvc = server.services?.find((s: any) => s.name === 'crowdsec');
                 const isRunning = csSvc?.status === 'running';
                 return (
-                    <Tag color={isRunning ? 'gold' : 'default'} style={{ borderRadius: '4px', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase' }}>
+                    <Tag color={isRunning ? 'gold' : 'default'} style={{ borderRadius: antdToken.borderRadiusSM, fontSize: antdToken.fontSizeSM, fontWeight: 800, textTransform: 'uppercase' }}>
                         {csSvc?.status || 'inactive'}
                     </Tag>
                 );
@@ -247,8 +247,8 @@ export function SecurityPage() {
                 const allFws = server.services?.filter((s: any) => ['ufw', 'firewalld', 'iptables', 'nftables'].includes(s.name)) || [];
                 const activeFw = allFws.find((s: any) => (s as { metrics?: { is_active: number } }).metrics?.is_active === 1) || allFws[0];
                 return activeFw?.status === 'running' && user?.role !== 'user' && (
-                    <Button 
-                        icon={<SettingOutlined />} 
+                    <Button
+                        icon={<SettingOutlined />}
                         onClick={() => {
                             setSelectedAgentForFw({
                                 id: server.id,
@@ -278,40 +278,40 @@ export function SecurityPage() {
                         type="error"
                         showIcon
                         closable
-                        style={{ borderRadius: '12px' }}
+                        style={{ borderRadius: antdToken.borderRadiusLG }}
                     />
                 )}
 
                 {/* Aggregates Dashboard */}
                 <Row gutter={24}>
                     <Col xs={24} md={8}>
-                        <Card style={{ borderRadius: '20px', backgroundColor: antdToken.colorBgContainerDisabled }}>
-                            <Statistic 
-                                title={<Text type="secondary" style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Infrastructure Core</Text>}
+                        <Card style={{ borderRadius: antdToken.borderRadiusLG, backgroundColor: antdToken.colorBgContainerDisabled }}>
+                            <Statistic
+                                title={<Text type="secondary" style={{ fontSize: antdToken.fontSizeSM, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Infrastructure Core</Text>}
                                 value={registeredServers.length}
-                                suffix={<Text type="secondary" style={{ fontSize: '11px', fontWeight: 700 }}>ACTIVE NODES</Text>}
-                                valueStyle={{ fontWeight: 900, fontSize: '32px' }}
+                                suffix={<Text type="secondary" style={{ fontSize: antdToken.fontSizeSM, fontWeight: 700 }}>ACTIVE NODES</Text>}
+                                valueStyle={{ fontWeight: 900, fontSize: antdToken.fontSizeHeading2 }}
                             />
                         </Card>
                     </Col>
                     <Col xs={24} md={8}>
-                        <Card style={{ borderRadius: '20px', border: `1px solid ${antdToken.colorInfoBorder}` }}>
-                            <Statistic 
-                                title={<Text style={{ color: antdToken.colorInfo, fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Firewall Perimeter</Text>}
+                        <Card style={{ borderRadius: antdToken.borderRadiusLG, border: `1px solid ${antdToken.colorInfoBorder}` }}>
+                            <Statistic
+                                title={<Text style={{ color: antdToken.colorInfo, fontSize: antdToken.fontSizeSM, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Firewall Perimeter</Text>}
                                 value={activeFirewalls}
-                                suffix={<Text type="secondary" style={{ fontSize: '11px', fontWeight: 700 }}>ACTIVE SHIELDS</Text>}
-                                valueStyle={{ fontWeight: 900, fontSize: '32px', color: antdToken.colorInfo }}
+                                suffix={<Text type="secondary" style={{ fontSize: antdToken.fontSizeSM, fontWeight: 700 }}>ACTIVE SHIELDS</Text>}
+                                valueStyle={{ fontWeight: 900, fontSize: antdToken.fontSizeHeading2, color: antdToken.colorInfo }}
                                 prefix={<SafetyCertificateOutlined />}
                             />
                         </Card>
                     </Col>
                     <Col xs={24} md={8}>
-                        <Card style={{ borderRadius: '20px', border: `1px solid ${antdToken.colorWarningBorder}` }}>
-                            <Statistic 
-                                title={<Text style={{ color: antdToken.colorWarning, fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Threat Intelligence</Text>}
+                        <Card style={{ borderRadius: antdToken.borderRadiusLG, border: `1px solid ${antdToken.colorWarningBorder}` }}>
+                            <Statistic
+                                title={<Text style={{ color: antdToken.colorWarning, fontSize: antdToken.fontSizeSM, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Threat Intelligence</Text>}
                                 value={globalAlerts}
-                                suffix={<Text type="secondary" style={{ fontSize: '11px', fontWeight: 700 }}>ACTIVE DECISIONS</Text>}
-                                valueStyle={{ fontWeight: 900, fontSize: '32px', color: antdToken.colorWarning }}
+                                suffix={<Text type="secondary" style={{ fontSize: antdToken.fontSizeSM, fontWeight: 700 }}>ACTIVE DECISIONS</Text>}
+                                valueStyle={{ fontWeight: 900, fontSize: antdToken.fontSizeHeading2, color: antdToken.colorWarning }}
                                 prefix={<WarningOutlined />}
                             />
                         </Card>
@@ -320,56 +320,56 @@ export function SecurityPage() {
 
                 {/* Global Actions */}
                 {user?.role !== 'user' && (
-                    <Card 
-                        title={<Space><SafetyOutlined style={{ color: antdToken.colorError }} /> <Text strong style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em', color: antdToken.colorError }}>Global Banishment</Text></Space>}
-                        style={{ borderRadius: '20px', border: `1px solid ${antdToken.colorErrorBorder}`, backgroundColor: `${antdToken.colorError}05` }}
+                    <Card
+                        title={<Space><SafetyOutlined style={{ color: antdToken.colorError }} /> <Text strong style={{ fontSize: antdToken.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', color: antdToken.colorError }}>Global Banishment</Text></Space>}
+                        style={{ borderRadius: antdToken.borderRadiusLG, border: `1px solid ${antdToken.colorErrorBorder}`, backgroundColor: `${antdToken.colorError}05` }}
                     >
                         <Row gutter={24} align="bottom">
                             <Col xs={24} md={6}>
                                 <Space direction="vertical" style={{ width: '100%' }}>
-                                    <Text strong style={{ fontSize: '11px' }}>Target IP address</Text>
+                                    <Text strong style={{ fontSize: antdToken.fontSizeSM }}>Target IP address</Text>
                                     <Input placeholder="e.g. 1.2.3.4" value={banIp} onChange={e => setBanIp(e.target.value)} />
                                 </Space>
                             </Col>
                             <Col xs={24} md={4}>
                                 <Space direction="vertical" style={{ width: '100%' }}>
-                                    <Text strong style={{ fontSize: '11px' }}>Ban duration</Text>
+                                    <Text strong style={{ fontSize: antdToken.fontSizeSM }}>Ban duration</Text>
                                     <Input placeholder="e.g. 4h, 7d" value={banDuration} onChange={e => setBanDuration(e.target.value)} />
                                 </Space>
                             </Col>
                             <Col xs={24} md={8}>
                                 <Space direction="vertical" style={{ width: '100%' }}>
-                                    <Text strong style={{ fontSize: '11px' }}>Policy justification</Text>
+                                    <Text strong style={{ fontSize: antdToken.fontSizeSM }}>Policy justification</Text>
                                     <Input placeholder="Reason for ban" value={banReason} onChange={e => setBanReason(e.target.value)} />
                                 </Space>
                             </Col>
                             <Col xs={24} md={6}>
-                                <Button 
-                                    type="primary" 
-                                    danger 
-                                    block 
-                                    icon={<GlobalOutlined />} 
-                                    loading={banning} 
+                                <Button
+                                    type="primary"
+                                    danger
+                                    block
+                                    icon={<GlobalOutlined />}
+                                    loading={banning}
                                     disabled={!banIp}
                                     onClick={handleGlobalBan}
-                                    style={{ height: '40px', fontWeight: 700 }}
+                                    style={{ height: 'auto', fontWeight: 700 }}
                                 >
                                     EXECUTE POLICY
                                 </Button>
                             </Col>
                         </Row>
-                        <Paragraph type="secondary" style={{ fontSize: '11px', marginTop: '12px', marginBottom: 0 }}>
+                        <Paragraph type="secondary" style={{ fontSize: antdToken.fontSizeSM, marginTop: antdToken.marginSM, marginBottom: 0 }}>
                             * Deploy a fleet-wide IP ban across all connected infrastructure. This action is recorded and synced globally.
                         </Paragraph>
                     </Card>
                 )}
 
                 {/* Decisions Explorer */}
-                <Card 
-                    title={<Space><LineChartOutlined /> <Text strong style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Active Bans (CrowdSec Explorer)</Text></Space>}
+                <Card
+                    title={<Space><LineChartOutlined /> <Text strong style={{ fontSize: antdToken.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Active Bans (CrowdSec Explorer)</Text></Space>}
                     extra={<Button size="small" icon={<SyncOutlined spin={loadingDecisions} />} onClick={fetchDecisions} disabled={loadingDecisions}>Synch Explorer</Button>}
-                    bodyStyle={{ padding: 0 }}
-                    style={{ borderRadius: '20px', overflow: 'hidden' }}
+                    styles={{ body: { padding: 0 } }}
+                    style={{ borderRadius: antdToken.borderRadiusLG, overflow: 'hidden' }}
                 >
                     <Table 
                         columns={decisionColumns} 
@@ -381,10 +381,10 @@ export function SecurityPage() {
                 </Card>
 
                 {/* Unified Server View */}
-                <Card 
-                    title={<Space><SecurityScanOutlined /> <Text strong style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Infrastructure Security Matrix</Text></Space>}
-                    bodyStyle={{ padding: 0 }}
-                    style={{ borderRadius: '20px', overflow: 'hidden' }}
+                <Card
+                    title={<Space><SecurityScanOutlined /> <Text strong style={{ fontSize: antdToken.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Infrastructure Security Matrix</Text></Space>}
+                    styles={{ body: { padding: 0 } }}
+                    style={{ borderRadius: antdToken.borderRadiusLG, overflow: 'hidden' }}
                 >
                     <Table 
                         columns={infraColumns} 

@@ -178,7 +178,7 @@ export function ApplicationAccountsTab({
     ];
 
     return (
-        <div style={{ padding: '12px 0' }}>
+        <div style={{ padding: `${token.paddingSM}px 0` }}>
             <Space direction="vertical" size="middle" style={{ width: '100%' }}>
                 {/* Header with filters */}
                 <Card style={{ borderRadius: 12, border: `1px solid ${token.colorBorderSecondary}` }}>

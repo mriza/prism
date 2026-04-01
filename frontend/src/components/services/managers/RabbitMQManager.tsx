@@ -212,7 +212,7 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
             dataIndex: 'state',
             key: 'state',
             render: (state: string) => (
-                <Badge status={state === 'running' ? 'success' : 'default'} text={<Text style={{ fontSize: '12px' }}>{state}</Text>} />
+                <Badge status={state === 'running' ? 'success' : 'default'} text={<Text style={{ fontSize: token.fontSizeSM }}>{state}</Text>} />
             )
         },
         {
@@ -286,54 +286,54 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
     ];
 
     return (
-        <div style={{ padding: '4px 0' }}>
+        <div style={{ padding: `${token.paddingXXS}px 0` }}>
             {error && (
-                <Alert message={error} type="error" showIcon style={{ marginBottom: '24px', borderRadius: '12px' }} />
+                <Alert message={error} type="error" showIcon style={{ marginBottom: token.marginLG, borderRadius: token.borderRadiusLG }} />
             )}
 
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
                 {/* Header */}
                 <Card
-                    style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter }}
-                    bodyStyle={{ padding: '20px' }}
+                    style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter }}
+                    styles={{ body: { padding: token.paddingLG } }}
                 >
                     <Row gutter={24} align="middle">
                         <Col span={16}>
                             <Space size="middle">
                                 <div style={{
-                                    padding: '10px',
-                                    borderRadius: '12px',
+                                    padding: token.paddingSM,
+                                    borderRadius: token.borderRadiusLG,
                                     backgroundColor: `${token.colorWarning}15`,
                                     color: token.colorWarning,
-                                    fontSize: '20px',
+                                    fontSize: token.paddingLG,
                                     display: 'flex'
                                 }}>
                                     <InteractionOutlined />
                                 </div>
                                 <div>
-                                    <Text strong style={{ fontSize: '15px', display: 'block' }}>Message Broker Configuration</Text>
-                                    <Text type="secondary" style={{ fontSize: '12px' }}>Manage Virtual Hosts, Queues, Exchanges, and Routing policies.</Text>
+                                    <Text strong style={{ fontSize: token.fontSize, display: 'block' }}>Message Broker Configuration</Text>
+                                    <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Manage Virtual Hosts, Queues, Exchanges, and Routing policies.</Text>
                                 </div>
                             </Space>
                         </Col>
                         <Col span={8} style={{ textAlign: 'right' }}>
                             <Space>
-                                <Button icon={<ReloadOutlined spin={loading} />} onClick={fetchData} style={{ borderRadius: '8px' }}>Refresh</Button>
-                                <Button icon={<InfoCircleOutlined />} style={{ borderRadius: '8px' }}>Broker Logs</Button>
+                                <Button icon={<ReloadOutlined spin={loading} />} onClick={fetchData} style={{ borderRadius: token.borderRadius }}>Refresh</Button>
+                                <Button icon={<InfoCircleOutlined />} style={{ borderRadius: token.borderRadius }}>Broker Logs</Button>
                             </Space>
                         </Col>
                     </Row>
                 </Card>
 
                 {/* Settings Section */}
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '0 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Service Settings</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: '0 0 16px 0' }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Service Settings</Text>
                 </Divider>
 
                 <Card
                     loading={loadingSettings}
-                    style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}
-                    bodyStyle={{ padding: '24px' }}
+                    style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}
+                    styles={{ body: { padding: token.paddingLG } }}
                 >
                     <Form
                         form={form}
@@ -345,55 +345,55 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                             <Col span={12}>
                                 <Form.Item
                                     name="port"
-                                    label={<Text strong style={{ fontSize: '12px' }}>AMQP Port</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>AMQP Port</Text>}
                                     help="Port for AMQP connections (default: 5672)"
                                 >
-                                    <Input placeholder="5672" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="5672" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={12}>
                                 <Form.Item
                                     name="management_port"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Management Port</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Management Port</Text>}
                                     help="Port for web management interface (default: 15672)"
                                 >
-                                    <Input placeholder="15672" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="15672" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={24}>
                                 <Form.Item
                                     name="config_path"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Config Path</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Config Path</Text>}
                                     help="Path to rabbitmq.conf file"
                                 >
-                                    <Input placeholder="/etc/rabbitmq/rabbitmq.conf" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="/etc/rabbitmq/rabbitmq.conf" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={12}>
                                 <Form.Item
                                     name="admin_username"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Admin Username</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Admin Username</Text>}
                                     help="Default administrator username"
                                 >
-                                    <Input placeholder="admin" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="admin" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={12}>
                                 <Form.Item
                                     name="admin_password"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Admin Password</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Admin Password</Text>}
                                     help="Leave blank to keep current password"
                                 >
-                                    <Input.Password placeholder="••••••••" style={{ borderRadius: '8px' }} />
+                                    <Input.Password placeholder="••••••••" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={24}>
                                 <Form.Item
                                     name="enabled_plugins"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Enabled Plugins</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Enabled Plugins</Text>}
                                     help="Comma-separated list of enabled plugins"
                                 >
-                                    <Input placeholder="rabbitmq_management,rabbitmq_peer_discovery_localnode" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="rabbitmq_management,rabbitmq_peer_discovery_localnode" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                         </Row>
@@ -402,7 +402,7 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                             htmlType="submit"
                             loading={updatingSettings}
                             icon={<SettingOutlined />}
-                            style={{ borderRadius: '8px' }}
+                            style={{ borderRadius: token.borderRadius }}
                         >
                             Save Settings
                         </Button>
@@ -410,8 +410,8 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                 </Card>
 
                 {/* VHosts Section */}
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Virtual Hosts</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: `${token.marginLG}px 0 ${token.marginSM}px 0` }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Virtual Hosts</Text>
                 </Divider>
 
                 <Row gutter={[16, 16]}>
@@ -419,8 +419,8 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                         <Col xs={12} sm={8} md={6} key={vh}>
                             <Card
                                 size="small"
-                                style={{ borderRadius: '12px', border: `1px solid ${token.colorBorderSecondary}` }}
-                                bodyStyle={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                                style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}
+                                styles={{ body: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } }}
                             >
                                 <Space>
                                     <GlobalOutlined style={{ color: token.colorPrimary }} />
@@ -443,7 +443,7 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                             block
                             type="dashed"
                             icon={<PlusOutlined />}
-                            style={{ height: '100%', borderRadius: '12px', minHeight: '42px' }}
+                            style={{ height: '100%', borderRadius: token.borderRadiusLG, minHeight: `${token.paddingXL * 2}px` }}
                             onClick={() => {
                                 const name = prompt('Enter new VHost name:');
                                 if (name) handleCreateVHost(name);
@@ -455,8 +455,8 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                 </Row>
 
                 {/* Exchanges Section */}
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Exchanges</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: `${token.marginLG}px 0 ${token.marginSM}px 0` }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Exchanges</Text>
                 </Divider>
 
                 <Table
@@ -465,10 +465,10 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                     loading={loading}
                     pagination={false}
                     size="small"
-                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '12px', overflow: 'hidden' }}
+                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusLG, overflow: 'hidden' }}
                 />
 
-                <Card style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                <Card style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}>
                     <Form
                         layout="inline"
                         onFinish={handleCreateExchange}
@@ -478,10 +478,10 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                             <Col flex="auto">
                                 <Space wrap>
                                     <Form.Item name="name" label="Exchange Name">
-                                        <Input placeholder="my-exchange" style={{ borderRadius: '8px' }} />
+                                        <Input placeholder="my-exchange" style={{ borderRadius: token.borderRadius }} />
                                     </Form.Item>
                                     <Form.Item name="type" label="Type" initialValue="direct">
-                                        <Select style={{ width: 120, borderRadius: '8px' }}>
+                                        <Select style={{ width: 120, borderRadius: token.borderRadius }}>
                                             <Option value="direct">Direct</Option>
                                             <Option value="fanout">Fanout</Option>
                                             <Option value="topic">Topic</Option>
@@ -489,7 +489,7 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                                         </Select>
                                     </Form.Item>
                                     <Form.Item name="vhost" label="VHost" initialValue="/">
-                                        <Select style={{ width: 100, borderRadius: '8px' }}>
+                                        <Select style={{ width: 100, borderRadius: token.borderRadius }}>
                                             {vhosts.map(vh => <Option key={vh} value={vh}>{vh}</Option>)}
                                         </Select>
                                     </Form.Item>
@@ -500,7 +500,7 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                                     type="primary"
                                     htmlType="submit"
                                     icon={<PlusOutlined />}
-                                    style={{ borderRadius: '8px' }}
+                                    style={{ borderRadius: token.borderRadius }}
                                 >
                                     Create Exchange
                                 </Button>
@@ -510,8 +510,8 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                 </Card>
 
                 {/* Queues Section */}
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Active Queues</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: `${token.marginLG}px 0 ${token.marginSM}px 0` }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Active Queues</Text>
                 </Divider>
 
                 <Table
@@ -520,10 +520,10 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                     loading={loading}
                     pagination={false}
                     size="small"
-                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '12px', overflow: 'hidden' }}
+                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusLG, overflow: 'hidden' }}
                 />
 
-                <Card style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                <Card style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}>
                     <Form
                         layout="inline"
                         onFinish={handleCreateQueue}
@@ -533,10 +533,10 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                             <Col flex="auto">
                                 <Space wrap>
                                     <Form.Item name="name" label="Queue Name">
-                                        <Input placeholder="my-queue" style={{ borderRadius: '8px' }} />
+                                        <Input placeholder="my-queue" style={{ borderRadius: token.borderRadius }} />
                                     </Form.Item>
                                     <Form.Item name="vhost" label="VHost" initialValue="/">
-                                        <Select style={{ width: 100, borderRadius: '8px' }}>
+                                        <Select style={{ width: 100, borderRadius: token.borderRadius }}>
                                             {vhosts.map(vh => <Option key={vh} value={vh}>{vh}</Option>)}
                                         </Select>
                                     </Form.Item>
@@ -547,7 +547,7 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                                     type="primary"
                                     htmlType="submit"
                                     icon={<PlusOutlined />}
-                                    style={{ borderRadius: '8px' }}
+                                    style={{ borderRadius: token.borderRadius }}
                                 >
                                     Create Queue
                                 </Button>
@@ -557,8 +557,8 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                 </Card>
 
                 {/* Bindings Section */}
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Queue Bindings</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: `${token.marginLG}px 0 ${token.marginSM}px 0` }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Queue Bindings</Text>
                 </Divider>
 
                 <Table
@@ -567,10 +567,10 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                     loading={loading}
                     pagination={false}
                     size="small"
-                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '12px', overflow: 'hidden' }}
+                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusLG, overflow: 'hidden' }}
                 />
 
-                <Card style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                <Card style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}>
                     <Form
                         layout="inline"
                         onFinish={handleCreateBinding}
@@ -580,16 +580,16 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                             <Col flex="auto">
                                 <Space wrap>
                                     <Form.Item name="exchange" label="Exchange">
-                                        <Input placeholder="my-exchange" style={{ borderRadius: '8px' }} />
+                                        <Input placeholder="my-exchange" style={{ borderRadius: token.borderRadius }} />
                                     </Form.Item>
                                     <Form.Item name="queue" label="Queue">
-                                        <Input placeholder="my-queue" style={{ borderRadius: '8px' }} />
+                                        <Input placeholder="my-queue" style={{ borderRadius: token.borderRadius }} />
                                     </Form.Item>
                                     <Form.Item name="routing_key" label="Routing Key">
-                                        <Input placeholder="#" style={{ borderRadius: '8px' }} />
+                                        <Input placeholder="#" style={{ borderRadius: token.borderRadius }} />
                                     </Form.Item>
                                     <Form.Item name="vhost" label="VHost" initialValue="/">
-                                        <Select style={{ width: 100, borderRadius: '8px' }}>
+                                        <Select style={{ width: 100, borderRadius: token.borderRadius }}>
                                             {vhosts.map(vh => <Option key={vh} value={vh}>{vh}</Option>)}
                                         </Select>
                                     </Form.Item>
@@ -600,7 +600,7 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                                     type="primary"
                                     htmlType="submit"
                                     icon={<PlusOutlined />}
-                                    style={{ borderRadius: '8px' }}
+                                    style={{ borderRadius: token.borderRadius }}
                                 >
                                     Create Binding
                                 </Button>
@@ -610,21 +610,21 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                 </Card>
 
                 {/* Users Section */}
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Users</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: `${token.marginLG}px 0 ${token.marginSM}px 0` }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Users</Text>
                 </Divider>
 
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: token.paddingSM, flexWrap: 'wrap' }}>
                     {users.length === 0 ? (
                         <Text type="secondary" italic>No users configured.</Text>
                     ) : (
                         users.map((u, i) => (
-                            <Tag key={i} color="processing" style={{ borderRadius: '6px', padding: '4px 10px' }}>
+                            <Tag key={i} color="processing" style={{ borderRadius: token.borderRadiusSM, padding: `${token.paddingXXS}px ${token.paddingSM}px` }}>
                                 <Space>
                                     <InteractionOutlined />
-                                    <Text strong style={{ fontSize: '12px' }}>{typeof u === 'string' ? u : u.name}</Text>
+                                    <Text strong style={{ fontSize: token.fontSizeSM }}>{typeof u === 'string' ? u : u.name}</Text>
                                     {typeof u === 'object' && u.tags && (
-                                        <Tag color="orange" style={{ marginLeft: '4px' }}>{u.tags}</Tag>
+                                        <Tag color="orange" style={{ marginLeft: token.paddingXXS }}>{u.tags}</Tag>
                                     )}
                                 </Space>
                             </Tag>

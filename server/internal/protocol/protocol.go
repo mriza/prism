@@ -30,6 +30,13 @@ type RegisterPayload struct {
 	OSInfo   string        `json:"os_info"`
 	Token    string        `json:"token"`
 	Services []ServiceInfo `json:"services"` // List of managed services with their initial status
+	Runtimes []RuntimeInfo `json:"runtimes"` // DETECTED RUNTIMES (Node, Python, Go, etc.)
+}
+
+type RuntimeInfo struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+	Path    string `json:"path"`
 }
 
 type KeepAlivePayload struct {

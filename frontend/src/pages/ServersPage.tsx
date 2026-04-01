@@ -56,8 +56,8 @@ const SERVICE_NAME_TO_TYPE: Record<string, ServiceType> = {
     'iptables': 'firewall',
     'nftables': 'firewall',
     'crowdsec': 'security-crowdsec',
-    'valkey': 'cache-valkey',
-    'valkey-server': 'cache-valkey',
+    'valkey': 'valkey-cache',
+    'valkey-server': 'valkey-cache',
 };
 
 export function ServersPage() {
@@ -106,45 +106,45 @@ export function ServersPage() {
                         type="error"
                         showIcon
                         icon={<ExclamationCircleOutlined />}
-                        style={{ borderRadius: '12px' }}
+                        style={{ borderRadius: token.borderRadiusLG }}
                     />
                 )}
 
                 {/* Pending Approvals */}
                 {pendingAgents.length > 0 && user?.role === 'admin' && (
                     <div>
-                        <Divider orientation={"left" as any} style={{ margin: '16px 0' }}>
+                        <Divider titlePlacement="left" style={{ margin: `${token.marginSM}px 0` }}>
                             <Space>
                                 <ExclamationCircleOutlined style={{ color: token.colorWarning }} />
-                                <Text strong style={{ textTransform: 'uppercase', letterSpacing: '1px', fontSize: '12px', color: token.colorWarning }}>Security Check Required</Text>
+                                <Text strong style={{ textTransform: 'uppercase', letterSpacing: '1px', fontSize: token.fontSizeSM, color: token.colorWarning }}>Security Check Required</Text>
                             </Space>
                         </Divider>
                         <Row gutter={[24, 24]}>
                             {pendingAgents.map(agent => (
                                 <Col xs={24} md={12} lg={8} key={agent.id}>
-                                    <Card 
+                                    <Card
                                         style={{ border: `1px solid ${token.colorWarningOutline}`, background: token.colorWarningBgHover }}
-                                        bodyStyle={{ padding: '24px' }}
+                                        styles={{ body: { padding: token.paddingLG } }}
                                     >
                                         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
                                             <Space align="start">
-                                                <div style={{ 
-                                                    padding: '12px', 
-                                                    borderRadius: '12px', 
-                                                    background: token.colorWarningBg, 
+                                                <div style={{
+                                                    padding: token.paddingSM,
+                                                    borderRadius: token.borderRadiusLG,
+                                                    background: token.colorWarningBg,
                                                     color: token.colorWarning,
                                                     display: 'flex',
                                                     border: `1px solid ${token.colorWarningBorder}`
                                                 }}>
-                                                    <CloudServerOutlined style={{ fontSize: '20px' }} />
+                                                    <CloudServerOutlined style={{ fontSize: token.fontSizeLG }} />
                                                 </div>
                                                 <div>
                                                     <Text strong>{agent.hostname}</Text>
                                                     <br />
-                                                    <Text type="secondary" style={{ fontSize: '10px', textTransform: 'uppercase' }}>{agent.osInfo || 'Awaiting Specs'}</Text>
+                                                    <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>{agent.osInfo || 'Awaiting Specs'}</Text>
                                                 </div>
                                             </Space>
-                                            <Text type="secondary" style={{ fontSize: '13px' }}>
+                                            <Text type="secondary" style={{ fontSize: token.fontSize }}>
                                                 An unauthorized agent is attempting to join the fleet. Please verify credentials.
                                             </Text>
                                             <Space style={{ width: '100%' }}>
@@ -161,18 +161,18 @@ export function ServersPage() {
 
                 {/* Registered Servers */}
                 <div>
-                    <Divider orientation={"left" as any} plain>
+                    <Divider titlePlacement="left" plain>
                         <Space>
                             <CloudServerOutlined />
-                            <Text strong style={{ textTransform: 'uppercase', letterSpacing: '1px', fontSize: '12px' }}>Active Fleet</Text>
+                            <Text strong style={{ textTransform: 'uppercase', letterSpacing: '1px', fontSize: token.fontSizeSM }}>Active Fleet</Text>
                         </Space>
                     </Divider>
 
                     {loading && registeredServers.length === 0 ? (
-                        <div style={{ padding: '64px', textAlign: 'center' }}>
+                        <div style={{ padding: `${token.paddingXL * 2}px`, textAlign: 'center' }}>
                             <Space direction="vertical">
                                 <Button type="text" loading />
-                                <Text type="secondary" strong style={{ textTransform: 'uppercase', letterSpacing: '1px', fontSize: '12px' }}>Connecting to infrastructure...</Text>
+                                <Text type="secondary" strong style={{ textTransform: 'uppercase', letterSpacing: '1px', fontSize: token.fontSizeSM }}>Connecting to infrastructure...</Text>
                             </Space>
                         </div>
                     ) : registeredServers.length === 0 ? (
@@ -189,23 +189,23 @@ export function ServersPage() {
                         <Row gutter={[24, 24]}>
                             {registeredServers.map(server => (
                                 <Col xs={24} md={12} lg={8} key={server.id}>
-                                    <Card 
+                                    <Card
                                         hoverable
-                                        style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '16px' }}
-                                        bodyStyle={{ padding: 0 }}
+                                        style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusLG }}
+                                        styles={{ body: { padding: 0 } }}
                                     >
                                         {/* Header */}
-                                        <div style={{ padding: '20px 24px', borderBottom: `1px solid ${token.colorBorderSecondary}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ padding: `${token.paddingMD}px ${token.paddingLG}`, borderBottom: `1px solid ${token.colorBorderSecondary}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <Space size="middle">
-                                                <CloudServerOutlined style={{ color: server.status === 'online' ? token.colorSuccess : token.colorTextDisabled, fontSize: '18px' }} />
+                                                <CloudServerOutlined style={{ color: server.status === 'online' ? token.colorSuccess : token.colorTextDisabled, fontSize: token.fontSizeLG }} />
                                                 <div>
-                                                    <Text strong style={{ fontSize: '14px' }}>{server.name || server.hostname}</Text>
+                                                    <Text strong style={{ fontSize: token.fontSize }}>{server.name || server.hostname}</Text>
                                                     <br />
-                                                    <Text type="secondary" style={{ fontSize: '10px', textTransform: 'uppercase' }}>{server.hostname}</Text>
+                                                    <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>{server.hostname}</Text>
                                                 </div>
                                             </Space>
                                             <Space>
-                                                <Badge status={server.status === 'online' ? 'success' : 'default'} text={server.status.toUpperCase()} style={{ fontSize: '10px', fontWeight: 700 }} />
+                                                <Badge status={server.status === 'online' ? 'success' : 'default'} text={server.status.toUpperCase()} style={{ fontSize: token.fontSizeSM, fontWeight: 700 }} />
                                                 {user?.role !== 'user' && (
                                                     <Dropdown 
                                                         menu={{ 
@@ -224,20 +224,20 @@ export function ServersPage() {
                                         </div>
 
                                         {/* Content */}
-                                        <div style={{ padding: '24px' }}>
+                                        <div style={{ padding: token.paddingLG }}>
                                             {server.description && (
-                                                <Paragraph type="secondary" italic style={{ fontSize: '12px', borderLeft: `3px solid ${token.colorPrimaryBg}`, paddingLeft: '12px', marginBottom: '24px' }}>
+                                                <Paragraph type="secondary" italic style={{ fontSize: token.fontSizeSM, borderLeft: `3px solid ${token.colorPrimaryBg}`, paddingLeft: token.paddingSM, marginBottom: token.marginLG }}>
                                                     {server.description}
                                                 </Paragraph>
                                             )}
 
-                                            <div style={{ marginBottom: '8px' }}>
-                                                <Space style={{ marginBottom: '12px' }}>
-                                                    <DashboardOutlined style={{ fontSize: '12px', opacity: 0.3 }} />
-                                                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.3 }}>Managed Services</Text>
+                                            <div style={{ marginBottom: token.marginXS }}>
+                                                <Space style={{ marginBottom: token.marginSM }}>
+                                                    <DashboardOutlined style={{ fontSize: token.fontSizeSM, opacity: 0.3 }} />
+                                                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.3 }}>Managed Services</Text>
                                                 </Space>
 
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: token.marginXS }}>
                                                     {server.services && server.services.length > 0 ? (
                                                         // Sort services alphabetically for consistent display
                                                         [...server.services]
@@ -275,11 +275,11 @@ export function ServersPage() {
                                                                         onClick={handleClick}
                                                                         style={{
                                                                             cursor: 'pointer',
-                                                                            borderRadius: '6px',
-                                                                            padding: '4px 10px',
+                                                                            borderRadius: token.borderRadiusSM,
+                                                                            padding: `${token.paddingXXS}px ${token.paddingSM}px`,
                                                                             display: 'flex',
                                                                             alignItems: 'center',
-                                                                            gap: '6px',
+                                                                            gap: token.marginXXS,
                                                                             marginRight: 0,
                                                                             border: isSecurity ? undefined : `1px solid ${token.colorBorderSecondary}`,
                                                                             background: isSecurity ? (svc.name === 'ufw' ? token.colorInfoBg : token.colorWarningBg) : token.colorBgContainer
@@ -287,31 +287,59 @@ export function ServersPage() {
                                                                         color={isSecurity ? (svc.name === 'ufw' ? 'info' : 'warning') : undefined}
                                                                     >
                                                                         <div style={{
-                                                                            width: '4px',
-                                                                            height: '4px',
+                                                                            width: token.paddingXXS,
+                                                                            height: token.paddingXXS,
                                                                             borderRadius: '50%',
                                                                             background: isSvcOnline ? token.colorSuccess : token.colorTextDisabled
                                                                         }} />
-                                                                        <Text style={{ fontSize: '11px', fontWeight: 600, color: 'inherit' }}>{displayName}</Text>
+                                                                        <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600, color: 'inherit' }}>{displayName}</Text>
                                                                     </Tag>
                                                                 </Tooltip>
                                                             );
                                                         })
                                                     ) : (
-                                                        <div style={{ 
-                                                            width: '100%', 
-                                                            padding: '24px', 
-                                                            borderRadius: '12px', 
-                                                            border: `1px dashed ${token.colorBorder}`, 
-                                                            textAlign: 'center' 
+                                                        <div style={{
+                                                            width: '100%',
+                                                            padding: token.paddingLG,
+                                                            borderRadius: token.borderRadius,
+                                                            border: `1px dashed ${token.colorBorder}`,
+                                                            textAlign: 'center'
                                                         }}>
-                                                            <Text type="secondary" italic style={{ fontSize: '12px' }}>No managed services reported</Text>
+                                                            <Text type="secondary" italic style={{ fontSize: token.fontSizeSM }}>No managed services reported</Text>
                                                         </div>
                                                     )}
                                                 </div>
                                             </div>
-                                        </div>
-                                    </Card>
+
+                                            {/* Runtimes Section */}
+                                            {server.runtimes && server.runtimes.length > 0 && (
+                                                <div style={{ marginTop: token.marginLG }}>
+                                                    <Space style={{ marginBottom: token.marginSM }}>
+                                                        <SettingOutlined style={{ fontSize: token.fontSizeSM, opacity: 0.3 }} />
+                                                        <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.3 }}>Runtime Environments</Text>
+                                                    </Space>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: token.marginXS }}>
+                                                        {server.runtimes.map(rt => (
+                                                            <Tooltip title={`${rt.name} ${rt.version} detected at ${rt.path}`} key={rt.name}>
+                                                                <Tag
+                                                                    style={{
+                                                                        borderRadius: token.borderRadiusSM,
+                                                                        fontSize: token.fontSizeSM,
+                                                                        background: token.colorBgLayout,
+                                                                        border: `1px solid ${token.colorBorderSecondary}`,
+                                                                        padding: '2px 8px'
+                                                                    }}
+                                                                >
+                                                                    <Text strong style={{ color: token.colorPrimary }}>{rt.name}</Text>
+                                                                    <Text type="secondary" style={{ marginLeft: token.paddingXXS, fontSize: token.paddingSM }}>{rt.version}</Text>
+                                                                </Tag>
+                                                            </Tooltip>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            </div>
+                                        </Card>
                                 </Col>
                             ))}
                         </Row>

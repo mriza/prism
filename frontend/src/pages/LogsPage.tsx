@@ -109,8 +109,8 @@ export function LogsPage() {
             width: 180,
             render: (date: string) => (
                 <Space direction="vertical" size={0}>
-                    <Text strong style={{ fontSize: '13px' }}>{dayjs(date).format('HH:mm:ss')}</Text>
-                    <Text type="secondary" style={{ fontSize: '11px' }}>{dayjs(date).format('MMM DD, YYYY')}</Text>
+                    <Text strong style={{ fontSize: token.fontSize }}>{dayjs(date).format('HH:mm:ss')}</Text>
+                    <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{dayjs(date).format('MMM DD, YYYY')}</Text>
                 </Space>
             )
         },
@@ -122,7 +122,7 @@ export function LogsPage() {
             render: (name: string, record: LogEvent) => (
                 <Space>
                     <CloudServerOutlined style={{ opacity: 0.5 }} />
-                    <Text strong style={{ fontSize: '12px' }}>{name || record.agentId.substring(0, 8)}</Text>
+                    <Text strong style={{ fontSize: token.fontSizeSM }}>{name || record.agentId.substring(0, 8)}</Text>
                 </Space>
             )
         },
@@ -134,7 +134,7 @@ export function LogsPage() {
             render: (type: string) => (
                 <Space>
                     {getTypeIcon(type)}
-                    <Text style={{ fontSize: '12px', textTransform: 'capitalize' }}>
+                    <Text style={{ fontSize: token.fontSizeSM, textTransform: 'capitalize' }}>
                         {type.replace(/_/g, ' ')}
                     </Text>
                 </Space>
@@ -145,7 +145,7 @@ export function LogsPage() {
             key: 'subject',
             width: 150,
             render: (_: any, record: LogEvent) => record.service ? (
-                <Tag color="blue" style={{ borderRadius: '4px', fontWeight: 600 }}>
+                <Tag color="blue" style={{ borderRadius: token.borderRadiusSM, fontWeight: 600 }}>
                     {record.service}
                 </Tag>
             ) : <Text type="secondary">-</Text>
@@ -156,7 +156,7 @@ export function LogsPage() {
             key: 'status',
             width: 120,
             render: (status: string) => status ? (
-                <Badge status={getStatusColor(status) as any} text={<Text strong style={{ textTransform: 'capitalize', fontSize: '12px' }}>{status}</Text>} />
+                <Badge status={getStatusColor(status) as any} text={<Text strong style={{ textTransform: 'capitalize', fontSize: token.fontSizeSM }}>{status}</Text>} />
             ) : null
         },
         {
@@ -164,7 +164,7 @@ export function LogsPage() {
             dataIndex: 'message',
             key: 'message',
             render: (msg: string) => (
-                <Text type="secondary" style={{ fontSize: '13px' }}>{msg}</Text>
+                <Text type="secondary" style={{ fontSize: token.fontSize }}>{msg}</Text>
             )
         }
     ];
@@ -183,7 +183,7 @@ export function LogsPage() {
                 </Button>
             }
         >
-            <Card bodyStyle={{ padding: 0 }} style={{ borderRadius: '16px', overflow: 'hidden', border: `1px solid ${token.colorBorderSecondary}` }}>
+            <Card styles={{ body: { padding: 0 } }} style={{ borderRadius: token.borderRadiusLG, overflow: 'hidden', border: `1px solid ${token.colorBorderSecondary}` }}>
                 <Table 
                     columns={columns} 
                     dataSource={logs} 

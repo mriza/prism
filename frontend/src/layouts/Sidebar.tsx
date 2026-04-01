@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Menu, Layout, Typography, Button, Divider, theme } from 'antd';
+import { Menu, Layout, Typography, Button, Divider, theme, Dropdown, Avatar, type MenuProps } from 'antd';
 import {
     DashboardOutlined,
     ProjectOutlined,
@@ -11,9 +11,12 @@ import {
     UserOutlined,
     LogoutOutlined,
     ThunderboltFilled,
-    UnorderedListOutlined
+    UnorderedListOutlined,
+    RocketOutlined
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
+import { ProfileModal } from '../components/modals/ProfileModal';
+import { useState } from 'react';
 
 const { Sider } = Layout;
 const { Text, Title } = Typography;
@@ -23,11 +26,13 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
     const navigate = useNavigate();
     const location = useLocation();
     const { token } = theme.useToken();
+    const [profileOpen, setProfileOpen] = useState(false);
 
     const menuItems = [
         { key: '/', icon: <DashboardOutlined />, label: 'Dashboard' },
         { key: '/projects', icon: <ProjectOutlined />, label: 'Projects' },
         { key: '/accounts', icon: <KeyOutlined />, label: 'Accounts' },
+        { key: '/deployments', icon: <RocketOutlined />, label: 'Deployments' },
         { key: '/servers', icon: <CloudServerOutlined />, label: 'Servers' },
         { key: '/processes', icon: <LineChartOutlined />, label: 'Processes' },
         { key: '/security', icon: <SafetyCertificateOutlined />, label: 'Security' },
@@ -39,6 +44,36 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
     const handleMenuClick = ({ key }: { key: string }) => {
         navigate(key);
     };
+
+    const handleLogout = () => {
+        logout();
+        navigate('/login');
+    };
+
+    const userMenuItems: MenuProps['items'] = [
+        {
+            key: 'profile',
+            label: 'My Profile',
+            icon: <UserOutlined />,
+            onClick: () => setProfileOpen(true),
+        },
+        {
+            key: 'settings',
+            label: 'Settings',
+            icon: <SettingOutlined />,
+            onClick: () => navigate('/settings'),
+        },
+        {
+            type: 'divider',
+        },
+        {
+            key: 'logout',
+            label: 'Sign Out',
+            icon: <LogoutOutlined />,
+            danger: true,
+            onClick: handleLogout,
+        },
+    ];
 
     return (
         <Sider
@@ -57,11 +92,11 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
                 zIndex: 100,
             }}
         >
-            <div style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden' }}>
-                <div style={{ 
-                    width: '40px', 
-                    height: '40px', 
-                    borderRadius: '8px', 
+            <div style={{ padding: token.padding, display: 'flex', alignItems: 'center', gap: token.paddingSM, overflow: 'hidden' }}>
+                <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: token.borderRadiusLG,
                     background: `linear-gradient(135deg, ${token.colorPrimary} 0%, ${token.colorPrimaryHover} 100%)`,
                     display: 'flex',
                     alignItems: 'center',
@@ -69,19 +104,19 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
                     flexShrink: 0,
                     boxShadow: `0 4px 12px ${token.colorPrimary}33`
                 }}>
-                    <ThunderboltFilled style={{ fontSize: '20px', color: '#fff' }} />
+                    <ThunderboltFilled style={{ fontSize: token.fontSizeLG, color: token.colorWhite }} />
                 </div>
                 {!collapsed && (
                     <div style={{ whiteSpace: 'nowrap' }}>
-                        <Title level={4} style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>PRISM</Title>
-                        <Text type="secondary" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                        <Title level={4} style={{ margin: 0, fontSize: token.fontSizeHeading5, fontWeight: 700 }}>PRISM</Title>
+                        <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '1px' }}>
                             Infra Manager
                         </Text>
                     </div>
                 )}
             </div>
 
-            <Divider style={{ margin: '4px 0 12px 0' }} />
+            <Divider style={{ margin: `${token.marginXXS}px 0 ${token.marginSM}px 0` }} />
 
             <Menu
                 mode="inline"
@@ -91,31 +126,66 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
                 style={{ borderRight: 0 }}
             />
 
-            <div style={{ 
-                position: 'absolute', 
-                bottom: 0, 
-                width: '100%', 
-                padding: '16px', 
-                borderTop: `1px solid ${token.colorBorderSecondary}` 
+            <div style={{
+                position: 'absolute',
+                bottom: 0,
+                width: '100%',
+                borderTop: `1px solid ${token.colorBorderSecondary}`
             }}>
-                <Button 
-                    type="text" 
-                    danger 
-                    icon={<LogoutOutlined />} 
-                    onClick={() => {
-                        logout();
-                        navigate('/login');
-                    }}
-                    block
-                    style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: '8px' }}
-                >
-                    {!collapsed && "Logout"}
-                </Button>
+                {/* User Profile Section - Split into user icon and logout */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: `${token.paddingXS}px ${token.padding}`,
+                    gap: token.paddingXS
+                }}>
+                    {/* User Profile Dropdown */}
+                    {!collapsed && (
+                        <Dropdown menu={{ items: userMenuItems }} placement="topRight" arrow>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: token.paddingXS,
+                                cursor: 'pointer',
+                                flex: 1,
+                                padding: token.paddingXXS,
+                                borderRadius: token.borderRadius,
+                                transition: 'background 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = token.colorBgTextHover}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            >
+                                <Avatar
+                                    size="small"
+                                    icon={<UserOutlined />}
+                                    style={{ backgroundColor: token.colorPrimary, flexShrink: 0 }}
+                                />
+                                <div style={{ overflow: 'hidden' }}>
+                                    <Text strong style={{ fontSize: token.fontSizeSM, display: 'block' }}>{user?.username}</Text>
+                                    <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>{user?.role}</Text>
+                                </div>
+                            </div>
+                        </Dropdown>
+                    )}
+
+                    {/* Logout Button */}
+                    <Button
+                        type="text"
+                        danger
+                        icon={<LogoutOutlined />}
+                        onClick={handleLogout}
+                        style={{ flexShrink: 0 }}
+                        title="Logout"
+                    />
+                </div>
+
                 {!collapsed && (
-                    <div style={{ textAlign: 'center', marginTop: '12px' }}>
-                        <Text type="secondary" style={{ fontSize: '11px', opacity: 0.5 }}>v0.2.0-antd</Text>
+                    <div style={{ textAlign: 'center', padding: `0 0 ${token.paddingSM}px 0` }}>
+                        <Text type="secondary" style={{ fontSize: token.fontSizeSM, opacity: 0.5 }}>v0.4.7</Text>
                     </div>
                 )}
+
+                <ProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
             </div>
         </Sider>
     );

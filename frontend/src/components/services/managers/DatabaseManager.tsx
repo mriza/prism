@@ -113,45 +113,45 @@ export function DatabaseManager({ sendCommand }: DatabaseManagerProps) {
     ];
 
     return (
-        <div style={{ padding: '4px 0' }}>
+        <div style={{ padding: `${token.paddingXXS}px 0` }}>
             {error && (
-                <Alert message={error} type="error" showIcon style={{ marginBottom: '24px', borderRadius: '12px' }} />
+                <Alert message={error} type="error" showIcon style={{ marginBottom: token.marginLG, borderRadius: token.borderRadiusLG }} />
             )}
 
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
                 {/* Header card */}
                 <Card 
-                    style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter }}
-                    bodyStyle={{ padding: '20px' }}
+                    style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter }}
+                    styles={{ body: { padding: token.paddingLG } }}
                 >
                     <Row gutter={24} align="middle">
                         <Col span={16}>
                             <Space size="middle">
                                 <div style={{ 
-                                    padding: '10px', 
-                                    borderRadius: '12px', 
+                                    padding: token.paddingSM, 
+                                    borderRadius: token.borderRadiusLG, 
                                     backgroundColor: `${token.colorPrimary}15`, 
                                     color: token.colorPrimary,
-                                    fontSize: '20px',
+                                    fontSize: token.paddingLG,
                                     display: 'flex'
                                 }}>
                                     <DatabaseOutlined />
                                 </div>
                                 <div>
-                                    <Text strong style={{ fontSize: '15px', display: 'block' }}>Engine Management</Text>
-                                    <Text type="secondary" style={{ fontSize: '12px' }}>Operational health and entity provisioning.</Text>
+                                    <Text strong style={{ fontSize: token.fontSize, display: 'block' }}>Engine Management</Text>
+                                    <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Operational health and entity provisioning.</Text>
                                 </div>
                             </Space>
                         </Col>
                         <Col span={8} style={{ textAlign: 'right' }}>
-                            <Button icon={<ReloadOutlined spin={loading} />} onClick={fetchData} style={{ borderRadius: '8px' }}>Refresh State</Button>
+                            <Button icon={<ReloadOutlined spin={loading} />} onClick={fetchData} style={{ borderRadius: token.borderRadius }}>Refresh State</Button>
                         </Col>
                     </Row>
                 </Card>
 
                 {/* Databases Section */}
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '0 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Active Databases</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: '0 0 16px 0' }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Active Databases</Text>
                 </Divider>
 
                 <Table 
@@ -160,23 +160,23 @@ export function DatabaseManager({ sendCommand }: DatabaseManagerProps) {
                     loading={loading}
                     pagination={false}
                     size="small"
-                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '12px', overflow: 'hidden' }}
+                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusLG, overflow: 'hidden' }}
                 />
 
                 {/* User Privileges */}
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>User Privileges</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: `${token.marginLG}px 0 ${token.marginSM}px 0` }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>User Privileges</Text>
                 </Divider>
 
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: token.paddingSM, flexWrap: 'wrap' }}>
                     {users.length === 0 ? (
                         <Text type="secondary" italic>No specific user grants discovered.</Text>
                     ) : (
                         users.map((u, i) => (
-                            <Tag key={i} color="processing" style={{ borderRadius: '6px', padding: '4px 10px' }}>
+                            <Tag key={i} color="processing" style={{ borderRadius: token.paddingXXS, padding: `${token.paddingXXS}px ${token.paddingSM}px` }}>
                                 <Space>
                                     <SafetyCertificateOutlined />
-                                    <Text strong style={{ fontSize: '12px' }}>{typeof u === 'string' ? u : u.user}</Text>
+                                    <Text strong style={{ fontSize: token.fontSizeSM }}>{typeof u === 'string' ? u : u.user}</Text>
                                 </Space>
                             </Tag>
                         ))
@@ -184,14 +184,14 @@ export function DatabaseManager({ sendCommand }: DatabaseManagerProps) {
                 </div>
 
                 {/* DB Provisioning card */}
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Entity Provisioning</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: `${token.marginLG}px 0 ${token.marginSM}px 0` }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Entity Provisioning</Text>
                 </Divider>
 
-                <Card style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                <Card style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}>
                     <Row gutter={16}>
                         <Col flex="auto">
-                            <Input placeholder="Enter database name..." id="new-db-name" style={{ borderRadius: '8px', height: '40px' }} />
+                            <Input placeholder="Enter database name..." id="new-db-name" style={{ borderRadius: token.borderRadius, height: token.paddingLG }} />
                         </Col>
                         <Col>
                             <Button 
@@ -202,7 +202,7 @@ export function DatabaseManager({ sendCommand }: DatabaseManagerProps) {
                                     const input = document.getElementById('new-db-name') as HTMLInputElement;
                                     handleCreateDB(input.value);
                                 }}
-                                style={{ borderRadius: '8px', height: '40px', fontWeight: 600, padding: '0 24px' }}
+                                style={{ borderRadius: token.borderRadius, height: token.paddingLG, fontWeight: 600, padding: '0 24px' }}
                             >
                                 Provision DB
                             </Button>

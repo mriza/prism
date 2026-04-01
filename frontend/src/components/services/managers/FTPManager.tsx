@@ -144,7 +144,7 @@ export function FTPManager({ sendCommand }: FTPManagerProps) {
             title: 'Status',
             key: 'status',
             render: () => (
-                <Badge status="success" text={<Text style={{ fontSize: '12px' }}>Active</Text>} />
+                <Badge status="success" text={<Text style={{ fontSize: token.fontSizeSM }}>Active</Text>} />
             )
         },
         {
@@ -164,51 +164,51 @@ export function FTPManager({ sendCommand }: FTPManagerProps) {
     ];
 
     return (
-        <div style={{ padding: '4px 0' }}>
+        <div style={{ padding: `${token.paddingXXS}px 0` }}>
             {error && (
-                <Alert message={error} type="error" showIcon style={{ marginBottom: '24px', borderRadius: '12px' }} />
+                <Alert message={error} type="error" showIcon style={{ marginBottom: token.marginLG, borderRadius: token.borderRadiusLG }} />
             )}
 
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
                 {/* Header */}
                 <Card
-                    style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter }}
-                    bodyStyle={{ padding: '20px' }}
+                    style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter }}
+                    styles={{ body: { padding: token.paddingLG } }}
                 >
                     <Row gutter={24} align="middle">
                         <Col span={16}>
                             <Space size="middle">
                                 <div style={{
-                                    padding: '10px',
-                                    borderRadius: '12px',
+                                    padding: token.paddingSM,
+                                    borderRadius: token.borderRadiusLG,
                                     backgroundColor: `${token.colorWarning}15`,
                                     color: token.colorWarning,
-                                    fontSize: '20px',
+                                    fontSize: token.paddingLG,
                                     display: 'flex'
                                 }}>
                                     <CloudServerOutlined />
                                 </div>
                                 <div>
-                                    <Text strong style={{ fontSize: '15px', display: 'block' }}>FTP Server Management</Text>
-                                    <Text type="secondary" style={{ fontSize: '12px' }}>Manage FTP users and server configuration.</Text>
+                                    <Text strong style={{ fontSize: token.fontSize, display: 'block' }}>FTP Server Management</Text>
+                                    <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Manage FTP users and server configuration.</Text>
                                 </div>
                             </Space>
                         </Col>
                         <Col span={8} style={{ textAlign: 'right' }}>
-                            <Button icon={<ReloadOutlined spin={loading} />} onClick={fetchData} style={{ borderRadius: '8px' }}>Refresh</Button>
+                            <Button icon={<ReloadOutlined spin={loading} />} onClick={fetchData} style={{ borderRadius: token.borderRadius }}>Refresh</Button>
                         </Col>
                     </Row>
                 </Card>
 
                 {/* Settings Section */}
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '0 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Service Settings</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: '0 0 16px 0' }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Service Settings</Text>
                 </Divider>
 
                 <Card
                     loading={loadingSettings}
-                    style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}
-                    bodyStyle={{ padding: '24px' }}
+                    style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}
+                    styles={{ body: { padding: token.paddingLG } }}
                 >
                     <Form
                         form={form}
@@ -220,46 +220,46 @@ export function FTPManager({ sendCommand }: FTPManagerProps) {
                             <Col span={8}>
                                 <Form.Item
                                     name="port"
-                                    label={<Text strong style={{ fontSize: '12px' }}>FTP Port</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>FTP Port</Text>}
                                     help="Port for FTP connections (default: 21)"
                                 >
-                                    <Input placeholder="21" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="21" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={8}>
                                 <Form.Item
                                     name="local_root"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Default Root Path</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Default Root Path</Text>}
                                     help="Default FTP root directory"
                                 >
-                                    <Input placeholder="/var/ftp" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="/var/ftp" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={8}>
                                 <Form.Item
                                     name="anonymous_enable"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Anonymous Login</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Anonymous Login</Text>}
                                     help="Allow anonymous FTP login (YES/NO)"
                                 >
-                                    <Input placeholder="NO" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="NO" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={8}>
                                 <Form.Item
                                     name="local_enable"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Local Users</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Local Users</Text>}
                                     help="Allow local users to login (YES/NO)"
                                 >
-                                    <Input placeholder="YES" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="YES" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={8}>
                                 <Form.Item
                                     name="write_enable"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Write Access</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Write Access</Text>}
                                     help="Allow write operations (YES/NO)"
                                 >
-                                    <Input placeholder="YES" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="YES" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                         </Row>
@@ -268,7 +268,7 @@ export function FTPManager({ sendCommand }: FTPManagerProps) {
                             htmlType="submit"
                             loading={updatingSettings}
                             icon={<SettingOutlined />}
-                            style={{ borderRadius: '8px' }}
+                            style={{ borderRadius: token.borderRadius }}
                         >
                             Save Settings
                         </Button>
@@ -276,8 +276,8 @@ export function FTPManager({ sendCommand }: FTPManagerProps) {
                 </Card>
 
                 {/* Users Section */}
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>FTP Users</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: `${token.marginLG}px 0 ${token.marginSM}px 0` }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>FTP Users</Text>
                 </Divider>
 
                 <Table
@@ -288,12 +288,12 @@ export function FTPManager({ sendCommand }: FTPManagerProps) {
                     size="small"
                     style={{
                         border: `1px solid ${token.colorBorderSecondary}`,
-                        borderRadius: '12px',
+                        borderRadius: token.borderRadiusLG,
                         overflow: 'hidden'
                     }}
                 />
 
-                <Card style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                <Card style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}>
                     <Form
                         layout="vertical"
                         onFinish={handleCreateUser}
@@ -301,31 +301,31 @@ export function FTPManager({ sendCommand }: FTPManagerProps) {
                     >
                         <Row gutter={16}>
                             <Col span={24}>
-                                <Text strong style={{ display: 'block', marginBottom: '12px' }}>Create New FTP User</Text>
+                                <Text strong style={{ display: 'block', marginBottom: token.marginSM }}>Create New FTP User</Text>
                             </Col>
                             <Col span={6}>
                                 <Form.Item name="username" label="Username" required>
-                                    <Input placeholder="Enter username" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="Enter username" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={6}>
                                 <Form.Item name="password" label="Password" required>
-                                    <Input.Password placeholder="Enter password" style={{ borderRadius: '8px' }} />
+                                    <Input.Password placeholder="Enter password" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={6}>
                                 <Form.Item name="root_path" label="Root Path">
-                                    <Input placeholder="/var/ftp/virtual_users/username" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="/var/ftp/virtual_users/username" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={4}>
                                 <Form.Item name="quota" label="Quota (MB)">
-                                    <Input type="number" placeholder="0 = unlimited" style={{ borderRadius: '8px' }} />
+                                    <Input type="number" placeholder="0 = unlimited" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={2}>
                                 <Form.Item name="quota_enabled" label="Quota" valuePropName="checked">
-                                    <Switch style={{ marginTop: '6px' }} />
+                                    <Switch style={{ marginTop: token.paddingXXS }} />
                                 </Form.Item>
                             </Col>
                             <Col span={24}>
@@ -334,7 +334,7 @@ export function FTPManager({ sendCommand }: FTPManagerProps) {
                                     htmlType="submit"
                                     loading={creatingUser}
                                     icon={<PlusOutlined />}
-                                    style={{ borderRadius: '8px' }}
+                                    style={{ borderRadius: token.borderRadius }}
                                 >
                                     Create User
                                 </Button>

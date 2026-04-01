@@ -21,14 +21,14 @@ import {
     Descriptions,
     message
 } from 'antd';
-import { 
+import {
     DeleteOutlined,
-    LineChartOutlined, 
-    DatabaseOutlined, 
-    SyncOutlined, 
-    PlayCircleOutlined, 
-    StopOutlined, 
-    ReloadOutlined, 
+    LineChartOutlined,
+    DatabaseOutlined,
+    SyncOutlined,
+    PlayCircleOutlined,
+    StopOutlined,
+    ReloadOutlined,
     DashboardOutlined,
     HddOutlined,
     ClockCircleOutlined,
@@ -37,7 +37,9 @@ import {
     GlobalOutlined,
     SafetyCertificateOutlined,
     CloudDownloadOutlined,
-    KeyOutlined
+    KeyOutlined,
+    ThunderboltOutlined,
+    RocketOutlined
 } from '@ant-design/icons';
 import { useAgents } from '../../hooks/useAgents';
 import type { ServiceType } from '../../types';
@@ -87,6 +89,12 @@ const ServiceTypeIcon = ({ type, size = 18 }: { type: ServiceType, size?: number
         case 's3-minio':
         case 's3-garage':
             return <HddOutlined style={style} />;
+        case 'valkey-nosql':
+            return <DatabaseOutlined style={style} />;
+        case 'valkey-broker':
+            return <ThunderboltOutlined style={style} />;
+        case 'valkey-cache':
+            return <RocketOutlined style={style} />;
         case 'firewall':
         case 'security-crowdsec':
             return <SafetyCertificateOutlined style={style} />;
@@ -154,7 +162,9 @@ export function ServiceDetailModal({
         'mongodb':         ['port', 'bind', 'dbpath', 'logpath'],
         'rabbitmq':        ['port', 'bind', 'management_port', 'admin_username', 'enabled_plugins'],
         'mqtt-mosquitto':  ['port', 'bind', 'persistence', 'persistence_location'],
-        'cache-valkey':    ['port', 'bind', 'maxmemory', 'maxmemory_policy', 'appendonly', 'appendfsync', 'dir'],
+        'valkey-cache':    ['port', 'bind', 'maxmemory', 'maxmemory_policy', 'appendonly', 'appendfsync', 'dir'],
+        'valkey-broker':   ['port', 'bind', 'maxmemory', 'maxmemory_policy', 'appendonly', 'appendfsync', 'dir'],
+        'valkey-nosql':    ['port', 'bind', 'maxmemory', 'maxmemory_policy', 'appendonly', 'appendfsync', 'dir'],
         's3-minio':        ['endpoint', 'access_key'],
         's3-garage':       ['endpoint', 'access_key'],
         'ftp-vsftpd':      ['port', 'anonymous_enable', 'local_enable', 'write_enable', 'local_root'],
@@ -315,11 +325,11 @@ const handleControl = async (action: string) => {
                             <Text strong>{proc.name}</Text>
                             {project && (
                                 <Link to={`/projects/${project.id}`}>
-                                    <Tag color="blue" style={{ fontSize: '10px', borderRadius: '4px' }}>{project.name}</Tag>
+                                    <Tag color="blue" style={{ fontSize: token.fontSizeSM, borderRadius: token.borderRadiusSM }}>{project.name}</Tag>
                                 </Link>
                             )}
                         </Space>
-                        <Text type="secondary" style={{ fontSize: '11px', fontFamily: 'monospace' }}>PID: {proc.id}</Text>
+                        <Text type="secondary" style={{ fontSize: token.fontSizeSM, fontFamily: 'monospace' }}>PID: {proc.id}</Text>
                     </Space>
                 );
             }
@@ -341,13 +351,13 @@ const handleControl = async (action: string) => {
                     <Tooltip title="CPU Usage">
                         <Space size={4}>
                             <DashboardOutlined style={{ opacity: 0.3 }} />
-                            <Text style={{ fontSize: '12px' }}>{proc.cpu?.toFixed(1) || 0}%</Text>
+                            <Text style={{ fontSize: token.fontSizeSM }}>{proc.cpu?.toFixed(1) || 0}%</Text>
                         </Space>
                     </Tooltip>
                     <Tooltip title="Memory Usage">
                         <Space size={4}>
                             <HddOutlined style={{ opacity: 0.3 }} />
-                            <Text style={{ fontSize: '12px' }}>{proc.memory ? `${(proc.memory / (1024 * 1024)).toFixed(1)}MB` : '0MB'}</Text>
+                            <Text style={{ fontSize: token.fontSizeSM }}>{proc.memory ? `${(proc.memory / (1024 * 1024)).toFixed(1)}MB` : '0MB'}</Text>
                         </Space>
                     </Tooltip>
                 </Space>
@@ -396,11 +406,11 @@ const handleControl = async (action: string) => {
             key: 'info',
             label: <Space><LineChartOutlined /> Overview</Space>,
             children: (
-                <div style={{ padding: '24px 0' }}>
+                <div style={{ padding: `${token.paddingLG}px 0` }}>
                     <Row gutter={[24, 24]}>
                         {/* ===== SERVICE DESCRIPTION ===== */}
                         <Col span={24}>
-                            <Card style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                            <Card style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}>
                                 <Space direction="vertical" size={4}>
                                     <Text strong>About this Service</Text>
                                     <Text type="secondary">{({
@@ -411,7 +421,9 @@ const handleControl = async (action: string) => {
                                         'mongodb': 'MongoDB is a document-oriented NoSQL database designed for scalability and developer flexibility using JSON-like documents.',
                                         'rabbitmq': 'RabbitMQ is a message broker that implements the AMQP protocol, enabling reliable asynchronous messaging between services.',
                                         'mqtt-mosquitto': 'Eclipse Mosquitto is a lightweight MQTT broker designed for IoT and machine-to-machine communication.',
-                                        'cache-valkey': 'Valkey is an open-source in-memory data structure store used as a cache, message broker, and session store.',
+                                        'valkey-cache': 'Valkey is an open-source in-memory data structure store used as a cache, message broker, and session store.',
+                                        'valkey-broker': 'Valkey is an open-source in-memory data structure store used as a cache, message broker, and session store.',
+                                        'valkey-nosql': 'Valkey is an open-source in-memory data structure store used as a cache, message broker, and session store.',
                                         's3-minio': 'MinIO is a high-performance S3-compatible object storage server suitable for storing unstructured data at scale.',
                                         's3-garage': 'Garage is a lightweight S3-compatible distributed object storage system designed for self-hosting.',
                                         'ftp-vsftpd': 'vsftpd is a secure and fast FTP server for Unix-like systems, supporting both anonymous and local user access.',
@@ -431,7 +443,7 @@ const handleControl = async (action: string) => {
                             <Col span={24}>
                                 <Card
                                     title={<Space><SettingOutlined /> Current Settings</Space>}
-                                    style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}
+                                    style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}
                                 >
                                     <Descriptions column={2} bordered size="small">
                                         {(SETTINGS_DISPLAY_FIELDS[serviceType] || Object.keys(settings))
@@ -439,9 +451,9 @@ const handleControl = async (action: string) => {
                                             .map(k => (
                                                 <Descriptions.Item
                                                     key={k}
-                                                    label={<Text style={{ fontSize: '12px', textTransform: 'capitalize' }}>{k.replace(/_/g, ' ')}</Text>}
+                                                    label={<Text style={{ fontSize: token.fontSizeSM, textTransform: 'capitalize' }}>{k.replace(/_/g, ' ')}</Text>}
                                                 >
-                                                    <Text style={{ fontFamily: 'monospace', fontSize: '12px', wordBreak: 'break-all' }}>
+                                                    <Text style={{ fontFamily: 'monospace', fontSize: token.fontSizeSM, wordBreak: 'break-all' }}>
                                                         {String(settings[k])}
                                                     </Text>
                                                 </Descriptions.Item>
@@ -452,15 +464,15 @@ const handleControl = async (action: string) => {
                             </Col>
                         )}
 
-                        <Col span={24} style={{ marginBottom: '32px' }}>
-                            <Card style={{ backgroundColor: token.colorFillAlter, borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                        <Col span={24} style={{ marginBottom: token.marginLG }}>
+                            <Card style={{ backgroundColor: token.colorFillAlter, borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}>
                                 <Row align="middle" justify="space-between">
                                     <Col>
                                         <Space size="large">
                                             <Badge status={isOnline ? 'success' : isOffline ? 'default' : 'error'} />
                                             <div>
                                                 <Title level={4} style={{ margin: 0 }}>{status.toUpperCase()}</Title>
-                                                <Text type="secondary" style={{ fontSize: '12px' }}>Service is currently {status}.</Text>
+                                                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Service is currently {status}.</Text>
                                             </div>
                                         </Space>
                                     </Col>
@@ -497,8 +509,8 @@ const handleControl = async (action: string) => {
                         </Col>
 
                         <Col span={24}>
-                            <Divider orientation={"left" as any} style={{ margin: '0 0 24px 0' }}>
-                                <Text strong style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Live Metrics</Text>
+                            <Divider titlePlacement="left" style={{ margin: '0 0 24px 0' }}>
+                                <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Live Metrics</Text>
                             </Divider>
                             {metrics && Object.keys(metrics).length > 0 ? (
                                 <Row gutter={[16, 16]}>
@@ -530,13 +542,13 @@ const handleControl = async (action: string) => {
 
                                         return (
                                             <Col xs={24} sm={12} md={8} key={key}>
-                                                <Card style={{ borderRadius: '12px', border: `1px solid ${token.colorBorderSecondary}` }} bodyStyle={{ padding: '20px' }}>
+                                                <Card style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }} styles={{ body: { padding: token.borderRadiusLG } }}>
                                                     <Statistic 
-                                                        title={<Text type="secondary" style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 800 }}>{key.replace(/_/g, ' ')}</Text>}
+                                                        title={<Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', fontWeight: 800 }}>{key.replace(/_/g, ' ')}</Text>}
                                                         value={displayVal}
-                                                        suffix={<Text type="secondary" style={{ fontSize: '12px' }}>{suffix}</Text>}
+                                                        suffix={<Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{suffix}</Text>}
                                                         prefix={icon}
-                                                        valueStyle={{ fontWeight: 700, fontSize: '20px' }}
+                                                        valueStyle={{ fontWeight: 700, fontSize: token.borderRadiusLG }}
                                                     />
                                                 </Card>
                                             </Col>
@@ -544,9 +556,9 @@ const handleControl = async (action: string) => {
                                     })}
                                 </Row>
                             ) : (
-                                <Card style={{ textAlign: 'center', padding: '40px', border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter, borderRadius: '16px' }}>
+                                <Card style={{ textAlign: 'center', padding: token.paddingLG, border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter, borderRadius: token.borderRadiusLG }}>
                                     <Space direction="vertical" align="center">
-                                        <LineChartOutlined style={{ fontSize: '32px', opacity: 0.1 }} />
+                                        <LineChartOutlined style={{ fontSize: token.marginLG, opacity: 0.1 }} />
                                         <Text type="secondary" italic>No active telemetry metrics reported.</Text>
                                     </Space>
                                 </Card>
@@ -560,12 +572,12 @@ const handleControl = async (action: string) => {
             key: 'config',
             label: <Space><SettingOutlined /> Configuration</Space>,
             children: (
-                <div style={{ padding: '24px 0' }}>
-                    {['mysql', 'postgresql', 'web-nginx', 'web-caddy', 'mongodb', 'rabbitmq', 'mqtt-mosquitto', 'ftp-vsftpd', 'ftp-sftpgo', 's3-minio', 's3-garage', 'cache-valkey', 'pm2', 'supervisor'].includes(serviceType) ? (
+                <div style={{ padding: `${token.paddingLG}px 0` }}>
+                    {['mysql', 'postgresql', 'web-nginx', 'web-caddy', 'mongodb', 'rabbitmq', 'mqtt-mosquitto', 'ftp-vsftpd', 'ftp-sftpgo', 's3-minio', 's3-garage', 'valkey-cache', 'valkey-broker', 'valkey-nosql', 'pm2', 'supervisor'].includes(serviceType) ? (
                         <Card
                             title={<Space><SettingOutlined /> Service Settings</Space>}
                             loading={loadingSettings}
-                            style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}
+                            style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}
                             extra={
                                 <Space>
                                     <Button
@@ -596,22 +608,22 @@ const handleControl = async (action: string) => {
                                     <Col span={12}>
                                         <Form.Item
                                             name="port"
-                                            label={<Text strong style={{ fontSize: '12px' }}>Listen Port</Text>}
+                                            label={<Text strong style={{ fontSize: token.fontSizeSM }}>Listen Port</Text>}
                                             help="Port number this service listens on."
                                         >
-                                            <Input placeholder="e.g. 3306" style={{ borderRadius: '8px' }} />
+                                            <Input placeholder="e.g. 3306" style={{ borderRadius: token.borderRadius }} />
                                         </Form.Item>
                                     </Col>
 
                                     {/* ===== BIND ADDRESS FOR NETWORK SERVICES ===== */}
-                                    {['mongodb', 'cache-valkey', 'mysql', 'postgresql', 'rabbitmq', 'mqtt-mosquitto'].includes(serviceType) && (
+                                    {['mongodb', 'valkey-cache', 'valkey-broker', 'valkey-nosql', 'mysql', 'postgresql', 'rabbitmq', 'mqtt-mosquitto'].includes(serviceType) && (
                                         <Col span={12}>
                                             <Form.Item
                                                 name="bind"
-                                                label={<Text strong style={{ fontSize: '12px' }}>Bind Address</Text>}
+                                                label={<Text strong style={{ fontSize: token.fontSizeSM }}>Bind Address</Text>}
                                                 help="IP address to bind to (0.0.0.0 for all interfaces)."
                                             >
-                                                <Input placeholder="0.0.0.0" style={{ borderRadius: '8px' }} />
+                                                <Input placeholder="0.0.0.0" style={{ borderRadius: token.borderRadius }} />
                                             </Form.Item>
                                         </Col>
                                     )}
@@ -622,28 +634,28 @@ const handleControl = async (action: string) => {
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="docroot"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Document Root</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Document Root</Text>}
                                                     help="Path to website files directory."
                                                 >
-                                                    <Input placeholder="/var/www/html" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="/var/www/html" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="ssl_cert"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>SSL Certificate Path</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>SSL Certificate Path</Text>}
                                                     help="Path to TLS/SSL certificate file (.crt or .pem)."
                                                 >
-                                                    <Input placeholder="/etc/ssl/certs/server.crt" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                                                    <Input placeholder="/etc/ssl/certs/server.crt" style={{ borderRadius: token.borderRadius, fontFamily: 'monospace' }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={24}>
                                                 <Form.Item
                                                     name="ssl_key"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>SSL Key Path</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>SSL Key Path</Text>}
                                                     help="Path to TLS/SSL private key file."
                                                 >
-                                                    <Input placeholder="/etc/ssl/private/server.key" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                                                    <Input placeholder="/etc/ssl/private/server.key" style={{ borderRadius: token.borderRadius, fontFamily: 'monospace' }} />
                                                 </Form.Item>
                                             </Col>
                                         </>
@@ -655,28 +667,28 @@ const handleControl = async (action: string) => {
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="socket"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Socket Path</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Socket Path</Text>}
                                                     help="Path to MySQL socket file."
                                                 >
-                                                    <Input placeholder="/var/run/mysqld/mysqld.sock" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="/var/run/mysqld/mysqld.sock" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="datadir"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Data Directory</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Data Directory</Text>}
                                                     help="Path to database files."
                                                 >
-                                                    <Input placeholder="/var/lib/mysql" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="/var/lib/mysql" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={24}>
                                                 <Form.Item
                                                     name="log_error"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Error Log Path</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Error Log Path</Text>}
                                                     help="Path to error log file."
                                                 >
-                                                    <Input placeholder="/var/log/mysql/error.log" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="/var/log/mysql/error.log" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                         </>
@@ -687,22 +699,22 @@ const handleControl = async (action: string) => {
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="data_directory"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Data Directory</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Data Directory</Text>}
                                                     help="Path to PostgreSQL data directory."
                                                 >
-                                                    <Input placeholder="/var/lib/postgresql/data" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="/var/lib/postgresql/data" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={24}>
                                                 <Form.Item
                                                     name="acl_rules"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>ACL Rules (pg_hba.conf)</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>ACL Rules (pg_hba.conf)</Text>}
                                                     help="Host-based authentication rules. Format: TYPE DATABASE USER ADDRESS METHOD"
                                                 >
                                                     <TextArea
                                                         rows={6}
                                                         placeholder={`# TYPE  DATABASE        USER            ADDRESS                 METHOD\nlocal   all             postgres                                peer\nlocal   all             all                                     peer\nhost    all             all             127.0.0.1/32            scram-sha-256\nhost    all             all             ::1/128                 scram-sha-256`}
-                                                        style={{ borderRadius: '8px', fontFamily: 'monospace' }}
+                                                        style={{ borderRadius: token.borderRadius, fontFamily: 'monospace' }}
                                                     />
                                                 </Form.Item>
                                             </Col>
@@ -714,70 +726,70 @@ const handleControl = async (action: string) => {
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="dbpath"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Data Path</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Data Path</Text>}
                                                     help="Path to database files."
                                                 >
-                                                    <Input placeholder="/var/lib/mongodb" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="/var/lib/mongodb" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="logpath"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Log Path</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Log Path</Text>}
                                                     help="Path to log file."
                                                 >
-                                                    <Input placeholder="/var/log/mongodb/mongod.log" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="/var/log/mongodb/mongod.log" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                         </>
                                     )}
 
                                     {/* ===== CACHE SERVICES ===== */}
-                                    {serviceType === 'cache-valkey' && (
+                                    {['valkey-cache', 'valkey-broker', 'valkey-nosql'].includes(serviceType) && (
                                         <>
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="maxmemory"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Max Memory</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Max Memory</Text>}
                                                     help="Maximum memory Valkey can use (e.g. 256mb, 1gb)."
                                                 >
-                                                    <Input placeholder="256mb" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="256mb" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="maxmemory_policy"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Eviction Policy</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Eviction Policy</Text>}
                                                     help={<span>Policy for evicting keys. See <a href="https://valkey.io/topics/lru-cache/" target="_blank" rel="noopener noreferrer">docs</a>.</span>}
                                                 >
-                                                    <Input placeholder="allkeys-lru" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="allkeys-lru" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="appendonly"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Append Only File</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Append Only File</Text>}
                                                     help="Enable AOF persistence (yes/no)."
                                                 >
-                                                    <Input placeholder="yes" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="yes" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="appendfsync"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Append Fsync</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Append Fsync</Text>}
                                                     help="How often to fsync the AOF file (always/everysec/no)."
                                                 >
-                                                    <Input placeholder="everysec" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="everysec" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={24}>
                                                 <Form.Item
                                                     name="dir"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Working Directory</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Working Directory</Text>}
                                                     help="Path where Valkey saves RDB/AOF files."
                                                 >
-                                                    <Input placeholder="/var/lib/valkey" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="/var/lib/valkey" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                         </>
@@ -789,37 +801,37 @@ const handleControl = async (action: string) => {
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="management_port"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Management Port</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Management Port</Text>}
                                                     help="Port for web management interface."
                                                 >
-                                                    <Input placeholder="15672" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="15672" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={24}>
                                                 <Form.Item
                                                     name="admin_username"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Admin Username</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Admin Username</Text>}
                                                     help="Default administrator username."
                                                 >
-                                                    <Input placeholder="admin" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="admin" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={24}>
                                                 <Form.Item
                                                     name="admin_password"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Admin Password</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Admin Password</Text>}
                                                     help="Leave blank to keep current password."
                                                 >
-                                                    <Input.Password placeholder="••••••••" style={{ borderRadius: '8px' }} />
+                                                    <Input.Password placeholder="••••••••" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={24}>
                                                 <Form.Item
                                                     name="enabled_plugins"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Enabled Plugins</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Enabled Plugins</Text>}
                                                     help="Comma-separated list of enabled plugins."
                                                 >
-                                                    <Input placeholder="rabbitmq_management,rabbitmq_peer_discovery_localnode" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="rabbitmq_management,rabbitmq_peer_discovery_localnode" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                         </>
@@ -830,19 +842,19 @@ const handleControl = async (action: string) => {
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="persistence"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Persistence</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Persistence</Text>}
                                                     help="Enable message persistence (true/false)."
                                                 >
-                                                    <Input placeholder="true" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="true" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="persistence_location"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Persistence Path</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Persistence Path</Text>}
                                                     help="Path to store persistent messages."
                                                 >
-                                                    <Input placeholder="/var/lib/mosquitto/" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="/var/lib/mosquitto/" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                         </>
@@ -854,28 +866,28 @@ const handleControl = async (action: string) => {
                                             <Col span={16}>
                                                 <Form.Item
                                                     name="endpoint"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>API Endpoint</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>API Endpoint</Text>}
                                                     help="S3 API endpoint URL (e.g. http://localhost:9000)."
                                                 >
-                                                    <Input placeholder="http://localhost:9000" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                                                    <Input placeholder="http://localhost:9000" style={{ borderRadius: token.borderRadius, fontFamily: 'monospace' }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={8}>
                                                 <Form.Item
                                                     name="access_key"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Admin Access Key</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Admin Access Key</Text>}
                                                     help="Administrator access key."
                                                 >
-                                                    <Input placeholder="minioadmin" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="minioadmin" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={24}>
                                                 <Form.Item
                                                     name="secret_key"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Admin Secret Key</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Admin Secret Key</Text>}
                                                     help="Leave blank to keep current secret."
                                                 >
-                                                    <Input.Password placeholder="••••••••" style={{ borderRadius: '8px' }} />
+                                                    <Input.Password placeholder="••••••••" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                         </>
@@ -887,37 +899,37 @@ const handleControl = async (action: string) => {
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="anonymous_enable"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Anonymous Enable</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Anonymous Enable</Text>}
                                                     help="Allow anonymous FTP login (YES/NO)."
                                                 >
-                                                    <Input placeholder="NO" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="NO" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="local_enable"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Local Enable</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Local Enable</Text>}
                                                     help="Allow local users to login (YES/NO)."
                                                 >
-                                                    <Input placeholder="YES" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="YES" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="write_enable"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Write Enable</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Write Enable</Text>}
                                                     help="Allow write operations (YES/NO)."
                                                 >
-                                                    <Input placeholder="YES" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="YES" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="local_root"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Local Root</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Local Root</Text>}
                                                     help="Path to FTP root directory."
                                                 >
-                                                    <Input placeholder="/var/ftp" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="/var/ftp" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                         </>
@@ -928,37 +940,37 @@ const handleControl = async (action: string) => {
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="port"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Listen Port</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Listen Port</Text>}
                                                     help="Port SFTPGo listens on (default: 2022 for SFTP, 8080 for HTTP)."
                                                 >
-                                                    <Input placeholder="2022" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="2022" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="bind_address"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Bind Address</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Bind Address</Text>}
                                                     help="IP address to bind to (empty for all interfaces)."
                                                 >
-                                                    <Input placeholder="0.0.0.0" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="0.0.0.0" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="log_level"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Log Level</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Log Level</Text>}
                                                     help="Logging verbosity (debug/info/warn/error)."
                                                 >
-                                                    <Input placeholder="info" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="info" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="data_provider_type"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Data Provider</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Data Provider</Text>}
                                                     help="Backend storage for user accounts (bolt/sqlite/mysql/postgresql)."
                                                 >
-                                                    <Input placeholder="bolt" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="bolt" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                         </>
@@ -970,37 +982,37 @@ const handleControl = async (action: string) => {
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="instances"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Default Instances</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Default Instances</Text>}
                                                     help="Number of instances for cluster mode (0 = max CPUs)."
                                                 >
-                                                    <Input placeholder="1" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="1" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="max_memory_restart"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Max Memory Restart</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Max Memory Restart</Text>}
                                                     help="Restart apps exceeding this memory limit (e.g. 512M, 1G)."
                                                 >
-                                                    <Input placeholder="512M" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="512M" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="out_file"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Output Log Path</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Output Log Path</Text>}
                                                     help="Path to stdout log file."
                                                 >
-                                                    <Input placeholder="/root/.pm2/logs/app-out.log" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                                                    <Input placeholder="/root/.pm2/logs/app-out.log" style={{ borderRadius: token.borderRadius, fontFamily: 'monospace' }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="error_file"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Error Log Path</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Error Log Path</Text>}
                                                     help="Path to stderr log file."
                                                 >
-                                                    <Input placeholder="/root/.pm2/logs/app-error.log" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                                                    <Input placeholder="/root/.pm2/logs/app-error.log" style={{ borderRadius: token.borderRadius, fontFamily: 'monospace' }} />
                                                 </Form.Item>
                                             </Col>
                                         </>
@@ -1011,46 +1023,46 @@ const handleControl = async (action: string) => {
                                             <Col span={24}>
                                                 <Form.Item
                                                     name="logfile"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Log File</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Log File</Text>}
                                                     help="Path to supervisor activity log."
                                                 >
-                                                    <Input placeholder="/var/log/supervisor/supervisord.log" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                                                    <Input placeholder="/var/log/supervisor/supervisord.log" style={{ borderRadius: token.borderRadius, fontFamily: 'monospace' }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="logfile_maxbytes"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Max Log Size</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Max Log Size</Text>}
                                                     help="Maximum log file size before rotation (e.g. 50MB)."
                                                 >
-                                                    <Input placeholder="50MB" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="50MB" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="logfile_backups"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Log Backups</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Log Backups</Text>}
                                                     help="Number of rotated log backups to keep."
                                                 >
-                                                    <Input placeholder="10" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="10" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="nodaemon"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>No Daemon</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>No Daemon</Text>}
                                                     help="Run supervisord in foreground (true/false)."
                                                 >
-                                                    <Input placeholder="false" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="false" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col span={12}>
                                                 <Form.Item
                                                     name="minfds"
-                                                    label={<Text strong style={{ fontSize: '12px' }}>Min File Descriptors</Text>}
+                                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Min File Descriptors</Text>}
                                                     help="Minimum number of file descriptors for supervisord."
                                                 >
-                                                    <Input placeholder="1024" style={{ borderRadius: '8px' }} />
+                                                    <Input placeholder="1024" style={{ borderRadius: token.borderRadius }} />
                                                 </Form.Item>
                                             </Col>
                                         </>
@@ -1060,16 +1072,16 @@ const handleControl = async (action: string) => {
                                     type="primary"
                                     htmlType="submit"
                                     loading={updatingSettings}
-                                    style={{ borderRadius: '8px', marginTop: '16px' }}
+                                    style={{ borderRadius: token.borderRadius, marginTop: token.borderRadius }}
                                 >
                                     Save Settings
                                 </Button>
                             </Form>
                         </Card>
                     ) : (
-                        <Card style={{ textAlign: 'center', padding: '40px', border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter, borderRadius: '16px' }}>
+                        <Card style={{ textAlign: 'center', padding: token.paddingLG, border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter, borderRadius: token.borderRadiusLG }}>
                             <Space direction="vertical" align="center">
-                                <SettingOutlined style={{ fontSize: '32px', opacity: 0.1 }} />
+                                <SettingOutlined style={{ fontSize: token.marginLG, opacity: 0.1 }} />
                                 <Text type="secondary" italic>No configurable settings available for this service type.</Text>
                             </Space>
                         </Card>
@@ -1082,7 +1094,7 @@ const handleControl = async (action: string) => {
             label: <Space><BranchesOutlined /> Processes</Space>,
             disabled: !['pm2', 'supervisor', 'systemd'].includes(serviceType),
             children: (
-                <div style={{ padding: '24px 0' }}>
+                <div style={{ padding: `${token.paddingLG}px 0` }}>
                     <Table 
                         dataSource={processes}
                         columns={processColumns}
@@ -1097,7 +1109,7 @@ const handleControl = async (action: string) => {
             key: 'activity',
             label: <Space><ClockCircleOutlined /> Activity</Space>,
             children: (
-                <div style={{ padding: '24px 0' }}>
+                <div style={{ padding: `${token.paddingLG}px 0` }}>
                     <Table 
                         dataSource={serviceLogs}
                         loading={loadingLogs}
@@ -1109,15 +1121,15 @@ const handleControl = async (action: string) => {
                                 dataIndex: 'createdAt',
                                 key: 'time',
                                 width: 180,
-                                render: (t: string) => <Text type="secondary" style={{ fontSize: '12px' }}>{new Date(t).toLocaleString()}</Text>
+                                render: (t: string) => <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{new Date(t).toLocaleString()}</Text>
                             },
                             {
                                 title: 'Event',
                                 key: 'event',
                                 render: (_: any, log: any) => (
                                     <Space direction="vertical" size={0}>
-                                        <Text strong style={{ fontSize: '13px' }}>{log.type.replace(/_/g, ' ')}</Text>
-                                        <Text type="secondary" style={{ fontSize: '12px' }}>{log.message}</Text>
+                                        <Text strong style={{ fontSize: token.fontSize }}>{log.type.replace(/_/g, ' ')}</Text>
+                                        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{log.message}</Text>
                                     </Space>
                                 )
                             },
@@ -1141,7 +1153,7 @@ const handleControl = async (action: string) => {
             label: <Space><HddOutlined /> Storage</Space>,
             disabled: !['s3-minio', 's3-garage'].includes(serviceType),
             children: (
-                <div style={{ padding: '24px 0' }}>
+                <div style={{ padding: `${token.paddingLG}px 0` }}>
                     <Row gutter={[24, 24]}>
                         <Col span={24}>
                             <Card title="Buckets" size="small" extra={
@@ -1237,8 +1249,8 @@ const handleControl = async (action: string) => {
             title={
                 <Space size="middle">
                     <div style={{ 
-                        padding: '8px', 
-                        borderRadius: '10px', 
+                        padding: token.borderRadiusSM, 
+                        borderRadius: token.paddingSM, 
                         backgroundColor: `${token.colorPrimary}15`, 
                         color: token.colorPrimary,
                         display: 'flex',
@@ -1247,8 +1259,8 @@ const handleControl = async (action: string) => {
                         <ServiceTypeIcon type={serviceType} />
                     </div>
                     <div>
-                        <Text strong style={{ fontSize: '16px' }}>{serviceLabel}</Text>
-                        <Text type="secondary" style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        <Text strong style={{ fontSize: token.fontSizeHeading5 }}>{serviceLabel}</Text>
+                        <Text type="secondary" style={{ display: 'block', fontSize: token.fontSizeSM, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             {serviceName} • {agentName}
                         </Text>
                     </div>
@@ -1258,13 +1270,13 @@ const handleControl = async (action: string) => {
             onCancel={onClose}
             width={900}
             footer={null}
-            style={{ borderRadius: '20px', overflow: 'hidden' }}
+            style={{ borderRadius: token.borderRadiusLG, overflow: 'hidden' }}
         >
             <Tabs
                 activeKey={activeTab} 
                 onChange={setActiveTab} 
                 items={tabItems}
-                style={{ marginTop: '16px' }}
+                style={{ marginTop: token.borderRadius }}
             />
         </Modal>
     );

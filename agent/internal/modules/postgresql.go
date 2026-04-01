@@ -121,14 +121,15 @@ func (m *PostgresModule) CreateUser(name, password, role, target string) error {
 	password = strings.ReplaceAll(password, "'", "''")
 
 	privileges := "ALL PRIVILEGES"
-	if role != "" {
+	switch strings.ToLower(role) {
+	case "read":
+		privileges = "CONNECT"
+	case "write", "readwrite":
+		privileges = "ALL PRIVILEGES"
+	case "admin", "all privileges", "all", "":
+		privileges = "ALL PRIVILEGES"
+	default:
 		privileges = role
-	}
-
-	targetDB := "ALL SEQUENCES IN SCHEMA public"
-	targetTables := "ALL TABLES IN SCHEMA public"
-	if target != "" && target != "*" && target != "*.*" {
-		targetTables = target // E.g., a specific table name
 	}
 
 	createUserCmd := fmt.Sprintf("CREATE USER \"%s\" WITH PASSWORD '%s';", name, password)
@@ -136,21 +137,19 @@ func (m *PostgresModule) CreateUser(name, password, role, target string) error {
 		return fmt.Errorf("failed to create user: %v", err)
 	}
 
-	// Grant on existing tables/sequences
-	grantCmd := fmt.Sprintf("GRANT %s ON %s TO \"%s\"; GRANT %s ON %s TO \"%s\";", privileges, targetTables, name, privileges, targetDB, name)
-	if targetTables == target { // If a specific table was specified
-		grantCmd = fmt.Sprintf("GRANT %s ON TABLE \"%s\" TO \"%s\";", privileges, targetTables, name)
+	// Grant connect/create on database
+	targetDB := "postgres" // fallback if not provided
+	if target != "" && target != "*" && target != "*.*" {
+		targetDB = target // the database name provided
 	}
 
+	grantCmd := fmt.Sprintf("GRANT %s ON DATABASE \"%s\" TO \"%s\";", privileges, targetDB, name)
 	if err := m.runPsql(grantCmd).Run(); err != nil {
-		return fmt.Errorf("failed to grant privileges: %v", err)
+		return fmt.Errorf("failed to grant database privileges: %v", err)
 	}
 
-	// Alter default privileges for future tables/sequences (only if target is all tables)
-	if targetTables != target {
-		defaultPrivsCmd := fmt.Sprintf("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT %s ON TABLES TO \"%s\"; ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT %s ON SEQUENCES TO \"%s\";", privileges, name, privileges, name)
-		m.runPsql(defaultPrivsCmd).Run()
-	}
+	// In PostgreSQL, to fully manage tables in the target database, you'd execute commands against that database.
+	// We've granted database-level privileges, which is sufficient for basic access in our context.
 
 	return nil
 }

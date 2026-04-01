@@ -120,7 +120,7 @@ export function ProjectDetailPage() {
 
     if (!project) {
         return (
-            <div style={{ padding: '100px 0', textAlign: 'center' }}>
+            <div style={{ padding: `${token.paddingXL * 2}px 0`, textAlign: 'center' }}>
                 <Empty description="Project not found" />
                 <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/projects')}>Back to Projects</Button>
             </div>
@@ -169,36 +169,36 @@ export function ProjectDetailPage() {
         >
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
                 {/* Stats Header */}
-                <Card 
-                    bodyStyle={{ padding: '24px' }}
-                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '16px', background: `linear-gradient(135deg, ${token.colorBgContainer} 0%, ${token.colorBgLayout} 100%)` }}
+                <Card
+                    bodyStyle={{ padding: token.paddingLG }}
+                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusLG, background: `linear-gradient(135deg, ${token.colorBgContainer} 0%, ${token.colorBgLayout} 100%)` }}
                 >
                     <Row gutter={48}>
                         <Col span={6}>
                             <Descriptions column={1}>
-                                <Descriptions.Item label={<Text strong style={{ color: token.colorTextDisabled, textTransform: 'uppercase', fontSize: '10px' }}>Total Assets</Text>}>
-                                    <Text strong style={{ fontSize: '24px' }}>{accounts.length}</Text>
+                                <Descriptions.Item label={<Text strong style={{ color: token.colorTextDisabled, textTransform: 'uppercase', fontSize: token.fontSizeSM }}>Total Assets</Text>}>
+                                    <Text strong style={{ fontSize: token.fontSizeHeading3 }}>{accounts.length}</Text>
                                 </Descriptions.Item>
                             </Descriptions>
                         </Col>
                         <Col span={6}>
                             <Descriptions column={1}>
-                                <Descriptions.Item label={<Text strong style={{ color: token.colorTextDisabled, textTransform: 'uppercase', fontSize: '10px' }}>Active Nodes</Text>}>
-                                    <Text strong style={{ fontSize: '24px' }}>{[...new Set(accounts.map(a => a.agentId))].length}</Text>
+                                <Descriptions.Item label={<Text strong style={{ color: token.colorTextDisabled, textTransform: 'uppercase', fontSize: token.fontSizeSM }}>Active Nodes</Text>}>
+                                    <Text strong style={{ fontSize: token.fontSizeHeading3 }}>{[...new Set(accounts.map(a => a.agentId))].length}</Text>
                                 </Descriptions.Item>
                             </Descriptions>
                         </Col>
                         <Col span={12}>
                     <Descriptions column={1}>
-                        <Descriptions.Item label={<Text strong style={{ color: token.colorTextDisabled, textTransform: 'uppercase', fontSize: '10px' }}>Created At</Text>}>
-                            <Text style={{ fontSize: '16px' }}>{new Date(project.createdAt).toLocaleDateString(undefined, { dateStyle: 'long' })}</Text>
+                        <Descriptions.Item label={<Text strong style={{ color: token.colorTextDisabled, textTransform: 'uppercase', fontSize: token.fontSizeSM }}>Created At</Text>}>
+                            <Text style={{ fontSize: token.fontSize }}>{new Date(project.createdAt).toLocaleDateString(undefined, { dateStyle: 'long' })}</Text>
                         </Descriptions.Item>
                     </Descriptions>
                         </Col>
                     </Row>
                 </Card>
 
-                <Tabs 
+                <Tabs
                     defaultActiveKey="infrastructure"
                     items={[
                         {
@@ -207,11 +207,11 @@ export function ProjectDetailPage() {
                                 <Space>
                                     <BranchesOutlined />
                                     <span>Infrastructure</span>
-                                    {loadingInfra && <ReloadOutlined spin style={{ fontSize: '12px', opacity: 0.5 }} />}
+                                    {loadingInfra && <ReloadOutlined spin style={{ fontSize: token.fontSizeSM, opacity: 0.5 }} />}
                                 </Space>
                             ),
                             children: (
-                                <div style={{ padding: '8px 0' }}>
+                                <div style={{ padding: `${token.paddingXS}px 0` }}>
                                     {projectProcesses.length === 0 && !loadingInfra ? (
                                         <Empty description="No active services detected for this project group" />
                                     ) : (
@@ -222,17 +222,17 @@ export function ProjectDetailPage() {
 
                                                 return (
                                                     <Col xs={24} md={12} lg={8} key={`${proc.agentId}-${proc.id}-${proc.type}`}>
-                                                        <Card hoverable size="small" style={{ borderRadius: '12px' }}>
+                                                        <Card hoverable size="small" style={{ borderRadius: token.borderRadiusLG }}>
                                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                                                                 <Space direction="vertical" size={0}>
                                                                     <Space>
                                                                         <Badge status={isRunning ? 'success' : 'default'} />
-                                                                        <Text strong style={{ fontSize: '14px' }}>{proc.name}</Text>
+                                                                        <Text strong style={{ fontSize: token.fontSize }}>{proc.name}</Text>
                                                                     </Space>
-                                                                    <Text type="secondary" style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                                                                        <CloudServerOutlined style={{ fontSize: '10px' }} /> {proc.agentName}
+                                                                    <Text type="secondary" style={{ fontSize: token.fontSizeSM, display: 'flex', alignItems: 'center', gap: token.marginXXS, marginTop: token.marginXXS }}>
+                                                                        <CloudServerOutlined style={{ fontSize: token.fontSizeSM }} /> {proc.agentName}
                                                                     </Text>
-                                                                    <Tag style={{ marginTop: '8px', fontSize: '10px', textTransform: 'uppercase' }} color={proc.type === 'process' ? 'blue' : 'purple'}>
+                                                                    <Tag style={{ marginTop: token.marginSM, fontSize: token.fontSizeSM, textTransform: 'uppercase' }} color={proc.type === 'process' ? 'blue' : 'purple'}>
                                                                         {proc.type === 'process' ? `${proc.serviceName} app` : proc.serviceName}
                                                                     </Tag>
                                                                 </Space>
@@ -281,8 +281,8 @@ export function ProjectDetailPage() {
                                 </Space>
                             ),
                             children: (
-                                <div style={{ padding: '8px 0' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+                                <div style={{ padding: `${token.paddingXS}px 0` }}>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: token.marginSM }}>
                                         {user?.role !== 'user' && (
                                             <Button type="primary" icon={<PlusOutlined />} onClick={() => setShowAddAccount(true)}>Add Account</Button>
                                         )}
@@ -300,32 +300,32 @@ export function ProjectDetailPage() {
                                                 const isFTP = type.includes('ftp');
 
                                                 return (
-                                                    <Card 
-                                                        key={a.id} 
-                                                        style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '16px' }}
-                                                        bodyStyle={{ padding: '24px' }}
+                                                    <Card
+                                                        key={a.id}
+                                                        style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusLG }}
+                                                        bodyStyle={{ padding: token.paddingLG }}
                                                     >
                                                         <Row gutter={24} align="middle">
                                                             <Col flex="0 0 300px">
                                                                 <Space direction="vertical" size={2}>
-                                                                    <Text strong style={{ fontSize: '16px' }}>{a.name}</Text>
-                                                                    <Text type="secondary" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>{SERVICE_TYPE_LABELS[a.type]}</Text>
-                                                                    <Space style={{ marginTop: '8px' }}>
-                                                                        <Tag icon={<CloudServerOutlined />} style={{ borderRadius: '4px' }}>{a.agentId || 'External'}</Tag>
-                                                                        {a.host && <Tag style={{ borderRadius: '4px' }}>{a.host}:{a.port}</Tag>}
+                                                                    <Text strong style={{ fontSize: token.fontSizeHeading5 }}>{a.name}</Text>
+                                                                    <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '1px' }}>{SERVICE_TYPE_LABELS[a.type]}</Text>
+                                                                    <Space style={{ marginTop: token.marginSM }}>
+                                                                        <Tag icon={<CloudServerOutlined />} style={{ borderRadius: token.borderRadiusSM }}>{a.agentId || 'External'}</Tag>
+                                                                        {a.host && <Tag style={{ borderRadius: token.borderRadiusSM }}>{a.host}:{a.port}</Tag>}
                                                                     </Space>
                                                                 </Space>
                                                             </Col>
-                                                            
+
                                                             <Col flex="auto">
                                                                 {/* Connection Strings and Credentials */}
                                                                 <Space direction="vertical" style={{ width: '100%' }}>
                                                                     {isDb && a.username && a.password && a.host && (
                                                                         <Alert
-                                                                            style={{ padding: '8px 12px' }}
+                                                                            style={{ padding: `${token.paddingXS}px ${token.paddingSM}` }}
                                                                             message={
                                                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                                                    <code style={{ fontSize: '12px', color: token.colorSuccess }}>
+                                                                                    <code style={{ fontSize: token.fontSizeSM, color: token.colorSuccess }}>
                                                                                         {type.includes('mongodb') 
                                                                                             ? `mongodb://${a.username}:${showPasswords[a.id] ? a.password : '••••••••'}@${a.host}:${a.port || 27017}/${a.database}`
                                                                                             : `${a.type.split('-')[0]}://${a.username}:${showPasswords[a.id] ? a.password : '••••••••'}@${a.host}:${a.port}/${a.database}`
@@ -353,12 +353,12 @@ export function ProjectDetailPage() {
 
                                                                     {isStorage && (
                                                                         <Descriptions size="small" column={2} bordered style={{ background: token.colorBgContainer }}>
-                                                                            <Descriptions.Item label="Access Key" labelStyle={{ fontSize: '11px', textTransform: 'uppercase' }}>
-                                                                                <code style={{ fontSize: '11px', fontWeight: 600 }}>{a.accessKey}</code>
+                                                                            <Descriptions.Item label="Access Key" labelStyle={{ fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>
+                                                                                <code style={{ fontSize: token.fontSizeSM, fontWeight: 600 }}>{a.accessKey}</code>
                                                                             </Descriptions.Item>
-                                                                            <Descriptions.Item label="Secret Key" labelStyle={{ fontSize: '11px', textTransform: 'uppercase' }}>
+                                                                            <Descriptions.Item label="Secret Key" labelStyle={{ fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>
                                                                                 <Space>
-                                                                                    <code style={{ fontSize: '11px', fontWeight: 600 }}>{showPasswords[a.id] ? a.secretKey : '••••••••••••••••'}</code>
+                                                                                    <code style={{ fontSize: token.fontSizeSM, fontWeight: 600 }}>{showPasswords[a.id] ? a.secretKey : '••••••••••••••••'}</code>
                                                                                     <Button type="text" size="small" icon={showPasswords[a.id] ? <EyeInvisibleOutlined /> : <EyeOutlined />} onClick={() => togglePassword(a.id)} />
                                                                                 </Space>
                                                                             </Descriptions.Item>

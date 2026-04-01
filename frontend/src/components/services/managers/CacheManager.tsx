@@ -309,39 +309,39 @@ export function CacheManager({ sendCommand }: CacheManagerProps) {
     ];
 
     return (
-        <div style={{ padding: '4px 0' }}>
+        <div style={{ padding: `${token.paddingXXS}px 0` }}>
             {error && (
-                <Alert message={error} type="error" showIcon style={{ marginBottom: '24px', borderRadius: '12px' }} />
+                <Alert message={error} type="error" showIcon style={{ marginBottom: token.marginLG, borderRadius: token.borderRadiusLG }} />
             )}
 
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
                 {/* Header */}
                 <Card
-                    style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter }}
-                    bodyStyle={{ padding: '20px' }}
+                    style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter }}
+                    styles={{ body: { padding: token.paddingLG } }}
                 >
                     <Row gutter={24} align="middle">
                         <Col span={16}>
                             <Space size="middle">
                                 <div style={{
-                                    padding: '10px',
-                                    borderRadius: '12px',
+                                    padding: token.paddingSM,
+                                    borderRadius: token.borderRadiusLG,
                                     backgroundColor: `${token.colorSuccess}15`,
                                     color: token.colorSuccess,
-                                    fontSize: '20px',
+                                    fontSize: token.paddingLG,
                                     display: 'flex'
                                 }}>
                                     <DatabaseOutlined />
                                 </div>
                                 <div>
-                                    <Text strong style={{ fontSize: '15px', display: 'block' }}>Cache Engine Management</Text>
-                                    <Text type="secondary" style={{ fontSize: '12px' }}>In-memory data store management and configuration.</Text>
+                                    <Text strong style={{ fontSize: token.fontSize, display: 'block' }}>Cache Engine Management</Text>
+                                    <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>In-memory data store management and configuration.</Text>
                                 </div>
                             </Space>
                         </Col>
                         <Col span={8} style={{ textAlign: 'right' }}>
                             <Space>
-                                <Button icon={<ReloadOutlined spin={loading} />} onClick={fetchData} style={{ borderRadius: '8px' }}>Refresh</Button>
+                                <Button icon={<ReloadOutlined spin={loading} />} onClick={fetchData} style={{ borderRadius: token.borderRadius }}>Refresh</Button>
                             </Space>
                         </Col>
                     </Row>
@@ -351,43 +351,43 @@ export function CacheManager({ sendCommand }: CacheManagerProps) {
                 {Object.keys(metrics).length > 0 && (
                     <Row gutter={16}>
                         <Col span={6}>
-                            <Card style={{ borderRadius: '12px' }}>
+                            <Card style={{ borderRadius: token.borderRadiusLG }}>
                                 <Statistic
                                     title="Connected Clients"
                                     value={metrics.connected_clients || 0}
                                     prefix={<UserOutlined />}
-                                    valueStyle={{ fontSize: '20px' }}
+                                    valueStyle={{ fontSize: token.paddingLG }}
                                 />
                             </Card>
                         </Col>
                         <Col span={6}>
-                            <Card style={{ borderRadius: '12px' }}>
+                            <Card style={{ borderRadius: token.borderRadiusLG }}>
                                 <Statistic
                                     title="Used Memory"
                                     value={metrics.used_memory ? (metrics.used_memory / (1024 * 1024)).toFixed(1) : 0}
                                     suffix="MB"
                                     prefix={<HddOutlined />}
-                                    valueStyle={{ fontSize: '20px' }}
+                                    valueStyle={{ fontSize: token.paddingLG }}
                                 />
                             </Card>
                         </Col>
                         <Col span={6}>
-                            <Card style={{ borderRadius: '12px' }}>
+                            <Card style={{ borderRadius: token.borderRadiusLG }}>
                                 <Statistic
                                     title="Total Keys"
                                     value={metrics.total_keys || 0}
                                     prefix={<KeyOutlined />}
-                                    valueStyle={{ fontSize: '20px' }}
+                                    valueStyle={{ fontSize: token.paddingLG }}
                                 />
                             </Card>
                         </Col>
                         <Col span={6}>
-                            <Card style={{ borderRadius: '12px' }}>
+                            <Card style={{ borderRadius: token.borderRadiusLG }}>
                                 <Statistic
                                     title="Ops/sec"
                                     value={metrics.ops_per_sec || 0}
                                     prefix={<DashboardOutlined />}
-                                    valueStyle={{ fontSize: '20px' }}
+                                    valueStyle={{ fontSize: token.paddingLG }}
                                 />
                             </Card>
                         </Col>
@@ -395,14 +395,14 @@ export function CacheManager({ sendCommand }: CacheManagerProps) {
                 )}
 
                 {/* Settings Section */}
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '0 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Service Settings</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: '0 0 16px 0' }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Service Settings</Text>
                 </Divider>
 
                 <Card
                     loading={loadingSettings}
-                    style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}
-                    bodyStyle={{ padding: '24px' }}
+                    style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}
+                    styles={{ body: { padding: token.paddingLG } }}
                 >
                     <Form
                         form={form}
@@ -414,73 +414,73 @@ export function CacheManager({ sendCommand }: CacheManagerProps) {
                             <Col span={8}>
                                 <Form.Item
                                     name="port"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Listen Port</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Listen Port</Text>}
                                     help="Port number (default: 6379)"
                                 >
-                                    <Input placeholder="6379" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="6379" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={8}>
                                 <Form.Item
                                     name="bind"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Bind Address</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Bind Address</Text>}
                                     help="IP address to bind to"
                                 >
-                                    <Input placeholder="0.0.0.0" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="0.0.0.0" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={8}>
                                 <Form.Item
                                     name="maxmemory"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Max Memory</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Max Memory</Text>}
                                     help="Maximum memory (e.g., 256mb, 1gb)"
                                 >
-                                    <Input placeholder="256mb" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="256mb" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={8}>
                                 <Form.Item
                                     name="maxmemory_policy"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Eviction Policy</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Eviction Policy</Text>}
                                     help="Key eviction policy"
                                 >
-                                    <Input placeholder="allkeys-lru" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="allkeys-lru" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={8}>
                                 <Form.Item
                                     name="appendonly"
-                                    label={<Text strong style={{ fontSize: '12px' }}>AOF Persistence</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>AOF Persistence</Text>}
                                     help="Enable AOF (yes/no)"
                                 >
-                                    <Input placeholder="yes" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="yes" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={8}>
                                 <Form.Item
                                     name="appendfsync"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Append Fsync</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Append Fsync</Text>}
                                     help="Fsync policy (always/everysec/no)"
                                 >
-                                    <Input placeholder="everysec" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="everysec" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={12}>
                                 <Form.Item
                                     name="config_path"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Config Path</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Config Path</Text>}
                                     help="Path to config file"
                                 >
-                                    <Input placeholder="/etc/valkey/valkey.conf" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="/etc/valkey/valkey.conf" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                             <Col span={12}>
                                 <Form.Item
                                     name="dir"
-                                    label={<Text strong style={{ fontSize: '12px' }}>Working Directory</Text>}
+                                    label={<Text strong style={{ fontSize: token.fontSizeSM }}>Working Directory</Text>}
                                     help="Path for RDB/AOF files"
                                 >
-                                    <Input placeholder="/var/lib/valkey" style={{ borderRadius: '8px' }} />
+                                    <Input placeholder="/var/lib/valkey" style={{ borderRadius: token.borderRadius }} />
                                 </Form.Item>
                             </Col>
                         </Row>
@@ -489,7 +489,7 @@ export function CacheManager({ sendCommand }: CacheManagerProps) {
                             htmlType="submit"
                             loading={updatingSettings}
                             icon={<SettingOutlined />}
-                            style={{ borderRadius: '8px' }}
+                            style={{ borderRadius: token.borderRadius }}
                         >
                             Save Settings
                         </Button>
@@ -497,11 +497,11 @@ export function CacheManager({ sendCommand }: CacheManagerProps) {
                 </Card>
 
                 {/* Keys Section */}
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Keys</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: `${token.marginLG}px 0 ${token.marginSM}px 0` }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Keys</Text>
                 </Divider>
 
-                <Card style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                <Card style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}>
                     <Row gutter={16}>
                         <Col flex="auto">
                             <Input
@@ -509,11 +509,11 @@ export function CacheManager({ sendCommand }: CacheManagerProps) {
                                 value={keyPattern}
                                 onChange={(e) => setKeyPattern(e.target.value)}
                                 onPressEnter={fetchData}
-                                style={{ borderRadius: '8px' }}
+                                style={{ borderRadius: token.borderRadius }}
                             />
                         </Col>
                         <Col>
-                            <Button icon={<ReloadOutlined />} onClick={fetchData} style={{ borderRadius: '8px' }}>Search</Button>
+                            <Button icon={<ReloadOutlined />} onClick={fetchData} style={{ borderRadius: token.borderRadius }}>Search</Button>
                         </Col>
                     </Row>
                 </Card>
@@ -524,10 +524,10 @@ export function CacheManager({ sendCommand }: CacheManagerProps) {
                     loading={loading}
                     pagination={{ pageSize: 10 }}
                     size="small"
-                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '12px', overflow: 'hidden' }}
+                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusLG, overflow: 'hidden' }}
                 />
 
-                <Card style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                <Card style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}>
                     <Form
                         layout="inline"
                         onFinish={handleCreateKey}
@@ -537,13 +537,13 @@ export function CacheManager({ sendCommand }: CacheManagerProps) {
                             <Col flex="auto">
                                 <Space wrap>
                                     <Form.Item name="key" label="Key" required>
-                                        <Input placeholder="my:key" style={{ borderRadius: '8px' }} />
+                                        <Input placeholder="my:key" style={{ borderRadius: token.borderRadius }} />
                                     </Form.Item>
                                     <Form.Item name="value" label="Value" required>
-                                        <Input placeholder="value" style={{ borderRadius: '8px' }} />
+                                        <Input placeholder="value" style={{ borderRadius: token.borderRadius }} />
                                     </Form.Item>
                                     <Form.Item name="ttl" label="TTL (seconds)">
-                                        <Input type="number" placeholder="0" style={{ borderRadius: '8px', width: 100 }} />
+                                        <Input type="number" placeholder="0" style={{ borderRadius: token.borderRadius, width: 100 }} />
                                     </Form.Item>
                                 </Space>
                             </Col>
@@ -553,7 +553,7 @@ export function CacheManager({ sendCommand }: CacheManagerProps) {
                                     htmlType="submit"
                                     loading={creatingKey}
                                     icon={<PlusOutlined />}
-                                    style={{ borderRadius: '8px' }}
+                                    style={{ borderRadius: token.borderRadius }}
                                 >
                                     Create Key
                                 </Button>
@@ -562,24 +562,24 @@ export function CacheManager({ sendCommand }: CacheManagerProps) {
                     </Form>
                 </Card>
 
-                <Space style={{ marginTop: '16px' }}>
+                <Space style={{ marginTop: token.padding }}>
                     <Button danger onClick={handleFlushDB}>Flush Database</Button>
                 </Space>
 
                 {/* Users Section */}
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>ACL Users</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: `${token.marginLG}px 0 ${token.marginSM}px 0` }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>ACL Users</Text>
                 </Divider>
 
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', gap: token.paddingSM, flexWrap: 'wrap', marginBottom: token.marginSM }}>
                     {users.length === 0 ? (
                         <Text type="secondary" italic>No ACL users configured.</Text>
                     ) : (
                         users.map((u, i) => (
-                            <Tag key={i} color="processing" style={{ borderRadius: '6px', padding: '4px 10px' }}>
+                            <Tag key={i} color="processing" style={{ borderRadius: token.paddingXXS, padding: `${token.paddingXXS}px ${token.paddingSM}px` }}>
                                 <Space>
                                     <UserOutlined />
-                                    <Text strong style={{ fontSize: '12px' }}>{u}</Text>
+                                    <Text strong style={{ fontSize: token.fontSizeSM }}>{u}</Text>
                                     {u !== 'default' && (
                                         <Button
                                             size="small"
@@ -595,7 +595,7 @@ export function CacheManager({ sendCommand }: CacheManagerProps) {
                     )}
                 </div>
 
-                <Card style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                <Card style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}>
                     <Form
                         layout="inline"
                         onFinish={handleCreateUser}
@@ -605,13 +605,13 @@ export function CacheManager({ sendCommand }: CacheManagerProps) {
                             <Col flex="auto">
                                 <Space wrap>
                                     <Form.Item name="username" label="Username" required>
-                                        <Input placeholder="username" style={{ borderRadius: '8px' }} />
+                                        <Input placeholder="username" style={{ borderRadius: token.borderRadius }} />
                                     </Form.Item>
                                     <Form.Item name="password" label="Password" required>
-                                        <Input.Password placeholder="••••••••" style={{ borderRadius: '8px' }} />
+                                        <Input.Password placeholder="••••••••" style={{ borderRadius: token.borderRadius }} />
                                     </Form.Item>
                                     <Form.Item name="role" label="Role" initialValue="read">
-                                        <Select style={{ width: 100, borderRadius: '8px' }}>
+                                        <Select style={{ width: 100, borderRadius: token.borderRadius }}>
                                             <option value="read">Read</option>
                                             <option value="write">Write</option>
                                             <option value="admin">Admin</option>
@@ -624,7 +624,7 @@ export function CacheManager({ sendCommand }: CacheManagerProps) {
                                     type="primary"
                                     htmlType="submit"
                                     icon={<PlusOutlined />}
-                                    style={{ borderRadius: '8px' }}
+                                    style={{ borderRadius: token.borderRadius }}
                                 >
                                     Create User
                                 </Button>
@@ -634,8 +634,8 @@ export function CacheManager({ sendCommand }: CacheManagerProps) {
                 </Card>
 
                 {/* Connected Clients */}
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Connected Clients</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: `${token.marginLG}px 0 ${token.marginSM}px 0` }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Connected Clients</Text>
                 </Divider>
 
                 <Table
@@ -644,7 +644,7 @@ export function CacheManager({ sendCommand }: CacheManagerProps) {
                     loading={loading}
                     pagination={false}
                     size="small"
-                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '12px', overflow: 'hidden' }}
+                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusLG, overflow: 'hidden' }}
                 />
 
                 {/* Key View Modal */}
@@ -682,7 +682,7 @@ export function CacheManager({ sendCommand }: CacheManagerProps) {
                             {viewingKey.type === 'hash' && viewingKey.fields && (
                                 <div>
                                     <Text strong>Fields: </Text>
-                                    <pre style={{ background: token.colorFillAlter, padding: '12px', borderRadius: '8px' }}>
+                                    <pre style={{ background: token.colorFillAlter, padding: token.paddingSM, borderRadius: token.borderRadius }}>
                                         {JSON.stringify(viewingKey.fields, null, 2)}
                                     </pre>
                                 </div>

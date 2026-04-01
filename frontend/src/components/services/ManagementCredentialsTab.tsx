@@ -242,7 +242,7 @@ export function ManagementCredentialsTab(props: ManagementCredentialsTabProps) {
 
     if (loading && credentials.length === 0) {
         return (
-            <div style={{ textAlign: 'center', padding: '40px' }}>
+            <div style={{ textAlign: 'center', padding: `${token.paddingXL}px` }}>
                 <Spin size="large" />
                 <div style={{ marginTop: 16 }}><Text type="secondary">Loading credentials...</Text></div>
             </div>
@@ -250,7 +250,7 @@ export function ManagementCredentialsTab(props: ManagementCredentialsTabProps) {
     }
 
     return (
-        <div style={{ padding: '12px 0' }}>
+        <div style={{ padding: `${token.paddingSM}px 0` }}>
             <Alert
                 message={
                     <Space>
@@ -275,7 +275,7 @@ export function ManagementCredentialsTab(props: ManagementCredentialsTabProps) {
                     description="No management credentials configured"
                 />
             ) : (
-                <Card style={{ borderRadius: 12, border: `1px solid ${token.colorBorderSecondary}` }} bodyStyle={{ padding: 0 }}>
+                <Card style={{ borderRadius: 12, border: `1px solid ${token.colorBorderSecondary}` }} styles={{ body: { padding: 0 } }}>
                     <Table
                         columns={columns}
                         dataSource={credentials}

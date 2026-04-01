@@ -91,7 +91,7 @@ export function LogsTab({ _agentId, _serviceName }: LogsTabProps) {
     };
 
     return (
-        <div style={{ padding: '12px 0' }}>
+        <div style={{ padding: `${token.paddingSM}px 0` }}>
             <Space direction="vertical" size="middle" style={{ width: '100%' }}>
                 {/* Controls */}
                 <Card style={{ borderRadius: 12, border: `1px solid ${token.colorBorderSecondary}` }}>
@@ -161,7 +161,7 @@ export function LogsTab({ _agentId, _serviceName }: LogsTabProps) {
                         border: `1px solid ${token.colorBorderSecondary}`,
                         backgroundColor: '#1e1e1e'
                     }}
-                    bodyStyle={{ padding: 0 }}
+                    styles={{ body: { padding: 0 } }}
                 >
                     <TextArea
                         ref={textAreaRef}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Typography, Breadcrumb, Space } from 'antd';
+import { Typography, Breadcrumb, Space, theme } from 'antd';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const { Title, Text } = Typography;
@@ -15,6 +15,7 @@ interface PageContainerProps {
 export function PageContainer({ title, description, extra, children, breadcrumb }: PageContainerProps) {
     const navigate = useNavigate();
     const location = useLocation();
+    const { token } = theme.useToken();
 
     // Default breadcrumb logic if not provided
     const pathSnippets = location.pathname.split('/').filter((i) => i);
@@ -28,27 +29,27 @@ export function PageContainer({ title, description, extra, children, breadcrumb 
     ];
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                gap: '8px',
-                padding: '0 4px'
+        <div style={{ display: 'flex', flexDirection: 'column', gap: token.marginLG }}>
+            <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: token.marginXS,
+                padding: `0 ${token.paddingXXS}px`
             }}>
-                <Breadcrumb items={breadcrumb || defaultBreadcrumb} style={{ marginBottom: '8px' }} />
-                <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
+                <Breadcrumb items={breadcrumb || defaultBreadcrumb} style={{ marginBottom: token.marginXXS }} />
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
                     alignItems: 'flex-start',
                     flexWrap: 'wrap',
-                    gap: '16px'
+                    gap: token.marginSM
                 }}>
-                    <div style={{ flex: 1, minWidth: '300px' }}>
+                    <div style={{ flex: 1, minWidth: '100%' }}>
                         <Title level={2} style={{ margin: 0, fontWeight: 800, letterSpacing: '-0.02em' }}>
                             {title}
                         </Title>
                         {description && (
-                            <Text type="secondary" style={{ fontSize: '14px', maxWidth: '600px', display: 'block', marginTop: '4px' }}>
+                            <Text type="secondary" style={{ fontSize: token.fontSize, maxWidth: '100%', display: 'block', marginTop: token.marginXXS }}>
                                 {description}
                             </Text>
                         )}

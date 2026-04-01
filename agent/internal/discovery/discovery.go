@@ -129,19 +129,30 @@ func Discover(registry *core.Registry, activeFirewall string) {
 		}
 	}
 
-	// Register specialized modules for Caddy/Nginx (replacing generic systemd)
-	// These provide the ProxyModule interface for reverse proxy management.
+	// Register specialized modules for databases, proxies, etc. (replacing generic systemd)
+	// These provide the specialized interfaces for database management, web proxies, etc.
 	// Only upgrade if currently registered as a generic SystemdModule.
-	if mod, err := registry.Get("caddy"); err == nil {
-		if _, ok := mod.(*modules.CaddyModule); !ok {
-			registry.Unregister("caddy")
-			registry.Register(modules.NewCaddyModule())
-		}
+	upgrades := map[string]func() core.ServiceModule{
+		"caddy":      func() core.ServiceModule { return modules.NewCaddyModule() },
+		"nginx":      func() core.ServiceModule { return modules.NewNginxModule() },
+		"mysql":      func() core.ServiceModule { return modules.NewMySQLModule() },
+		"mariadb":    func() core.ServiceModule { return modules.NewMySQLModule() },
+		"postgresql": func() core.ServiceModule { return modules.NewPostgresModule() },
+		"mongodb":    func() core.ServiceModule { return modules.NewMongoDBModule() },
+		"rabbitmq":   func() core.ServiceModule { return modules.NewRabbitMQModule() },
+		"mosquitto":  func() core.ServiceModule { return modules.NewMosquittoModule() },
+		"minio":      func() core.ServiceModule { return modules.NewMinIOModule() },
+		"garage":     func() core.ServiceModule { return modules.NewGarageModule() },
+		"vsftpd":     func() core.ServiceModule { return modules.NewVsftpdModule() },
+		"valkey":     func() core.ServiceModule { return modules.NewValkeyModule() },
 	}
-	if mod, err := registry.Get("nginx"); err == nil {
-		if _, ok := mod.(*modules.NginxModule); !ok {
-			registry.Unregister("nginx")
-			registry.Register(modules.NewNginxModule())
+
+	for name, constructor := range upgrades {
+		if mod, err := registry.Get(name); err == nil {
+			if _, ok := mod.(*modules.SystemdModule); ok {
+				registry.Unregister(name)
+				registry.Register(constructor())
+			}
 		}
 	}
 }

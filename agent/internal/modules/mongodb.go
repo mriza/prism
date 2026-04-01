@@ -143,6 +143,15 @@ func (m *MongoDBModule) CreateUser(name, password, role, target string) error {
 
 	if role == "" {
 		role = "readWrite" // Default role
+	} else {
+		switch strings.ToLower(role) {
+		case "read":
+			role = "read"
+		case "write", "readwrite":
+			role = "readWrite"
+		case "admin", "all", "all privileges":
+			role = "dbAdmin"
+		}
 	}
 
 	cmd := getMongoCmd()
@@ -200,7 +209,16 @@ func (m *MongoDBModule) UpdatePrivileges(name, role, target string) error {
 	}
 
 	if role == "" {
-		role = "readWrite"
+		role = "readWrite" // Default role
+	} else {
+		switch strings.ToLower(role) {
+		case "read":
+			role = "read"
+		case "write", "readwrite":
+			role = "readWrite"
+		case "admin", "all", "all privileges":
+			role = "dbAdmin"
+		}
 	}
 
 	cmd := getMongoCmd()

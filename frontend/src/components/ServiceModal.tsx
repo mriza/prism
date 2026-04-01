@@ -64,7 +64,7 @@ const SERVICE_NAME_TO_TYPE: Record<string, ServiceType> = {
     supervisor: 'supervisor',
     systemd: 'systemd',
     crowdsec: 'security-crowdsec',
-    valkey: 'cache-valkey',
+    valkey: 'valkey-cache',
 };
 
 interface ServiceModalProps {
@@ -98,7 +98,7 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
     const isRabbitMQ = serviceName === 'rabbitmq';
     const isWebServer = ['caddy', 'nginx', 'web-caddy', 'web-nginx'].includes(serviceName);
     const isStorage = ['minio', 'garage', 'seaweedfs', 's3-minio', 's3-garage'].includes(serviceName);
-    const isCache = ['valkey', 'redis', 'cache-valkey', 'cache-redis'].includes(serviceName);
+    const isCache = ['valkey', 'redis', 'cache-valkey', 'cache-redis', 'valkey-cache', 'valkey-broker', 'valkey-nosql'].includes(serviceName);
     const isMQTT = ['mosquitto', 'mqtt-mosquitto'].includes(serviceName);
     const isFTP = ['vsftpd', 'ftp-vsftpd'].includes(serviceName);
 
@@ -158,24 +158,24 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
             key: 'overview',
             label: <Space><InfoCircleOutlined />Overview</Space>,
             children: (
-                <div style={{ padding: '12px 0' }}>
+                <div style={{ padding: `${token.paddingSM}px 0` }}>
                     {facts ? (
                         <Card
-                            style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter }}
-                            bodyStyle={{ padding: '24px' }}
+                            style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter }}
+                            styles={{ body: { padding: token.paddingLG } }}
                         >
                             <Descriptions
                                 column={{ xxl: 2, xl: 2, lg: 2, md: 1, sm: 1, xs: 1 }}
                                 bordered
                                 size="small"
-                                style={{ borderRadius: '12px', overflow: 'hidden' }}
+                                style={{ borderRadius: token.borderRadius, overflow: 'hidden' }}
                             >
                                 {Object.entries(facts).map(([key, value]) => (
                                     <Descriptions.Item
                                         key={key}
-                                        label={<Text strong style={{ fontSize: '11px', textTransform: 'uppercase', opacity: 0.6 }}>{key.replace(/_/g, ' ')}</Text>}
+                                        label={<Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', opacity: 0.6 }}>{key.replace(/_/g, ' ')}</Text>}
                                     >
-                                        <Text code style={{ fontSize: '12px', border: 'none', background: 'transparent' }}>{String(value)}</Text>
+                                        <Text code style={{ fontSize: token.fontSizeSM, border: 'none', background: 'transparent' }}>{String(value)}</Text>
                                     </Descriptions.Item>
                                 ))}
                             </Descriptions>
@@ -194,16 +194,16 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
             key: 'control',
             label: <Space><ControlOutlined />Control</Space>,
             children: (
-                <div style={{ padding: '24px 0' }}>
+                <div style={{ padding: `${token.paddingLG}px 0` }}>
                     <Row gutter={24}>
                         <Col span={8}>
                             <Card
                                 hoverable
                                 onClick={() => sendCommand('start').then(res => res && setActionOutput("Service Started Successfully"))}
-                                bodyStyle={{ textAlign: 'center', padding: '32px 16px' }}
-                                style={{ borderRadius: '20px' }}
+                                styles={{ body: { textAlign: 'center', padding: `${token.paddingLG}px ${token.paddingSM}` } }}
+                                style={{ borderRadius: token.borderRadiusLG }}
                             >
-                                <div style={{ fontSize: '32px', color: token.colorSuccess, marginBottom: '16px' }}><PlayCircleOutlined /></div>
+                                <div style={{ fontSize: token.fontSizeHeading1, color: token.colorSuccess, marginBottom: token.marginSM }}><PlayCircleOutlined /></div>
                                 <Text strong style={{ textTransform: 'uppercase', letterSpacing: '0.1em' }}>Start</Text>
                             </Card>
                         </Col>
@@ -211,10 +211,10 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
                             <Card
                                 hoverable
                                 onClick={() => sendCommand('stop').then(res => res && setActionOutput("Service Stopped Successfully"))}
-                                bodyStyle={{ textAlign: 'center', padding: '32px 16px' }}
-                                style={{ borderRadius: '20px' }}
+                                styles={{ body: { textAlign: 'center', padding: '32px 16px' } }}
+                                style={{ borderRadius: token.borderRadiusLG }}
                             >
-                                <div style={{ fontSize: '32px', color: token.colorError, marginBottom: '16px' }}><StopOutlined /></div>
+                                <div style={{ fontSize: token.fontSizeHeading1, color: token.colorError, marginBottom: token.marginSM }}><StopOutlined /></div>
                                 <Text strong style={{ textTransform: 'uppercase', letterSpacing: '0.1em' }}>Stop</Text>
                             </Card>
                         </Col>
@@ -222,10 +222,10 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
                             <Card
                                 hoverable
                                 onClick={() => sendCommand('restart').then(res => res && setActionOutput("Service Restarted Successfully"))}
-                                bodyStyle={{ textAlign: 'center', padding: '32px 16px' }}
-                                style={{ borderRadius: '20px' }}
+                                styles={{ body: { textAlign: 'center', padding: '32px 16px' } }}
+                                style={{ borderRadius: token.borderRadiusLG }}
                             >
-                                <div style={{ fontSize: '32px', color: token.colorWarning, marginBottom: '16px' }}><ReloadOutlined /></div>
+                                <div style={{ fontSize: token.fontSizeHeading1, color: token.colorWarning, marginBottom: token.marginSM }}><ReloadOutlined /></div>
                                 <Text strong style={{ textTransform: 'uppercase', letterSpacing: '0.1em' }}>Restart</Text>
                             </Card>
                         </Col>
@@ -236,7 +236,7 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
                             type="success"
                             showIcon
                             icon={<CheckCircleOutlined />}
-                            style={{ marginTop: '24px', borderRadius: '12px' }}
+                            style={{ marginTop: token.marginLG, borderRadius: token.borderRadius }}
                         />
                     )}
                 </div>
@@ -369,7 +369,7 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
         key: 'mgmt-account',
         label: <Space><KeyOutlined />Management Account</Space>,
         children: (
-            <div style={{ padding: '12px 0' }}>
+            <div style={{ padding: `${token.paddingSM}px 0` }}>
                 {mgmtAccounts.length === 0 ? (
                     <Empty
                         description="No management account configured for this service"
@@ -380,15 +380,15 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
                         {mgmtAccounts.map(a => (
                             <Card
                                 key={a.id}
-                                style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}
-                                bodyStyle={{ padding: '20px 24px' }}
+                                style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}
+                                styles={{ body: { padding: `${token.paddingMD}px ${token.paddingLG}` } }}
                             >
                                 <Space direction="vertical" size={4} style={{ width: '100%' }}>
                                     <Space>
-                                        <Text strong style={{ fontSize: '15px' }}>{a.name}</Text>
-                                        <Tag color="orange" style={{ borderRadius: '4px', fontSize: '10px', textTransform: 'uppercase' }}>Management</Tag>
+                                        <Text strong style={{ fontSize: token.fontSize }}>{a.name}</Text>
+                                        <Tag color="orange" style={{ borderRadius: token.borderRadiusSM, fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>Management</Tag>
                                     </Space>
-                                    <Descriptions size="small" column={2} bordered style={{ marginTop: '12px' }}>
+                                    <Descriptions size="small" column={2} bordered style={{ marginTop: token.marginSM }}>
                                         {a.host && <Descriptions.Item label="Host"><Text code>{a.host}</Text></Descriptions.Item>}
                                         {a.port && <Descriptions.Item label="Port"><Text code>{a.port}</Text></Descriptions.Item>}
                                         {a.username && <Descriptions.Item label="Username"><Text code>{a.username}</Text></Descriptions.Item>}
@@ -426,8 +426,8 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
                         <CloudServerOutlined />
                     </div>
                     <div>
-                        <Text strong style={{ fontSize: '16px', textTransform: 'uppercase' }}>{serviceName}</Text>
-                        <Text type="secondary" style={{ display: 'block', fontSize: '12px' }}>
+                        <Text strong style={{ fontSize: token.fontSizeHeading5, textTransform: 'uppercase' }}>{serviceName}</Text>
+                        <Text type="secondary" style={{ display: 'block', fontSize: token.fontSizeSM }}>
                             Agent: <Text code>{agentId}</Text>
                         </Text>
                     </div>
@@ -435,15 +435,15 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
             }
             footer={null}
             width={1000}
-            style={{ borderRadius: '24px', overflow: 'hidden' }}
+            style={{ borderRadius: token.borderRadiusLG, overflow: 'hidden' }}
         >
-            <div style={{ marginTop: '24px' }}>
+            <div style={{ marginTop: token.marginLG }}>
                 {error && (
-                    <Alert message={error} type="error" showIcon style={{ marginBottom: '24px', borderRadius: '12px' }} />
+                    <Alert message={error} type="error" showIcon style={{ marginBottom: token.marginLG, borderRadius: token.borderRadius }} />
                 )}
 
                 {loading ? (
-                    <div style={{ padding: '60px 0', textAlign: 'center' }}>
+                    <div style={{ padding: `${token.paddingXL}px 0`, textAlign: 'center' }}>
                         <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} tip="Executing operation..." />
                     </div>
                 ) : (

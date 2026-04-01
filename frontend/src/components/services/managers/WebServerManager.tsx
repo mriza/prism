@@ -157,7 +157,7 @@ export function WebServerManager({ sendCommand, serviceName }: WebServerManagerP
                 return (
                     <Space direction="vertical" size={0}>
                         <Text strong>{name}</Text>
-                        <Tag style={{ borderRadius: '4px', border: 'none', fontSize: '10px', backgroundColor: token.colorFillAlter }}>
+                        <Tag style={{ borderRadius: token.paddingXXS, border: 'none', fontSize: token.fontSizeSM, backgroundColor: token.colorFillAlter }}>
                             {status}
                         </Tag>
                     </Space>
@@ -196,37 +196,37 @@ export function WebServerManager({ sendCommand, serviceName }: WebServerManagerP
     const dataSource = sites.map((s, i) => ({ key: i, name: s }));
 
     return (
-        <div style={{ padding: '4px 0' }}>
+        <div style={{ padding: `${token.paddingXXS}px 0` }}>
             {error && (
-                <Alert message={error} type="error" showIcon closable onClose={() => setError(null)} style={{ marginBottom: '24px', borderRadius: '12px' }} />
+                <Alert message={error} type="error" showIcon closable onClose={() => setError(null)} style={{ marginBottom: token.marginLG, borderRadius: token.borderRadiusLG }} />
             )}
 
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
                 <Card
-                    style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter }}
-                    bodyStyle={{ padding: '20px' }}
+                    style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}`, backgroundColor: token.colorFillAlter }}
+                    styles={{ body: { padding: token.paddingLG } }}
                 >
                     <Row gutter={24} align="middle">
                         <Col span={16}>
                             <Space size="middle">
                                 <div style={{
-                                    padding: '10px',
-                                    borderRadius: '12px',
+                                    padding: token.paddingSM,
+                                    borderRadius: token.borderRadiusLG,
                                     backgroundColor: `${token.colorPrimary}15`,
                                     color: token.colorPrimary,
-                                    fontSize: '20px',
+                                    fontSize: token.paddingLG,
                                     display: 'flex'
                                 }}>
                                     <GlobalOutlined />
                                 </div>
                                 <div>
-                                    <Text strong style={{ fontSize: '15px', display: 'block' }}>Gateway Management ({serviceName})</Text>
-                                    <Text type="secondary" style={{ fontSize: '12px' }}>Configure reverse proxy entries and virtual hosts.</Text>
+                                    <Text strong style={{ fontSize: token.fontSize, display: 'block' }}>Gateway Management ({serviceName})</Text>
+                                    <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>Configure reverse proxy entries and virtual hosts.</Text>
                                 </div>
                             </Space>
                         </Col>
                         <Col span={8} style={{ textAlign: 'right' }}>
-                            <Button icon={<ReloadOutlined spin={loading} />} onClick={fetchSites} style={{ borderRadius: '8px' }}>Refresh State</Button>
+                            <Button icon={<ReloadOutlined spin={loading} />} onClick={fetchSites} style={{ borderRadius: token.borderRadius }}>Refresh State</Button>
                         </Col>
                     </Row>
                 </Card>
@@ -234,17 +234,17 @@ export function WebServerManager({ sendCommand, serviceName }: WebServerManagerP
                 {/* Nginx-specific settings — Caddy handles these automatically */}
                 {isNginx && (
                     <>
-                        <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '0 0 16px 0' }}>
+                        <Divider titlePlacement="left" orientationMargin={0} style={{ margin: '0 0 16px 0' }}>
                             <Space>
                                 <SettingOutlined style={{ opacity: 0.5 }} />
-                                <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Default Site Configuration</Text>
+                                <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Default Site Configuration</Text>
                             </Space>
                         </Divider>
 
                         <Card
                             loading={loadingSettings}
-                            style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}
-                            bodyStyle={{ padding: '24px' }}
+                            style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}
+                            styles={{ body: { padding: token.paddingLG } }}
                         >
                             <Form
                                 form={form}
@@ -256,37 +256,37 @@ export function WebServerManager({ sendCommand, serviceName }: WebServerManagerP
                                     <Col span={8}>
                                         <Form.Item
                                             name="port"
-                                            label={<Text strong style={{ fontSize: '12px' }}>HTTP Port</Text>}
+                                            label={<Text strong style={{ fontSize: token.fontSizeSM }}>HTTP Port</Text>}
                                             help="Port for HTTP connections (default: 80)"
                                         >
-                                            <Input placeholder="80" style={{ borderRadius: '8px' }} />
+                                            <Input placeholder="80" style={{ borderRadius: token.borderRadius }} />
                                         </Form.Item>
                                     </Col>
                                     <Col span={16}>
                                         <Form.Item
                                             name="docroot"
-                                            label={<Text strong style={{ fontSize: '12px' }}>Document Root</Text>}
+                                            label={<Text strong style={{ fontSize: token.fontSizeSM }}>Document Root</Text>}
                                             help="Path to website files directory"
                                         >
-                                            <Input placeholder="/var/www/html" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                                            <Input placeholder="/var/www/html" style={{ borderRadius: token.borderRadius, fontFamily: 'monospace' }} />
                                         </Form.Item>
                                     </Col>
                                     <Col span={12}>
                                         <Form.Item
                                             name="ssl_cert"
-                                            label={<Space><SafetyCertificateOutlined /><Text strong style={{ fontSize: '12px' }}>SSL Certificate Path</Text></Space>}
+                                            label={<Space><SafetyCertificateOutlined /><Text strong style={{ fontSize: token.fontSizeSM }}>SSL Certificate Path</Text></Space>}
                                             help="Path to TLS/SSL certificate file (.crt or .pem)"
                                         >
-                                            <Input placeholder="/etc/ssl/certs/server.crt" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                                            <Input placeholder="/etc/ssl/certs/server.crt" style={{ borderRadius: token.borderRadius, fontFamily: 'monospace' }} />
                                         </Form.Item>
                                     </Col>
                                     <Col span={12}>
                                         <Form.Item
                                             name="ssl_key"
-                                            label={<Space><SafetyCertificateOutlined /><Text strong style={{ fontSize: '12px' }}>SSL Key Path</Text></Space>}
+                                            label={<Space><SafetyCertificateOutlined /><Text strong style={{ fontSize: token.fontSizeSM }}>SSL Key Path</Text></Space>}
                                             help="Path to TLS/SSL private key file"
                                         >
-                                            <Input placeholder="/etc/ssl/private/server.key" style={{ borderRadius: '8px', fontFamily: 'monospace' }} />
+                                            <Input placeholder="/etc/ssl/private/server.key" style={{ borderRadius: token.borderRadius, fontFamily: 'monospace' }} />
                                         </Form.Item>
                                     </Col>
                                 </Row>
@@ -295,7 +295,7 @@ export function WebServerManager({ sendCommand, serviceName }: WebServerManagerP
                                     htmlType="submit"
                                     loading={updatingSettings}
                                     icon={<SettingOutlined />}
-                                    style={{ borderRadius: '8px' }}
+                                    style={{ borderRadius: token.borderRadius }}
                                 >
                                     Save & Reload Nginx
                                 </Button>
@@ -304,8 +304,8 @@ export function WebServerManager({ sendCommand, serviceName }: WebServerManagerP
                     </>
                 )}
 
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '0 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Active Virtual Hosts</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: '0 0 16px 0' }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Active Virtual Hosts</Text>
                 </Divider>
 
                 <Table
@@ -314,24 +314,24 @@ export function WebServerManager({ sendCommand, serviceName }: WebServerManagerP
                     loading={loading}
                     pagination={false}
                     size="small"
-                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: '12px', overflow: 'hidden' }}
+                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusLG, overflow: 'hidden' }}
                 />
 
-                <Divider orientation={'left' as any} orientationMargin={0} style={{ margin: '24px 0 16px 0' }}>
-                    <Text strong style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Add Reverse Proxy</Text>
+                <Divider titlePlacement="left" orientationMargin={0} style={{ margin: `${token.marginLG}px 0 ${token.marginSM}px 0` }}>
+                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.5 }}>Add Reverse Proxy</Text>
                 </Divider>
 
-                <Card style={{ borderRadius: '16px', border: `1px solid ${token.colorBorderSecondary}` }}>
+                <Card style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}>
                     <Row gutter={12}>
                         <Col flex="auto">
                             <Input
                                 placeholder="Domain (e.g. app.example.com)"
                                 prefix={<LinkOutlined style={{ opacity: 0.3 }} />}
-                                style={{ borderRadius: '8px', height: '40px' }}
+                                style={{ borderRadius: token.borderRadius, height: token.paddingLG }}
                                 id="new-site-domain"
                             />
                         </Col>
-                        <Col style={{ width: '140px' }}>
+                        <Col style={{ width: '100%' }}>
                             <Input
                                 placeholder="Upstream port"
                                 type="number"
@@ -339,7 +339,7 @@ export function WebServerManager({ sendCommand, serviceName }: WebServerManagerP
                                 max={65535}
                                 value={proxyPort}
                                 onChange={(e) => setProxyPort(e.target.value)}
-                                style={{ borderRadius: '8px', height: '40px' }}
+                                style={{ borderRadius: token.borderRadius, height: token.paddingLG }}
                             />
                         </Col>
                         <Col>
@@ -351,7 +351,7 @@ export function WebServerManager({ sendCommand, serviceName }: WebServerManagerP
                                     const input = document.getElementById('new-site-domain') as HTMLInputElement;
                                     handleCreateProxy(input.value, proxyPort);
                                 }}
-                                style={{ borderRadius: '8px', height: '40px', fontWeight: 600, padding: '0 24px' }}
+                                style={{ borderRadius: token.borderRadius, height: token.paddingLG, fontWeight: 600, padding: '0 24px' }}
                             >
                                 Provision Route
                             </Button>

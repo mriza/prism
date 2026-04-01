@@ -54,7 +54,7 @@ export function ApproveServerModal({ isOpen, onClose, agentId, hostname }: Appro
             title={
                 <Space size="middle">
                     <div style={{ 
-                        padding: '8px', 
+                        padding: token.paddingXS, 
                         borderRadius: '10px', 
                         backgroundColor: `${token.colorSuccess}15`, 
                         color: token.colorSuccess,
@@ -63,8 +63,8 @@ export function ApproveServerModal({ isOpen, onClose, agentId, hostname }: Appro
                         <RocketOutlined />
                     </div>
                     <div>
-                        <Text strong style={{ fontSize: '16px' }}>Approve Server</Text>
-                        <Text type="secondary" style={{ display: 'block', fontSize: '12px' }}>
+                        <Text strong style={{ fontSize: token.fontSizeHeading5 }}>Approve Server</Text>
+                        <Text type="secondary" style={{ display: 'block', fontSize: token.fontSizeSM }}>
                             Register this new PRISM agent as a managed resource
                         </Text>
                     </div>
@@ -72,18 +72,18 @@ export function ApproveServerModal({ isOpen, onClose, agentId, hostname }: Appro
             }
             footer={null}
             width={500}
-            style={{ borderRadius: '20px', overflow: 'hidden' }}
+            style={{ borderRadius: token.borderRadiusLG, overflow: 'hidden' }}
         >
-            <div style={{ marginTop: '24px' }}>
+            <div style={{ marginTop: token.paddingLG }}>
                 <Alert
                     message={
-                        <Text style={{ fontSize: '13px' }}>
+                        <Text style={{ fontSize: token.fontSize }}>
                             A new agent was detected on <Text code>{hostname}</Text>. 
                             Provide a display name to register it.
                         </Text>
                     }
                     type="info"
-                    style={{ marginBottom: '24px', borderRadius: '12px' }}
+                    style={{ marginBottom: token.marginLG, borderRadius: token.borderRadiusLG }}
                 />
 
                 {error && (
@@ -92,7 +92,7 @@ export function ApproveServerModal({ isOpen, onClose, agentId, hostname }: Appro
                         description={error}
                         type="error"
                         showIcon
-                        style={{ marginBottom: '24px', borderRadius: '12px' }}
+                        style={{ marginBottom: token.marginLG, borderRadius: token.borderRadiusLG }}
                     />
                 )}
 
@@ -104,37 +104,37 @@ export function ApproveServerModal({ isOpen, onClose, agentId, hostname }: Appro
                 >
                     <Form.Item
                         name="name"
-                        label={<Text strong style={{ fontSize: '12px' }}>Server name</Text>}
+                        label={<Text strong style={{ fontSize: token.fontSizeSM }}>Server name</Text>}
                         rules={[{ required: true, message: 'Server name is required' }]}
                     >
-                        <Input placeholder="e.g. Production Database" style={{ borderRadius: '8px' }} autoFocus />
+                        <Input placeholder="e.g. Production Database" style={{ borderRadius: token.borderRadius }} autoFocus />
                     </Form.Item>
                     
                     <Form.Item
                         name="description"
-                        label={<Text strong style={{ fontSize: '12px' }}>Description</Text>}
+                        label={<Text strong style={{ fontSize: token.fontSizeSM }}>Description</Text>}
                     >
                         <TextArea
                             placeholder="Optional details about this server's purpose..."
                             rows={3}
-                            style={{ borderRadius: '8px' }}
+                            style={{ borderRadius: token.borderRadius }}
                         />
                     </Form.Item>
                     
                     <div style={{ 
-                        marginTop: '32px', 
-                        paddingTop: '16px', 
+                        marginTop: token.marginLG, 
+                        paddingTop: token.padding, 
                         borderTop: `1px solid ${token.colorBorderSecondary}`,
                         display: 'flex',
                         justifyContent: 'flex-end',
-                        gap: '12px'
+                        gap: token.paddingSM
                     }}>
-                        <Button onClick={onClose} disabled={isSubmitting} style={{ borderRadius: '8px' }}>Cancel</Button>
+                        <Button onClick={onClose} disabled={isSubmitting} style={{ borderRadius: token.borderRadius }}>Cancel</Button>
                         <Button 
                             type="primary" 
                             htmlType="submit" 
                             loading={isSubmitting} 
-                            style={{ borderRadius: '8px', fontWeight: 600, backgroundColor: token.colorSuccess, borderColor: 'transparent' }}
+                            style={{ borderRadius: token.borderRadius, fontWeight: 600, backgroundColor: token.colorSuccess, borderColor: 'transparent' }}
                         >
                             Approve Server
                         </Button>

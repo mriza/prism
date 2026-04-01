@@ -13,6 +13,17 @@ import (
 
 var ControlURL = "http://localhost:65432/api/control"
 
+// isValkeyType checks if the service type is any Valkey variant
+func isValkeyType(t string) bool {
+	return t == "valkey" || t == "valkey-server" ||
+		t == "valkey-cache" || t == "valkey-broker" || t == "valkey-nosql"
+}
+
+// isDatabaseType checks if the service type supports database provisioning
+func isDatabaseType(t string) bool {
+	return t == "mysql" || t == "postgresql" || t == "mongodb" || t == "rabbitmq" || isValkeyType(t)
+}
+
 func sendInternalControlCommand(serverID, service, action string, options map[string]interface{}, authToken string) error {
 	payload := map[string]interface{}{
 		"agent_id": serverID,
@@ -37,6 +48,13 @@ func sendInternalControlCommand(serverID, service, action string, options map[st
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("control api returned status %d", resp.StatusCode)
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err == nil {
+		if errMsg, ok := result["error"].(string); ok && errMsg != "" {
+			return fmt.Errorf("agent error: %s", errMsg)
+		}
 	}
 	return nil
 }
@@ -98,10 +116,13 @@ func HandleAccounts(w http.ResponseWriter, r *http.Request) {
 		if a.Status == "" {
 			a.Status = "active"
 		}
+		if a.Role == "" {
+			a.Role = "readwrite"
+		}
 
 		// Remote provisioning logic via Agent
 		// Database provisioning
-		if a.Type == "mysql" || a.Type == "postgresql" || a.Type == "mongodb" || a.Type == "rabbitmq" || a.Type == "valkey" {
+		if isDatabaseType(a.Type) {
 			allDBs := a.Databases
 			if a.Database != "" {
 				found := false
@@ -116,21 +137,29 @@ func HandleAccounts(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			// Create Databases
-			for _, dbName := range allDBs {
-				err := sendInternalControlCommand(a.ServerID, string(a.Type), "db_create_db", map[string]interface{}{
-					"name": dbName,
-				}, authToken)
-				if err != nil {
-					http.Error(w, fmt.Sprintf("Failed to create database/vhost %s on server: %v", dbName, err), http.StatusInternalServerError)
-					return
+			// Determine the canonical service name for agent commands
+			agentService := string(a.Type)
+			if isValkeyType(a.Type) {
+				agentService = "valkey"
+			}
+
+			// Create Databases (skip for Valkey cache/broker modes)
+			if a.Type != "valkey-cache" && a.Type != "valkey-broker" {
+				for _, dbName := range allDBs {
+					err := sendInternalControlCommand(a.ServerID, agentService, "db_create_db", map[string]interface{}{
+						"name": dbName,
+					}, authToken)
+					if err != nil {
+						http.Error(w, fmt.Sprintf("Failed to create database/vhost %s on server: %v", dbName, err), http.StatusInternalServerError)
+						return
+					}
 				}
 			}
 
 			// Create Users & Permissions
 			if a.Username != "" && a.Password != "" {
 				for _, dbName := range allDBs {
-					err := sendInternalControlCommand(a.ServerID, string(a.Type), "db_create_user", map[string]interface{}{
+					err := sendInternalControlCommand(a.ServerID, agentService, "db_create_user", map[string]interface{}{
 						"username": a.Username,
 						"password": a.Password,
 						"role":     a.Role,
@@ -145,96 +174,130 @@ func HandleAccounts(w http.ResponseWriter, r *http.Request) {
 
 			// RabbitMQ Advanced Provisioning
 			if a.Type == "rabbitmq" {
+				// Create exchanges, queues, and bindings
 				for _, b := range a.Bindings {
 					if b.VHost != "" {
 						if b.SourceExchange != "" {
-							sendInternalControlCommand(a.ServerID, "rabbitmq", "rabbitmq_create_exchange", map[string]interface{}{
+							err := sendInternalControlCommand(a.ServerID, "rabbitmq", "rabbitmq_create_exchange", map[string]interface{}{
 								"vhost": b.VHost,
 								"name":  b.SourceExchange,
 								"type":  "topic",
 							}, authToken)
+							if err != nil {
+								log.Printf("Warning: failed to create RabbitMQ exchange %s: %v", b.SourceExchange, err)
+							}
 						}
 						if b.DestinationQueue != "" {
-							sendInternalControlCommand(a.ServerID, "rabbitmq", "rabbitmq_create_queue", map[string]interface{}{
+							err := sendInternalControlCommand(a.ServerID, "rabbitmq", "rabbitmq_create_queue", map[string]interface{}{
 								"vhost": b.VHost,
 								"name":  b.DestinationQueue,
 							}, authToken)
+							if err != nil {
+								log.Printf("Warning: failed to create RabbitMQ queue %s: %v", b.DestinationQueue, err)
+							}
 						}
 						if b.SourceExchange != "" && b.DestinationQueue != "" {
-							sendInternalControlCommand(a.ServerID, "rabbitmq", "db_create_binding", map[string]interface{}{
+							err := sendInternalControlCommand(a.ServerID, "rabbitmq", "db_create_binding", map[string]interface{}{
 								"vhost":            b.VHost,
 								"sourceExchange":   b.SourceExchange,
 								"destinationQueue": b.DestinationQueue,
 								"routingKey":       b.RoutingKey,
 							}, authToken)
+							if err != nil {
+								log.Printf("Warning: failed to create RabbitMQ binding: %v", err)
+							}
 						}
 					}
 				}
 
+				// Sync bindings - return error to user if sync fails
 				err := sendInternalControlCommand(a.ServerID, "rabbitmq", "db_sync", map[string]interface{}{
 					"bindings": a.Bindings,
 				}, authToken)
 				if err != nil {
 					log.Printf("Warning: failed to sync RabbitMQ bindings: %v", err)
+					// Return warning to user but don't fail the entire operation
+					// Account and user are created, but bindings may be incomplete
+					w.Header().Set("X-RabbitMQ-Warning", "Bindings sync failed: "+err.Error())
 				}
 			}
 		}
 
 		// S3 Storage Provisioning
 		if a.Type == "s3-minio" || a.Type == "s3-garage" || a.Type == "minio" {
+			agentSvc := strings.TrimPrefix(string(a.Type), "s3-")
 			if a.Bucket != "" {
-				sendInternalControlCommand(a.ServerID, string(a.Type), "storage_create_bucket", map[string]interface{}{
+				err := sendInternalControlCommand(a.ServerID, agentSvc, "storage_create_bucket", map[string]interface{}{
 					"name": a.Bucket,
 				}, authToken)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("Failed to create storage bucket: %v", err), http.StatusInternalServerError)
+					return
+				}
 			}
 			if a.AccessKey != "" {
-				sendInternalControlCommand(a.ServerID, string(a.Type), "storage_create_user", map[string]interface{}{
+				err := sendInternalControlCommand(a.ServerID, agentSvc, "storage_create_user", map[string]interface{}{
 					"access_key": a.AccessKey,
 					"secret_key": a.SecretKey,
 				}, authToken)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("Failed to create storage access keys: %v", err), http.StatusInternalServerError)
+					return
+				}
 			}
 		}
 
 		// Web Server & Proxy Provisioning
 		if a.Type == "web-caddy" || a.Type == "web-nginx" || a.Type == "caddy" || a.Type == "nginx" {
-			svcType := a.Type
-			if svcType == "caddy" {
-				svcType = "web-caddy"
-			}
-			if svcType == "nginx" {
-				svcType = "web-nginx"
-			}
+			agentSvc := strings.TrimPrefix(string(a.Type), "web-")
 			if a.Endpoint != "" {
-				sendInternalControlCommand(a.ServerID, svcType, "proxy_create", map[string]interface{}{
+				err := sendInternalControlCommand(a.ServerID, agentSvc, "proxy_create", map[string]interface{}{
 					"domain": a.Endpoint,
 					"port":   float64(a.Port),
 				}, authToken)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("Failed to create web proxy route: %v", err), http.StatusInternalServerError)
+					return
+				}
 			}
 		}
 
 		// PM2 Proxy Provisioning
 		if a.Type == "pm2" && a.PM2ProxyDomain != "" && a.PM2ProxyType != "none" && a.PM2ProxyType != "" {
-			sendInternalControlCommand(a.ServerID, a.PM2ProxyType, "proxy_create", map[string]interface{}{
+			err := sendInternalControlCommand(a.ServerID, string(a.PM2ProxyType), "proxy_create", map[string]interface{}{
 				"domain": a.PM2ProxyDomain,
 				"port":   float64(a.PM2Port),
 			}, authToken)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("Failed to configure PM2 reverse proxy: %v", err), http.StatusInternalServerError)
+				return
+			}
 		}
 
 		// MQTT Provisioning
 		if a.Type == "mqtt-mosquitto" || a.Type == "mosquitto" {
-			sendInternalControlCommand(a.ServerID, "mosquitto", "mq_create_user", map[string]interface{}{
+			err := sendInternalControlCommand(a.ServerID, "mosquitto", "mq_create_user", map[string]interface{}{
 				"username": a.Username,
 				"password": a.Password,
 			}, authToken)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("Failed to create MQTT credentials: %v", err), http.StatusInternalServerError)
+				return
+			}
 		}
 
 		// FTP Provisioning
-		if a.Type == "ftp-vsftpd" || a.Type == "vsftpd" {
-			sendInternalControlCommand(a.ServerID, "vsftpd", "ftp_create_user", map[string]interface{}{
+		if a.Type == "ftp-vsftpd" || a.Type == "vsftpd" || a.Type == "ftp-sftpgo" || a.Type == "sftpgo" {
+			agentSvc := strings.TrimPrefix(string(a.Type), "ftp-")
+			err := sendInternalControlCommand(a.ServerID, agentSvc, "ftp_create_user", map[string]interface{}{
 				"username":  a.Username,
 				"password":  a.Password,
 				"root_path": a.RootPath,
 			}, authToken)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("Failed to provision FTP user: %v", err), http.StatusInternalServerError)
+				return
+			}
 		}
 
 		// Open Firewall Port
@@ -317,7 +380,7 @@ func HandleAccountDetail(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Send update commands if applicable
-		if a.Type == "mysql" || a.Type == "postgresql" || a.Type == "mongodb" || a.Type == "rabbitmq" || a.Type == "valkey" {
+		if isDatabaseType(a.Type) {
 			allDBs := a.Databases
 			if a.Database != "" {
 				found := false
@@ -332,10 +395,51 @@ func HandleAccountDetail(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			// Update Privileges
+			// Determine the canonical service name for agent commands
+			agentService := string(a.Type)
+			if isValkeyType(a.Type) {
+				agentService = "valkey"
+			}
+
+			// Check for newly added databases and create them
+			oldDBs := existing.Databases
+			for _, newDB := range allDBs {
+				found := false
+				for _, oldDB := range oldDBs {
+					if oldDB == newDB {
+						found = true
+						break
+					}
+				}
+				// Create database if it's newly added (skip for Valkey cache/broker)
+				if !found && a.Type != "valkey-cache" && a.Type != "valkey-broker" {
+					err := sendInternalControlCommand(a.ServerID, agentService, "db_create_db", map[string]interface{}{
+						"name": newDB,
+					}, authToken)
+					if err != nil {
+						http.Error(w, fmt.Sprintf("Failed to create database %s on server: %v", newDB, err), http.StatusInternalServerError)
+						return
+					}
+					// Also create user for the new database
+					if a.Username != "" && a.Password != "" {
+						err = sendInternalControlCommand(a.ServerID, agentService, "db_create_user", map[string]interface{}{
+							"username": a.Username,
+							"password": a.Password,
+							"role":     a.Role,
+							"target":   newDB,
+						}, authToken)
+						if err != nil {
+							http.Error(w, fmt.Sprintf("Failed to create user for new database %s on server: %v", newDB, err), http.StatusInternalServerError)
+							return
+						}
+					}
+				}
+			}
+
+			// Update Privileges for all databases
 			if a.Username != "" {
 				for _, dbName := range allDBs {
-					err := sendInternalControlCommand(a.ServerID, string(a.Type), "db_update_privileges", map[string]interface{}{
+					err := sendInternalControlCommand(a.ServerID, agentService, "db_update_privileges", map[string]interface{}{
 						"username": a.Username,
 						"role":     a.Role,
 						"target":   dbName,
@@ -349,37 +453,50 @@ func HandleAccountDetail(w http.ResponseWriter, r *http.Request) {
 
 			// Sync Bindings for RabbitMQ
 			if a.Type == "rabbitmq" {
+				// Create exchanges, queues, and bindings
 				for _, b := range a.Bindings {
 					if b.VHost != "" {
 						if b.SourceExchange != "" {
-							sendInternalControlCommand(a.ServerID, "rabbitmq", "rabbitmq_create_exchange", map[string]interface{}{
+							err := sendInternalControlCommand(a.ServerID, "rabbitmq", "rabbitmq_create_exchange", map[string]interface{}{
 								"vhost": b.VHost,
 								"name":  b.SourceExchange,
 								"type":  "topic",
 							}, authToken)
+							if err != nil {
+								log.Printf("Warning: failed to create RabbitMQ exchange %s: %v", b.SourceExchange, err)
+							}
 						}
 						if b.DestinationQueue != "" {
-							sendInternalControlCommand(a.ServerID, "rabbitmq", "rabbitmq_create_queue", map[string]interface{}{
+							err := sendInternalControlCommand(a.ServerID, "rabbitmq", "rabbitmq_create_queue", map[string]interface{}{
 								"vhost": b.VHost,
 								"name":  b.DestinationQueue,
 							}, authToken)
+							if err != nil {
+								log.Printf("Warning: failed to create RabbitMQ queue %s: %v", b.DestinationQueue, err)
+							}
 						}
 						if b.SourceExchange != "" && b.DestinationQueue != "" {
-							sendInternalControlCommand(a.ServerID, "rabbitmq", "db_create_binding", map[string]interface{}{
+							err := sendInternalControlCommand(a.ServerID, "rabbitmq", "db_create_binding", map[string]interface{}{
 								"vhost":            b.VHost,
 								"sourceExchange":   b.SourceExchange,
 								"destinationQueue": b.DestinationQueue,
 								"routingKey":       b.RoutingKey,
 							}, authToken)
+							if err != nil {
+								log.Printf("Warning: failed to create RabbitMQ binding: %v", err)
+							}
 						}
 					}
 				}
 
+				// Sync bindings - return warning to user if sync fails
 				err := sendInternalControlCommand(a.ServerID, "rabbitmq", "db_sync", map[string]interface{}{
 					"bindings": a.Bindings,
 				}, authToken)
 				if err != nil {
 					log.Printf("Warning: failed to sync RabbitMQ bindings: %v", err)
+					// Return warning to user but don't fail the entire operation
+					w.Header().Set("X-RabbitMQ-Warning", "Bindings sync failed: "+err.Error())
 				}
 			}
 		}
@@ -418,27 +535,48 @@ func HandleAccountDetail(w http.ResponseWriter, r *http.Request) {
 
 		// Sync PM2 Proxy
 		if a.Type == "pm2" && a.PM2ProxyDomain != "" && a.PM2ProxyType != "none" && a.PM2ProxyType != "" {
-			sendInternalControlCommand(a.ServerID, a.PM2ProxyType, "proxy_create", map[string]interface{}{
+			err := sendInternalControlCommand(a.ServerID, a.PM2ProxyType, "proxy_create", map[string]interface{}{
 				"domain": a.PM2ProxyDomain,
 				"port":   float64(a.PM2Port),
 			}, authToken)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("Failed to configure PM2 reverse proxy: %v", err), http.StatusInternalServerError)
+				return
+			}
 		}
 
 		// Sync MQTT
 		if a.Type == "mqtt-mosquitto" || a.Type == "mosquitto" {
-			sendInternalControlCommand(a.ServerID, "mosquitto", "mq_create_user", map[string]interface{}{
+			err := sendInternalControlCommand(a.ServerID, "mosquitto", "mq_create_user", map[string]interface{}{
 				"username": a.Username,
 				"password": a.Password,
 			}, authToken)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("Failed to create MQTT credentials: %v", err), http.StatusInternalServerError)
+				return
+			}
 		}
 
-		// Sync FTP
-		if a.Type == "ftp-vsftpd" || a.Type == "vsftpd" {
-			sendInternalControlCommand(a.ServerID, "vsftpd", "ftp_create_user", map[string]interface{}{
+		// Sync FTP - Use explicit mapping instead of string manipulation
+		if a.Type == "ftp-vsftpd" || a.Type == "vsftpd" || a.Type == "ftp-sftpgo" || a.Type == "sftpgo" {
+			// Explicit service type mapping for FTP services
+			agentSvc := ""
+			switch a.Type {
+			case "ftp-vsftpd", "vsftpd":
+				agentSvc = "vsftpd"
+			case "ftp-sftpgo", "sftpgo":
+				agentSvc = "sftpgo"
+			}
+
+			err := sendInternalControlCommand(a.ServerID, agentSvc, "ftp_create_user", map[string]interface{}{
 				"username":  a.Username,
 				"password":  a.Password,
 				"root_path": a.RootPath,
 			}, authToken)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("Failed to provision FTP user: %v", err), http.StatusInternalServerError)
+				return
+			}
 		}
 
 		if err := db.UpdateServiceAccount(a); err != nil {

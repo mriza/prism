@@ -116,7 +116,7 @@ func main() {
 				log.Printf("Registered SFTPGo module (systemd): %s", svcCfg.Name)
 
 			// Cache/Database
-			case "valkey", "valkey-server":
+			case "valkey", "valkey-server", "valkey-cache", "valkey-broker", "valkey-nosql":
 				registry.Register(modules.NewValkeyModule())
 				log.Printf("Registered Valkey module: %s", svcCfg.Name)
 			case "redis", "redis-server":
@@ -142,6 +142,10 @@ func main() {
 
 	// Auto-Discovery
 	discovery.Discover(registry, cfg.ActiveFirewall)
+
+	// Always register the deployment module (available on all agents)
+	registry.Register(modules.NewDeploymentModule())
+	log.Println("Registered deployment module")
 
 	// Log all services
 	for _, s := range registry.List() {
@@ -170,20 +174,39 @@ func main() {
 		log.Printf("Using existing Agent ID: %s", cfg.Hub.ID)
 	}
 
+	const (
+		baseDelay    = 5 * time.Second
+		maxDelay     = 5 * time.Minute
+		stableUptime = 30 * time.Second // connection considered stable after this long
+	)
+	delay := baseDelay
+
 	for {
 		log.Printf("Connecting to Hub at %s", u.String())
 
+		connStart := time.Now()
 		err := connectAndMonitor(u.String(), cfg.Hub.Token, registry, interrupt, cfg, *configPath)
 		if err != nil {
 			log.Printf("Connection error: %v", err)
+		}
+
+		// Reset backoff if connection was stable (connected long enough)
+		if time.Since(connStart) >= stableUptime {
+			delay = baseDelay
 		}
 
 		select {
 		case <-interrupt:
 			log.Println("Agent shutting down...")
 			return
-		case <-time.After(5 * time.Second):
-			log.Println("Reconnecting in 5 seconds...")
+		case <-time.After(delay):
+			log.Printf("Reconnecting in %s...", delay)
+		}
+
+		// Exponential backoff: double delay each attempt, cap at maxDelay
+		delay *= 2
+		if delay > maxDelay {
+			delay = maxDelay
 		}
 	}
 }
@@ -202,6 +225,16 @@ func getOSInfo() string {
 		}
 	}
 	return osInfo
+}
+
+// normalizeServiceName maps service type aliases to canonical module names
+func normalizeServiceName(name string) string {
+	// Valkey subtypes all use the canonical "valkey" module
+	switch name {
+	case "valkey-cache", "valkey-broker", "valkey-nosql", "valkey-server":
+		return "valkey"
+	}
+	return name
 }
 
 func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt chan os.Signal, cfg *config.Config, cfgPath string) error {
@@ -267,6 +300,7 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 			OSInfo:   getOSInfo(),
 			Token:    token,
 			Services: serviceInfos,
+			Runtimes: modules.DetectRuntimes(),
 		},
 	}
 
@@ -348,7 +382,9 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 						var success bool
 						var output string
 
-						mod, err := registry.Get(serviceName)
+						// Normalize service name for module lookup
+						normalizedService := normalizeServiceName(serviceName)
+						mod, err := registry.Get(normalizedService)
 						if err != nil {
 							success = false
 							output = "target firewall not found"
@@ -444,7 +480,9 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 						return
 					}
 
-					mod, err := registry.Get(serviceName)
+					// Normalize service name for module lookup (handles Valkey subtypes)
+					normalizedService := normalizeServiceName(serviceName)
+					mod, err := registry.Get(normalizedService)
 					var success bool
 					var output string
 

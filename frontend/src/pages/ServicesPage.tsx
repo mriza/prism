@@ -136,9 +136,9 @@ export function ServicesPage() {
                 const isOnline = svc.status === 'online' || svc.status === 'running' || svc.status === 'active';
                 return (
                     <Space size="middle">
-                        <div style={{ 
-                            padding: '10px', 
-                            borderRadius: '12px', 
+                        <div style={{
+                            padding: token.padding,
+                            borderRadius: token.borderRadiusLG,
                             backgroundColor: isOnline ? `${token.colorPrimary}10` : token.colorFillAlter,
                             color: isOnline ? token.colorPrimary : token.colorTextDisabled,
                             display: 'flex',
@@ -149,7 +149,7 @@ export function ServicesPage() {
                         </div>
                         <div>
                             <Text strong style={{ display: 'block' }}>{label}</Text>
-                            <Text type="secondary" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{svc.name}</Text>
+                            <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{svc.name}</Text>
                         </div>
                     </Space>
                 );
@@ -239,7 +239,7 @@ export function ServicesPage() {
                     placeholder="Search infrastructure or hosts..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    style={{ width: 300, borderRadius: '10px' }}
+                    style={{ width: 300, borderRadius: token.borderRadiusLG }}
                 />
             }
         >
@@ -251,25 +251,25 @@ export function ServicesPage() {
                         type="error"
                         showIcon
                         closable
-                        style={{ borderRadius: '12px' }}
+                        style={{ borderRadius: token.borderRadiusLG }}
                     />
                 )}
 
                 {loading && agents.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '100px 0' }}>
+                    <div style={{ textAlign: 'center', padding: `${token.paddingXL * 5}px 0` }}>
                         <Spin size="large" />
-                        <Paragraph type="secondary" style={{ marginTop: '24px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                        <Paragraph type="secondary" style={{ marginTop: token.marginLG, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                             Inventorying Infrastructure...
                         </Paragraph>
                     </div>
                 ) : (
                     filteredAgents.map(agent => (
-                        <div key={agent.id} style={{ marginBottom: '40px' }}>
-                            <Divider orientation={"left" as any} style={{ margin: '0 0 24px 0' }}>
+                        <div key={agent.id} style={{ marginBottom: token.marginLG }}>
+                            <Divider titlePlacement="left" style={{ margin: `0 0 ${token.marginLG}px 0` }}>
                                 <Space>
                                     <div style={{ 
-                                        padding: '8px', 
-                                        borderRadius: '8px', 
+                                        padding: token.paddingSM, 
+                                        borderRadius: token.borderRadius,
                                         backgroundColor: agent.status === 'online' ? `${token.colorSuccess}10` : token.colorFillAlter,
                                         color: agent.status === 'online' ? token.colorSuccess : token.colorTextDisabled,
                                         border: `1px solid ${agent.status === 'online' ? `${token.colorSuccess}20` : token.colorBorderSecondary}`,
@@ -280,16 +280,16 @@ export function ServicesPage() {
                                     </div>
                                     <div>
                                         <Text strong>{agent.name || agent.hostname}</Text>
-                                        <Text type="secondary" style={{ fontSize: '10px', marginLeft: '8px', fontWeight: 700 }}>
+                                        <Text type="secondary" style={{ fontSize: token.fontSizeSM, marginLeft: token.marginXS, fontWeight: 700 }}>
                                             {agent.hostname} • {agent.osInfo}
                                         </Text>
                                     </div>
                                 </Space>
                             </Divider>
 
-                            <Card 
-                                bodyStyle={{ padding: 0 }} 
-                                style={{ borderRadius: '20px', overflow: 'hidden', border: `1px solid ${token.colorBorderSecondary}` }}
+                            <Card
+                                styles={{ body: { padding: 0 } }}
+                                style={{ borderRadius: token.borderRadiusLG, overflow: 'hidden', border: `1px solid ${token.colorBorderSecondary}` }}
                             >
                                 <Table
                                     dataSource={agent.services}

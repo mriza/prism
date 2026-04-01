@@ -1353,4 +1353,59 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 
 		return "Hub token saved successfully", nil
 	},
+
+	// --- Application Deployment ---
+	"deploy_app": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+		if deploy, ok := mod.(*modules.DeploymentModule); ok {
+			cfg := modules.DeployConfig{
+				Name:           getStringOpt(p, "name"),
+				SourceURL:      getStringOpt(p, "source_url"),
+				SourceToken:    getStringOpt(p, "source_token"),
+				Runtime:        getStringOpt(p, "runtime"),
+				RuntimeVersion: getStringOpt(p, "runtime_version"),
+				ProcessManager: getStringOpt(p, "process_manager"),
+				StartCommand:   getStringOpt(p, "start_command"),
+				DomainName:     getStringOpt(p, "domain_name"),
+				InternalPort:   getIntOpt(p, "internal_port"),
+				ProxyType:      getStringOpt(p, "proxy_type"),
+			}
+
+			// Parse env_vars from options
+			if optsRaw, ok := p["options"]; ok {
+				if opts, ok := optsRaw.(map[string]interface{}); ok {
+					if envRaw, ok := opts["env_vars"]; ok {
+						if envMap, ok := envRaw.(map[string]interface{}); ok {
+							cfg.EnvVars = make(map[string]string)
+							for k, v := range envMap {
+								cfg.EnvVars[k] = fmt.Sprint(v)
+							}
+						}
+					}
+				}
+			}
+
+			result := deploy.DeployApp(cfg)
+
+			// After deployment, configure proxy if needed
+			if result.Success && cfg.DomainName != "" && cfg.ProxyType != "" && cfg.ProxyType != "none" && cfg.InternalPort > 0 {
+				proxyMod, err := ctx.Registry.Get(cfg.ProxyType)
+				if err == nil {
+					if proxy, ok := proxyMod.(core.ProxyModule); ok {
+						if proxyErr := proxy.CreateReverseProxy(cfg.DomainName, cfg.InternalPort); proxyErr != nil {
+							result.Message += fmt.Sprintf(" (warning: proxy setup failed: %v)", proxyErr)
+						} else {
+							result.Message += fmt.Sprintf(" + proxy configured: %s → :%d", cfg.DomainName, cfg.InternalPort)
+						}
+					}
+				}
+			}
+
+			b, _ := json.Marshal(result)
+			if !result.Success {
+				return string(b), fmt.Errorf("deployment failed: %s", result.Error)
+			}
+			return string(b), nil
+		}
+		return "", fmt.Errorf("not a deployment module")
+	},
 }
