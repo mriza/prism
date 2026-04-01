@@ -1,6 +1,6 @@
 # PRISM Bug Report
 
-> **Last Updated**: 2026-04-01 (v0.4.14 — post-merge audit)
+> **Last Updated**: 2026-04-01 (v0.4.14 — second audit, BUG-038/039 added)
 >
 > **Purpose**: Active bug registry - only unfixed bugs listed here.
 >
@@ -13,14 +13,14 @@
 
 | Status | Count | Description |
 |--------|-------|-------------|
-| ✅ Fixed | 28 | 23 from v0.4.13 and earlier + BUG-014, BUG-015, BUG-016, BUG-017, BUG-018 |
-| ❌ Active | 19 | 9 existing + 10 new from post-merge audit |
+| ✅ Fixed | 33 | 23 from v0.4.13 and earlier + BUG-014, 015, 016, 017, 018, 026, 027, 028, 029, 030 |
+| ❌ Active | 16 | BUG-038 (critical), 019, 020, 021, 022, 031, 032, 035, 036, 037, 039, 006, 023, 024, 025, 033, 034 |
 
 **Summary**:
-- **Total Bugs Tracked**: 47
-- **Resolution Rate**: 59.6% (28/47)
-- **Critical/High Priority**: 0
-- **Medium Priority**: 14 (BUG-019, 020, 021, 022, 026, 027, 028, 029, 030, 031, 032, 035, 036, 037)
+- **Total Bugs Tracked**: 49
+- **Resolution Rate**: 67.3% (33/49)
+- **Critical Priority**: 1 (BUG-038)
+- **Medium Priority**: 10 (BUG-019, 020, 021, 022, 031, 032, 035, 036, 037, 039)
 - **Low Priority**: 5 (BUG-006, 023, 024, 025, 033, 034)
 
 ---
@@ -112,97 +112,138 @@ See server/cmd/server/main.go:1106-1109 comment. Full streaming requires BUG-037
 
 ### 🟡 MEDIUM Priority
 
-#### [BUG-026] Certificate Authority - getCertificateAuthority() Returns Nil
+#### ~~[BUG-026] Certificate Authority - getCertificateAuthority() Returns Nil~~ ✅ FIXED
+**Severity**: 🟡 MEDIUM | **Components**: Server | **Status**: ✅ FIXED (v0.4.14)
+
+**Fix Applied**:
+- Added `globalCA` variable in `cmd/server/main.go` to store CA instance
+- Initialize `CertificateAuthority` at server startup using `security.NewCertificateAuthority()`
+- Created `SetCertificateAuthority()` function in `api/certificates.go` package
+- Updated `getCertificateAuthority()` to return the initialized global CA instance
+- Added proper error handling - server exits if CA initialization fails
+- CA logs common name and expiry date on successful initialization
+
+**Files Modified**:
+- `server/cmd/server/main.go` - Added global CA variable and initialization
+- `server/internal/api/certificates.go` - Added `SetCertificateAuthority()` and updated `getCertificateAuthority()`
+
+**Impact**: Certificate endpoints now work properly without nil pointer panics.
+
+---
+
+#### ~~[BUG-027] ProcessDiscoveryModal - Unhandled Promise Rejection~~ ✅ FIXED
+**Severity**: 🟡 MEDIUM | **Components**: Frontend | **Status**: ✅ FIXED (v0.4.14)
+
+**Fix Applied**:
+- Added `.catch()` handler to `listSystemdUnits()` promise chain
+- Added `.finally()` to ensure `setLoading(false)` is always called
+- Error is logged to console for debugging
+- Modal no longer gets stuck with infinite spinner on error
+
+**Files Modified**:
+- `frontend/src/components/modals/ProcessDiscoveryModal.tsx` - Added proper promise error handling
+
+---
+
+#### ~~[BUG-028] FirewallModal / CrowdSecModal - No HTTP Status Check in controlAgent~~ ✅ FIXED
+**Severity**: 🟡 MEDIUM | **Components**: Frontend | **Status**: ✅ FIXED (v0.4.14)
+
+**Fix Applied**:
+- Added `if (!res.ok)` check in `controlAgent()` helper function
+- Reads error response body with `res.text()` for detailed error message
+- Throws descriptive error with HTTP status code and status text
+- Applied to both `FirewallModal.tsx` and `CrowdSecModal.tsx`
+
+**Files Modified**:
+- `frontend/src/components/modals/FirewallModal.tsx:43-54` - Added HTTP status check
+- `frontend/src/components/modals/CrowdSecModal.tsx:45-56` - Added HTTP status check
+
+---
+
+#### ~~[BUG-029] FirewallModal - Missing try/catch in handleAdd / handleDelete~~ ✅ FIXED
+**Severity**: 🟡 MEDIUM | **Components**: Frontend | **Status**: ✅ FIXED (v0.4.14)
+
+**Fix Applied**:
+- Wrapped `handleAdd()`, `handleDelete()`, and `handleDefaultPolicy()` in try/catch
+- Clear error state at start of each handler with `setError('')`
+- Display error messages to users via `setError()` with descriptive messages
+- `actionLoading` state properly cleared in finally block (implicit via setActionLoading after try/catch)
+
+**Files Modified**:
+- `frontend/src/components/modals/FirewallModal.tsx:88-128` - Added try/catch to all handlers
+
+---
+
+#### ~~[BUG-030] CrowdSecModal - Missing try/catch in handleAdd / handleDelete~~ ✅ FIXED
+**Severity**: 🟡 MEDIUM | **Components**: Frontend | **Status**: ✅ FIXED (v0.4.14)
+
+**Fix Applied**:
+- Wrapped `handleAdd()` and `handleDelete()` in try/catch
+- Clear error state at start of each handler
+- Display error messages to users with descriptive messages
+- `actionLoading` state properly cleared after error handling
+
+**Files Modified**:
+- `frontend/src/components/modals/CrowdSecModal.tsx:88-116` - Added try/catch to all handlers
+
+---
+
+#### [BUG-038] /api/permissions Route Not Registered — RBACPage Completely Broken
+**Severity**: 🔴 CRITICAL | **Components**: Server | **Status**: ❌ NOT FIXED
+
+**Location**: `server/cmd/server/main.go` (missing route registration)
+
+**Issue**: `HandleRBACPermissions` is implemented in `server/internal/api/v42.go:12` but **never registered** as an HTTP route in `main.go`. Frontend `usePermissions` hook calls `/api/permissions` for all CRUD operations. These requests hit the default catch-all handler and return 404.
+
+Cross-reference: All other frontend API paths are registered (`/api/projects`, `/api/accounts`, `/api/deployments`, etc.) — `/api/permissions` is the only missing one.
+
+```
+// main.go registers (partial list):
+http.HandleFunc("/api/projects", ...)
+http.HandleFunc("/api/accounts", ...)
+// Missing:
+// http.HandleFunc("/api/permissions", ...)  ← NOT PRESENT
+```
+
+**Impact**: RBACPage is completely non-functional. All permission list/create/update/delete operations silently fail with 404. BUG-016 fix (edit permission modal) is effectively useless because the API itself isn't reachable.
+
+**Fix Required**: Add to `main.go`:
+```go
+http.HandleFunc("/api/permissions", api.AuthMiddleware(api.HandleRBACPermissions, "admin"))
+```
+
+Also register other unregistered v42.go handlers if needed:
+- `HandleServerGroups` → `/api/server-groups`
+
+**Planned**: Immediate (v0.4.15)
+
+---
+
+#### [BUG-039] Unregistered API Handlers — /api/servers and /api/certificates
 **Severity**: 🟡 MEDIUM | **Components**: Server | **Status**: ❌ NOT FIXED
 
-**Location**: `server/internal/api/certificates.go:401-404`
+**Location**: `server/cmd/server/main.go` (missing route registrations)
 
-**Issue**: `getCertificateAuthority()` is a placeholder that always returns `nil`. Two call sites at lines 62 and 379 dereference this value without nil-checks.
+**Issue**: Several handler functions are fully implemented but not registered as HTTP routes:
 
-```go
-func getCertificateAuthority() *security.CertificateAuthority {
-    // This is a placeholder - in real implementation, CA should be initialized
-    // at server startup and stored in a global variable or context
-    return nil
-}
-```
+From `server/internal/api/servers.go`:
+- `HandleServers` → intended route `/api/servers`
+- `HandleServerDetail` → intended route `/api/servers/`
+- `HandleServerHeartbeat` → intended route `/api/servers/{id}/heartbeat`
+- `HandleServerServices` → intended route `/api/servers/{id}/services`
 
-**Impact**: Any request to `/api/certificates` endpoints will cause a nil pointer dereference panic, crashing the server goroutine for that request.
+From `server/internal/api/certificates.go`:
+- `HandleCertificates` → intended route `/api/certificates`
+- `HandleCertificateDetail`, `HandleEnrollmentKeys`, `HandleEnrollmentKeyDetail`
+- `HandleCertificateStats`, `HandleEnrollmentKeyStats`, `HandleCertificateAuthority`
 
-**Fix Required**:
-- Initialize `CertificateAuthority` at server startup (in `cmd/server/main.go`)
-- Store the CA instance in server context or as a package-level singleton
-- Pass it to the certificate API handlers (or retrieve from context)
-- Add nil-check guard in `getCertificateAuthority()` as a safety fallback
+**Current Workaround**: Frontend uses deprecated `/api/agents` endpoint (still registered) which mirrors server listing functionality. This works but relies on a deprecated code path scheduled for removal in v1.0.
 
-**Planned**: v0.5.0
+**Impact**: New `/api/servers` API is unreachable. Frontend migration from deprecated `/api/agents` to `/api/servers` is blocked. Certificate management API unavailable (no frontend calls yet, but future features will need it).
 
----
+**Fix Required**: Register all handlers in `main.go` and migrate frontend `useAgents` hook to use `/api/servers` instead of deprecated `/api/agents`.
 
-#### [BUG-027] ProcessDiscoveryModal - Unhandled Promise Rejection
-**Severity**: 🟡 MEDIUM | **Components**: Frontend | **Status**: ❌ NOT FIXED
-
-**Location**: `frontend/src/components/modals/ProcessDiscoveryModal.tsx:53-69`
-
-**Issue**: `listSystemdUnits()` is called without a `.catch()` or `try/catch`. If the promise rejects, the rejection is unhandled and `loading` state never resets, leaving the modal stuck with an infinite spinner.
-
-```tsx
-listSystemdUnits(agentId).then(raw => {
-    if (raw) { /* ... */ }
-    setLoading(false);  // never called on rejection
-});
-// No .catch() handler
-```
-
-**Fix Required**: Wrap in try/catch or add `.catch(err => { setError(err.message); setLoading(false); })`.
-
-**Planned**: v0.5.0
-
----
-
-#### [BUG-028] FirewallModal / CrowdSecModal - No HTTP Status Check in controlAgent
-**Severity**: 🟡 MEDIUM | **Components**: Frontend | **Status**: ❌ NOT FIXED
-
-**Location**:
-- `frontend/src/components/modals/FirewallModal.tsx:43-50`
-- `frontend/src/components/modals/CrowdSecModal.tsx:45-51`
-
-**Issue**: The local `controlAgent()` helper calls `fetch()` but never checks `res.ok` before calling `res.json()`. An HTTP 4xx or 5xx response is silently treated as success.
-
-```tsx
-const res = await fetch(`/api/control`, { ... });
-return res.json();  // no res.ok check
-```
-
-**Fix Required**: Add `if (!res.ok) throw new Error(...)` before `return res.json()`.
-
-**Planned**: v0.5.0
-
----
-
-#### [BUG-029] FirewallModal - Missing try/catch in handleAdd / handleDelete
-**Severity**: 🟡 MEDIUM | **Components**: Frontend | **Status**: ❌ NOT FIXED
-
-**Location**: `frontend/src/components/modals/FirewallModal.tsx:86-102`
-
-**Issue**: `handleAdd()` and `handleDelete()` have no try/catch. If `controlAgent()` or `fetchRules()` throws, the error is unhandled, `actionLoading` is never cleared, and the user sees no feedback.
-
-**Fix Required**: Wrap async bodies in try/catch with `message.error(...)` and `setActionLoading('')` in finally block.
-
-**Planned**: v0.5.0
-
----
-
-#### [BUG-030] CrowdSecModal - Missing try/catch in handleAdd / handleDelete
-**Severity**: 🟡 MEDIUM | **Components**: Frontend | **Status**: ❌ NOT FIXED
-
-**Location**: `frontend/src/components/modals/CrowdSecModal.tsx:86-104`
-
-**Issue**: Same pattern as BUG-029 — `handleAdd()` and `handleDelete()` lack error handling.
-
-**Fix Required**: Same as BUG-029.
-
-**Planned**: v0.5.0
+**Planned**: v0.5.0 (coordinate with BUG-008 legacy migration)
 
 ---
 
@@ -460,32 +501,31 @@ Key files:
 
 | Component | Active | Fixed | Total |
 |-----------|--------|-------|-------|
-| Frontend  | 15     | 25    | 40    |
-| Server    | 3      | 3     | 6     |
+| Frontend  | 10     | 30    | 40    |
+| Server    | 5      | 3     | 8     |
 | Agent     | 1      | 0     | 1     |
-| **Total** | **19** | **28** | **47** |
+| **Total** | **16** | **33** | **49** |
 
 ---
 
 ## Quick Reference
 
-**Active Bugs (19)**:
+**Active Bugs (16)**:
 
-🟡 Medium (14):
+🔴 Critical (1):
+- BUG-038 - /api/permissions not registered → RBACPage completely broken
+
+🟡 Medium (10):
 - BUG-019 - console.log in production code (18+ occurrences)
 - BUG-020 - Silent error failures, no user-facing feedback
 - BUG-021 - ProcessDiscoveryModal no error feedback
 - BUG-022 - AgentsContext polling fallback without visual indicator
-- BUG-026 - getCertificateAuthority() returns nil (potential panic)
-- BUG-027 - ProcessDiscoveryModal unhandled promise rejection (infinite spinner)
-- BUG-028 - FirewallModal/CrowdSecModal no HTTP status check in controlAgent
-- BUG-029 - FirewallModal missing try/catch in handleAdd/handleDelete
-- BUG-030 - CrowdSecModal missing try/catch in handleAdd/handleDelete
 - BUG-031 - ServerSettingsModal potential null dereference on activeFw
 - BUG-032 - ProjectDetailPage missing try/catch in fetchProjectInfra
 - BUG-035 - certificates.go loadFile/saveFile are placeholder stubs
 - BUG-036 - nftables OpenPort/ClosePort/SetDefaultPolicy not implemented
 - BUG-037 - LogsTab no real-time log forwarding from agent events
+- BUG-039 - /api/servers and /api/certificates handlers unregistered (deprecated /api/agents still used)
 
 🟢 Low (5):
 - BUG-006 - Pending agent notification badge missing
@@ -496,6 +536,11 @@ Key files:
 - BUG-034 - FirewallModal/CrowdSecModal missing VITE_API_URL prefix
 
 **Recently Fixed**:
+- ✅ BUG-026 - Certificate Authority nil pointer fix (v0.4.14)
+- ✅ BUG-027 - ProcessDiscoveryModal unhandled promise rejection (v0.4.14)
+- ✅ BUG-028 - FirewallModal/CrowdSecModal HTTP status check (v0.4.14)
+- ✅ BUG-029 - FirewallModal missing try/catch (v0.4.14)
+- ✅ BUG-030 - CrowdSecModal missing try/catch (v0.4.14)
 - ✅ BUG-016 - RBACPage edit permission (v0.4.14)
 - ✅ BUG-017 - LogsTab WebSocket initial streaming (v0.4.14)
 - ✅ BUG-014 - ServiceModal account management callbacks
@@ -510,5 +555,5 @@ Key files:
 
 ---
 
-*Last Updated: 2026-04-01 (v0.4.14 — post-merge audit, 10 new bugs added)*
+*Last Updated: 2026-04-01 (v0.4.14 — second audit: BUG-038 critical, BUG-039 medium added)*
 *Next Review: v0.5.0 release*

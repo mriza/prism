@@ -588,6 +588,29 @@ These should be unified under a single "Applications" concept with different dep
 
 ---
 
+#### Register Missing API Routes (BUG-038, BUG-039)
+**Severity**: 🔴 CRITICAL (BUG-038) / 🟡 MEDIUM (BUG-039) | **Components**: Server  
+**Tracking**: [BUG-038](./BUG.md), [BUG-039](./BUG.md)  
+**Status**: Not started
+
+**BUG-038 Fix** (1 line, do immediately):
+Add to `server/cmd/server/main.go` before line 870:
+```go
+http.HandleFunc("/api/permissions", api.AuthMiddleware(api.HandleRBACPermissions, "admin"))
+```
+
+**BUG-039 Fix** (coordinate with BUG-008 legacy migration):
+- Register `/api/servers`, `/api/servers/`, `/api/servers/{id}/heartbeat`, `/api/servers/{id}/services`
+- Register `/api/certificates`, `/api/certificates/`, enrollment key endpoints
+- Update `useAgents.ts` to use `/api/servers` instead of deprecated `/api/agents`
+- Keep `/api/agents` temporarily for backward compatibility
+
+**Files**:
+- `server/cmd/server/main.go` - Add `http.HandleFunc` registrations
+- `frontend/src/hooks/useAgents.ts` - Migrate to `/api/servers` (BUG-039 only)
+
+---
+
 #### Nftables Port Management Implementation
 **Severity**: 🟡 MEDIUM | **Components**: Agent  
 **Tracking**: [BUG-036](./BUG.md)  
@@ -874,7 +897,11 @@ const handleAdd = async (values: FormValues) => {
 
 ### v0.5.0 (Next Sprint)
 
+**Bug Fixes (Critical)**:
+- 🔴 **BUG-038** - Register `/api/permissions` route in main.go (1-line fix, RBACPage broken)
+
 **Bug Fixes (Medium)**:
+- 🟡 **BUG-039** - Register `/api/servers` + `/api/certificates` handlers, migrate frontend from deprecated `/api/agents`
 - 🟡 **BUG-026** - Certificate authority initialization (nil panic)
 - 🟡 **BUG-035** - certificates.go loadFile/saveFile placeholder stubs (fix with BUG-026)
 - 🟡 **BUG-036** - nftables OpenPort/ClosePort/SetDefaultPolicy not implemented
