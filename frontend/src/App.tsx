@@ -11,12 +11,11 @@ import { ProjectDetailPage } from './pages/ProjectDetailPage';
 import { AccountsPage } from './pages/AccountsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ServersPage } from './pages/ServersPage';
-import { ProcessesPage } from './pages/ProcessesPage';
+import { ApplicationsPage } from './pages/ApplicationsPage';
 import { SecurityPage } from './pages/SecurityPage';
 import { LoginPage } from './pages/LoginPage';
 import { UsersPage } from './pages/UsersPage';
 import { LogsPage } from './pages/LogsPage';
-import { DeploymentsPage } from './pages/DeploymentsPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -61,9 +60,10 @@ function AppContent() {
           <Route path="projects" element={<ProjectsPage />} />
           <Route path="projects/:id" element={<ProjectDetailPage />} />
           <Route path="accounts" element={<AccountsPage />} />
-          <Route path="deployments" element={<DeploymentsPage />} />
+          <Route path="applications" element={<ApplicationsPage />} />
+          <Route path="deployments" element={<Navigate to="/applications" replace />} />
+          <Route path="processes" element={<Navigate to="/applications" replace />} />
           <Route path="servers" element={<ServersPage />} />
-          <Route path="processes" element={<ProcessesPage />} />
           <Route path="security" element={<SecurityPage />} />
           <Route path="logs" element={<LogsPage />} />
           <Route path="users" element={<UsersPage />} />

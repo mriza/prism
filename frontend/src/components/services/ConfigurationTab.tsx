@@ -1,239 +1,195 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Space,
     Typography,
     Card,
     theme,
-    Descriptions,
-    Switch,
-    Input,
     Button,
     Alert,
-    Divider,
-    Tag
+    Spin,
+    Input
 } from 'antd';
 import {
-    SettingOutlined,
-    EditOutlined,
-    SaveOutlined
+    ReloadOutlined,
+    SaveOutlined,
+    SettingOutlined
 } from '@ant-design/icons';
+import { useAuth } from '../../contexts/AuthContext';
 
-const { Text, Paragraph } = Typography;
-
-interface ConfigurationField {
-    key: string;
-    label: string;
-    value: string | number | boolean;
-    type: 'string' | 'number' | 'boolean' | 'path' | 'port';
-    description: string;
-    editable: boolean;
-}
+const { Text } = Typography;
+const { TextArea } = Input;
 
 interface ConfigurationTabProps {
-    _agentId: string;
-    _serviceName: string;
-    _serviceType: string;
-    configFields?: ConfigurationField[];
+    agentId: string;
+    serviceName: string;
+    serviceType: string;
 }
 
-export function ConfigurationTab({ configFields }: ConfigurationTabProps) {
+export function ConfigurationTab({ agentId, serviceName, serviceType: _serviceType }: ConfigurationTabProps) {
     const { token } = theme.useToken();
-    const [editing, setEditing] = useState<string | null>(null);
-    const [values, setValues] = useState<Record<string, any>>({});
+    const { token: authToken } = useAuth();
+    const apiBase = import.meta.env.VITE_API_URL || '';
 
-    // Default configuration fields based on service type
-    const defaultFields: ConfigurationField[] = configFields || [
-        {
-            key: 'port',
-            label: 'Port',
-            value: 3306,
-            type: 'port',
-            description: 'Port number the service listens on',
-            editable: true
-        },
-        {
-            key: 'config_path',
-            label: 'Configuration Path',
-            value: '/etc/mysql/my.cnf',
-            type: 'path',
-            description: 'Path to the main configuration file',
-            editable: false
-        },
-        {
-            key: 'data_dir',
-            label: 'Data Directory',
-            value: '/var/lib/mysql',
-            type: 'path',
-            description: 'Directory where data files are stored',
-            editable: false
-        },
-        {
-            key: 'socket',
-            label: 'Socket',
-            value: '/var/run/mysqld/mysqld.sock',
-            type: 'path',
-            description: 'Unix socket file path',
-            editable: false
-        },
-        {
-            key: 'bind_address',
-            label: 'Bind Address',
-            value: '0.0.0.0',
-            type: 'string',
-            description: 'Network address to bind to',
-            editable: true
-        },
-        {
-            key: 'max_connections',
-            label: 'Max Connections',
-            value: 151,
-            type: 'number',
-            description: 'Maximum number of client connections',
-            editable: true
+    const [configContent, setConfigContent] = useState('');
+    const [editedContent, setEditedContent] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [successMsg, setSuccessMsg] = useState<string | null>(null);
+    const [unsupported, setUnsupported] = useState(false);
+
+    const sendConfigCommand = async (action: string, options: Record<string, unknown> = {}) => {
+        const res = await fetch(`${apiBase}/api/control`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ agent_id: agentId, service: serviceName, action, options })
+        });
+        if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            throw new Error(body.message || 'Command failed');
         }
-    ];
-
-    const handleEdit = (key: string, currentValue: any) => {
-        setEditing(key);
-        setValues(prev => ({ ...prev, [key]: currentValue }));
+        return res.json();
     };
 
-    const handleSave = (key: string) => {
-        // TODO: API call to update configuration
-        console.log(`Saving ${key} = ${values[key]}`);
-        setEditing(null);
-    };
-
-    const handleCancel = () => {
-        setEditing(null);
-    };
-
-    const renderValue = (field: ConfigurationField) => {
-        if (editing === field.key) {
-            switch (field.type) {
-                case 'boolean':
-                    return (
-                        <Switch
-                            checked={values[field.key]}
-                            onChange={checked => setValues(prev => ({ ...prev, [field.key]: checked }))}
-                        />
-                    );
-                case 'number':
-                    return (
-                        <Input
-                            type="number"
-                            value={values[field.key]}
-                            onChange={(e: any) => setValues(prev => ({ ...prev, [field.key]: e.target.value }))}
-                            style={{ width: 150 }}
-                        />
-                    );
-                default:
-                    return (
-                        <Input
-                            value={values[field.key]}
-                            onChange={e => setValues(prev => ({ ...prev, [field.key]: e.target.value }))}
-                            style={{ width: 250 }}
-                        />
-                    );
+    const fetchConfig = async () => {
+        setLoading(true);
+        setError(null);
+        setUnsupported(false);
+        try {
+            const data = await sendConfigCommand('service_get_config');
+            const content = data?.message ?? '';
+            setConfigContent(content);
+            setEditedContent(content);
+        } catch (err: any) {
+            const msg = String(err.message || err);
+            if (msg.includes('does not support configuration')) {
+                setUnsupported(true);
+            } else {
+                setError(msg);
             }
-        }
-
-        switch (field.type) {
-            case 'boolean':
-                return <Tag color={field.value ? 'green' : 'default'}>{field.value ? 'Enabled' : 'Disabled'}</Tag>;
-            case 'path':
-                return <Text code style={{ fontSize: 12 }}>{field.value}</Text>;
-            default:
-                return <Text strong>{String(field.value)}</Text>;
+        } finally {
+            setLoading(false);
         }
     };
+
+    useEffect(() => {
+        fetchConfig();
+    }, [agentId, serviceName]);
+
+    const handleSave = async () => {
+        setSaving(true);
+        setError(null);
+        setSuccessMsg(null);
+        try {
+            await sendConfigCommand('service_update_config', { content: editedContent });
+            setConfigContent(editedContent);
+            setSuccessMsg('Configuration saved. Restart the service to apply changes.');
+        } catch (err: any) {
+            setError(String(err.message || err));
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const isDirty = editedContent !== configContent;
+
+    if (unsupported) {
+        return (
+            <Alert
+                message="Configuration not available"
+                description={`The ${serviceName} service does not expose its configuration file through the agent.`}
+                type="warning"
+                showIcon
+                style={{ margin: `${token.marginMD}px 0`, borderRadius: token.borderRadius }}
+            />
+        );
+    }
 
     return (
         <div style={{ padding: `${token.paddingSM}px 0` }}>
             <Alert
-                message={
-                    <Space>
-                        <SettingOutlined />
-                        <Text strong>Service Configuration</Text>
-                    </Space>
-                }
-                description="View and modify service configuration. Some changes may require service restart."
+                message={<Space><SettingOutlined /><Text strong>Configuration File</Text></Space>}
+                description="Edit the service configuration file directly. Restart the service after saving to apply changes."
                 type="info"
                 showIcon
-                style={{ marginBottom: 16, borderRadius: 8 }}
+                style={{ marginBottom: token.marginMD, borderRadius: token.borderRadius }}
             />
 
-            <Card style={{ borderRadius: 12, border: `1px solid ${token.colorBorderSecondary}` }}>
-                <Descriptions
-                    column={{ xxl: 1, xl: 1, lg: 1, md: 1, sm: 1, xs: 1 }}
-                    bordered
-                    size="middle"
-                >
-                    {defaultFields.map(field => (
-                        <Descriptions.Item
-                            key={field.key}
-                            label={
-                                <Space>
-                                    <Text strong style={{ fontSize: 12, textTransform: 'uppercase' }}>
-                                        {field.label}
-                                    </Text>
-                                    {!field.editable && (
-                                        <Tag color="default" style={{ fontSize: 10 }}>Read-only</Tag>
-                                    )}
-                                </Space>
-                            }
+            {error && (
+                <Alert
+                    message={error}
+                    type="error"
+                    showIcon
+                    closable
+                    onClose={() => setError(null)}
+                    style={{ marginBottom: token.marginMD, borderRadius: token.borderRadius }}
+                />
+            )}
+            {successMsg && (
+                <Alert
+                    message={successMsg}
+                    type="success"
+                    showIcon
+                    closable
+                    onClose={() => setSuccessMsg(null)}
+                    style={{ marginBottom: token.marginMD, borderRadius: token.borderRadius }}
+                />
+            )}
+
+            <Card
+                title={
+                    <Text type="secondary" style={{ fontSize: token.fontSizeSM, fontFamily: 'monospace' }}>
+                        {serviceName} — config file
+                    </Text>
+                }
+                extra={
+                    <Space>
+                        <Button
+                            icon={<ReloadOutlined />}
+                            size="small"
+                            onClick={fetchConfig}
+                            loading={loading}
                         >
-                            <Space>
-                                {renderValue(field)}
-                                {field.editable && editing !== field.key && (
-                                    <Button
-                                        type="text"
-                                        size="small"
-                                        icon={<EditOutlined />}
-                                        onClick={() => handleEdit(field.key, field.value)}
-                                    />
-                                )}
-                                {editing === field.key && (
-                                    <Space size="small">
-                                        <Button
-                                            type="primary"
-                                            size="small"
-                                            icon={<SaveOutlined />}
-                                            onClick={() => handleSave(field.key)}
-                                        />
-                                        <Button
-                                            size="small"
-                                            onClick={handleCancel}
-                                        >
-                                            Cancel
-                                        </Button>
-                                    </Space>
-                                )}
-                            </Space>
-                            <Paragraph type="secondary" style={{ fontSize: 12, marginTop: 8, marginBottom: 0 }}>
-                                {field.description}
-                            </Paragraph>
-                        </Descriptions.Item>
-                    ))}
-                </Descriptions>
-            </Card>
-
-            <Divider />
-
-            <Alert
-                message="Configuration Files"
-                description={
-                    <Space direction="vertical" style={{ width: '100%' }}>
-                        <Text>Direct configuration file editing is available via API.</Text>
-                        <Button icon={<EditOutlined />}>
-                            Edit Configuration File
+                            Refresh
+                        </Button>
+                        <Button
+                            type="primary"
+                            icon={<SaveOutlined />}
+                            size="small"
+                            onClick={handleSave}
+                            loading={saving}
+                            disabled={!isDirty || loading}
+                        >
+                            Save
                         </Button>
                     </Space>
                 }
-                type="warning"
-                showIcon
-                style={{ borderRadius: 8 }}
-            />
+                style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}
+                styles={{ body: { padding: 0 } }}
+            >
+                {loading ? (
+                    <div style={{ padding: token.paddingXL, textAlign: 'center' }}>
+                        <Spin tip="Loading configuration..." />
+                    </div>
+                ) : (
+                    <TextArea
+                        value={editedContent}
+                        onChange={e => setEditedContent(e.target.value)}
+                        autoSize={{ minRows: 15, maxRows: 40 }}
+                        style={{
+                            fontFamily: 'monospace',
+                            fontSize: token.fontSizeSM,
+                            borderRadius: 0,
+                            border: 'none',
+                            resize: 'vertical',
+                            backgroundColor: token.colorFillAlter,
+                        }}
+                    />
+                )}
+            </Card>
         </div>
     );
 }

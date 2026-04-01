@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
     Modal,
     Tabs,
@@ -43,8 +43,9 @@ import { ManagementCredentialsTab } from './services/ManagementCredentialsTab';
 import { ApplicationAccountsTab } from './services/ApplicationAccountsTab';
 import { ConfigurationTab } from './services/ConfigurationTab';
 import { LogsTab } from './services/LogsTab';
+import { AccountFormModal } from './modals/AccountFormModal';
 import { useAccounts } from '../hooks/useAccounts';
-import type { ServiceType } from '../types';
+import type { ServiceAccount, ServiceType } from '../types';
 
 const { Text } = Typography;
 
@@ -82,7 +83,9 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
     const [error, setError] = useState<string | null>(null);
     const [actionOutput, setActionOutput] = useState<string | null>(null);
     const { token } = theme.useToken();
-    const { managementAccountsByService, accounts } = useAccounts();
+    const { managementAccountsByService, accounts, createAccount, updateAccount, deleteAccount, fetchAccounts } = useAccounts();
+    const [isAccountFormOpen, setIsAccountFormOpen] = useState(false);
+    const [editingAccount, setEditingAccount] = useState<ServiceAccount | undefined>(undefined);
 
     const serviceType = SERVICE_NAME_TO_TYPE[serviceName.toLowerCase()];
     const mgmtAccounts = serviceType ? managementAccountsByService(agentId, serviceType) : [];
@@ -141,6 +144,30 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
             setLoading(false);
         }
     };
+
+    const handleCreateAccount = useCallback(() => {
+        setEditingAccount(undefined);
+        setIsAccountFormOpen(true);
+    }, []);
+
+    const handleEditAccount = useCallback((account: ServiceAccount) => {
+        setEditingAccount(account);
+        setIsAccountFormOpen(true);
+    }, []);
+
+    const handleDeleteAccount = useCallback(async (id: string) => {
+        await deleteAccount(id);
+    }, [deleteAccount]);
+
+    const handleAccountSave = useCallback(async (data: Omit<ServiceAccount, 'id' | 'createdAt'>) => {
+        if (editingAccount) {
+            await updateAccount(editingAccount.id, data);
+        } else {
+            await createAccount({ ...data, agentId, type: serviceType as ServiceAccount['type'] });
+        }
+        await fetchAccounts();
+        setIsAccountFormOpen(false);
+    }, [editingAccount, createAccount, updateAccount, fetchAccounts, agentId, serviceType]);
 
     const fetchFacts = async () => {
         const data = await sendCommand('get_facts');
@@ -273,9 +300,9 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
                                 serviceName={serviceName}
                                 serviceType={serviceType}
                                 accounts={appAccounts}
-                                onCreateAccount={() => {/* TODO */}}
-                                onEditAccount={() => {/* TODO */}}
-                                onDeleteAccount={() => {/* TODO */}}
+                                onCreateAccount={handleCreateAccount}
+                                onEditAccount={handleEditAccount}
+                                onDeleteAccount={handleDeleteAccount}
                             />
                         )
                     }
@@ -290,9 +317,9 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
         label: <Space><SettingOutlined />Configuration</Space>,
         children: (
             <ConfigurationTab
-                _agentId={agentId}
-                _serviceName={serviceName}
-                _serviceType={serviceType}
+                agentId={agentId}
+                serviceName={serviceName}
+                serviceType={serviceType}
             />
         )
     });
@@ -303,8 +330,8 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
         label: <Space><FireOutlined />Logs</Space>,
         children: (
             <LogsTab
-                _agentId={agentId}
-                _serviceName={serviceName}
+                agentId={agentId}
+                serviceName={serviceName}
             />
         )
     });
@@ -411,6 +438,13 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
     });
 
     return (
+        <>
+        <AccountFormModal
+            isOpen={isAccountFormOpen}
+            onClose={() => setIsAccountFormOpen(false)}
+            onSave={handleAccountSave}
+            initial={editingAccount}
+        />
         <Modal
             open={isOpen}
             onCancel={onClose}
@@ -456,5 +490,6 @@ export function ServiceModal({ isOpen, onClose, agentId, serviceName }: ServiceM
                 )}
             </div>
         </Modal>
+        </>
     );
 }

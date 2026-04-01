@@ -18,6 +18,7 @@ import {
     PauseCircleOutlined,
     PlayCircleOutlined
 } from '@ant-design/icons';
+import { useWebSocketLogs } from '../../hooks/useWebSocketLogs';
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -30,13 +31,12 @@ interface LogEntry {
 }
 
 interface LogsTabProps {
-    _agentId: string;
-    _serviceName: string;
+    agentId: string;
+    serviceName: string;
 }
 
-export function LogsTab({ _agentId, _serviceName }: LogsTabProps) {
+export function LogsTab({ agentId, serviceName }: LogsTabProps) {
     const { token } = theme.useToken();
-    const [logs, setLogs] = useState<LogEntry[]>([]);
     const [autoScroll, setAutoScroll] = useState(true);
     const [isPaused, setIsPaused] = useState(false);
     const [logLevel, setLogLevel] = useState<'all' | 'info' | 'warning' | 'error' | 'debug'>('all');
@@ -44,17 +44,16 @@ export function LogsTab({ _agentId, _serviceName }: LogsTabProps) {
     const [tailLines, setTailLines] = useState(100);
     const textAreaRef = useRef<any>(null);
 
-    // Mock logs - will be replaced with WebSocket stream
-    useEffect(() => {
-        const mockLogs: LogEntry[] = [
-            { timestamp: new Date().toISOString(), level: 'info', message: `${_serviceName} started successfully` },
-            { timestamp: new Date(Date.now() - 1000).toISOString(), level: 'info', message: `Listening on port 3306` },
-            { timestamp: new Date(Date.now() - 5000).toISOString(), level: 'warning', message: 'High memory usage detected: 85%' },
-            { timestamp: new Date(Date.now() - 10000).toISOString(), level: 'error', message: 'Failed to connect to replica' },
-            { timestamp: new Date(Date.now() - 15000).toISOString(), level: 'info', message: 'Connection accepted from 192.168.1.100' },
-        ];
-        setLogs(mockLogs);
-    }, [_agentId, _serviceName]);
+    // Use real WebSocket for log streaming
+    const { logs: apiLogs, connected, error } = useWebSocketLogs(agentId, serviceName, tailLines);
+
+    // Convert API logs to display format
+    const logs: LogEntry[] = apiLogs.map(log => ({
+        timestamp: log.createdAt,
+        level: log.status === 'error' ? 'error' : log.status === 'warning' ? 'warning' : 'info',
+        message: log.message,
+        source: log.service
+    }));
 
     // Auto-scroll to bottom
     useEffect(() => {
@@ -81,7 +80,7 @@ export function LogsTab({ _agentId, _serviceName }: LogsTabProps) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${_serviceName}-${new Date().toISOString()}.log`;
+        a.download = `${serviceName}-${new Date().toISOString()}.log`;
         a.click();
         URL.revokeObjectURL(url);
     };
@@ -183,10 +182,11 @@ export function LogsTab({ _agentId, _serviceName }: LogsTabProps) {
                 <Card style={{ borderRadius: 8, border: `1px solid ${token.colorBorderSecondary}` }}>
                     <Space wrap style={{ justifyContent: 'space-between', width: '100%' }}>
                         <Space>
-                            <Badge status={isPaused ? 'warning' : 'processing'} text={isPaused ? 'Paused' : 'Live'} />
+                            <Badge status={isPaused ? 'warning' : connected ? 'processing' : 'error'} text={isPaused ? 'Paused' : connected ? 'Live' : 'Disconnected'} />
                             <Text type="secondary">
                                 Showing {filteredLogs.length} of {logs.length} logs
                             </Text>
+                            {error && <Text type="danger">{error}</Text>}
                         </Space>
                         <Space>
                             <Switch
@@ -203,8 +203,8 @@ export function LogsTab({ _agentId, _serviceName }: LogsTabProps) {
                 {/* Info */}
                 <Alert
                     message="Live Log Stream"
-                    description="Logs are streamed in real-time from the agent. Use filters to find specific entries. Download to save for analysis."
-                    type="info"
+                    description={connected ? "Logs are streamed in real-time from the agent. Use filters to find specific entries. Download to save for analysis." : "Connecting to log stream..."}
+                    type={connected ? "info" : "warning"}
                     showIcon
                     style={{ borderRadius: 8 }}
                 />

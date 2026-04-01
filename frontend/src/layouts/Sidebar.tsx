@@ -5,14 +5,13 @@ import {
     ProjectOutlined,
     KeyOutlined,
     CloudServerOutlined,
-    LineChartOutlined,
+    AppstoreOutlined,
     SafetyCertificateOutlined,
     SettingOutlined,
     UserOutlined,
     LogoutOutlined,
     ThunderboltFilled,
     UnorderedListOutlined,
-    RocketOutlined
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { ProfileModal } from '../components/modals/ProfileModal';
@@ -32,9 +31,8 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
         { key: '/', icon: <DashboardOutlined />, label: 'Dashboard' },
         { key: '/projects', icon: <ProjectOutlined />, label: 'Projects' },
         { key: '/accounts', icon: <KeyOutlined />, label: 'Accounts' },
-        { key: '/deployments', icon: <RocketOutlined />, label: 'Deployments' },
+        { key: '/applications', icon: <AppstoreOutlined />, label: 'Applications' },
         { key: '/servers', icon: <CloudServerOutlined />, label: 'Servers' },
-        { key: '/processes', icon: <LineChartOutlined />, label: 'Processes' },
         { key: '/security', icon: <SafetyCertificateOutlined />, label: 'Security' },
         { key: '/logs', icon: <UnorderedListOutlined />, label: 'Activity Logs' },
         { key: '/settings', icon: <SettingOutlined />, label: 'Settings' },

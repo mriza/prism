@@ -1,6 +1,6 @@
 # PRISM Bug Report
 
-> **Last Updated**: 2026-04-01 (v0.4.13)
+> **Last Updated**: 2026-04-01 (v0.4.13 — audit corrections applied)
 >
 > **Purpose**: Active bug registry - only unfixed bugs listed here.
 >
@@ -13,14 +13,14 @@
 
 | Status | Count | Description |
 |--------|-------|-------------|
-| ✅ Fixed | 23 | All bugs resolved in v0.4.13 and earlier |
-| ❌ Active | 13 | New integration bugs discovered (2 critical, 3 high) |
+| ✅ Fixed | 26 | 23 from v0.4.13 and earlier + BUG-014, BUG-015, BUG-018 |
+| ❌ Active | 11 | Integration bugs + certificate placeholder |
 
 **Summary**:
-- **Total Bugs Tracked**: 36
-- **Resolution Rate**: 63.9% (23/36)
-- **Critical/High Priority**: 5 (needs immediate attention)
-- **Medium/Low Priority**: 8
+- **Total Bugs Tracked**: 37
+- **Resolution Rate**: 70.3% (26/37)
+- **Critical/High Priority**: 2 (BUG-016, BUG-017)
+- **Medium/Low Priority**: 9
 
 ---
 
@@ -28,43 +28,29 @@
 
 ### 🔴 CRITICAL Priority
 
-#### [BUG-014] ServiceDetailModal - Account Management Actions Not Implemented
-**Severity**: 🔴 CRITICAL | **Components**: Frontend | **Status**: ❌ NOT FIXED
+#### ~~[BUG-014] ServiceDetailModal - Account Management Actions Not Implemented~~ ✅ FIXED
+**Severity**: 🔴 CRITICAL | **Components**: Frontend | **Status**: ✅ FIXED
 
-**Location**: `frontend/src/components/ServiceModal.tsx:276-278`
-
-**Issue**: Account management callbacks are empty TODOs in service detail modal.
-
-**Impact**:
-- Users cannot create/edit/delete accounts from service detail view
-- Critical workflow broken for service management
-
-**Fix Required**:
-- Implement onCreateAccount, onEditAccount, onDeleteAccount callbacks
-- Navigate to AccountFormModal with pre-filled service info
-
-**Planned**: Immediate (This week)
+**Fix Applied**:
+- Imported `AccountFormModal` into `ServiceModal.tsx`
+- Added `isAccountFormOpen` / `editingAccount` state
+- Destructured `createAccount`, `updateAccount`, `deleteAccount`, `fetchAccounts` from `useAccounts`
+- Implemented `handleCreateAccount`, `handleEditAccount`, `handleDeleteAccount`, `handleAccountSave` callbacks
+- Rendered `AccountFormModal` inside `ServiceModal` JSX
 
 ---
 
-#### [BUG-015] ConfigurationTab - Configuration Update Not Implemented
-**Severity**: 🔴 CRITICAL | **Components**: Frontend + Server + Agent | **Status**: ❌ NOT FIXED
+#### ~~[BUG-015] ConfigurationTab - Configuration Update Not Implemented~~ ✅ FIXED
+**Severity**: 🔴 CRITICAL | **Components**: Frontend + Agent | **Status**: ✅ FIXED
 
-**Location**: `frontend/src/components/services/ConfigurationTab.tsx:102`
-
-**Issue**: Configuration save is console.log only, no API implementation.
-
-**Impact**:
-- Users cannot save service configurations
-- Critical feature completely broken
-- Data entered by users is lost
-
-**Fix Required**:
-- Add API endpoint: POST /api/control with configuration update action
-- Implement server-side handler to forward to agent
-- Implement agent-side configuration update
-
-**Planned**: Immediate (This week)
+**Fix Applied**:
+- Rewrote `ConfigurationTab.tsx` to use real agent API calls
+- Fetches raw config file content via `service_get_config` on mount
+- Displays config in editable textarea (monospace)
+- Save button calls `service_update_config` with full file content
+- Handles "unsupported" gracefully when module doesn't implement `ConfigurableModule`
+- Removed misleading hardcoded MySQL placeholder fields
+- Props renamed: `_agentId`→`agentId`, `_serviceName`→`serviceName` (now actually used)
 
 ---
 
@@ -100,22 +86,46 @@
 
 ---
 
-#### [BUG-018] Server Database Configuration - TODO Comments
-**Severity**: 🟠 HIGH | **Components**: Server | **Status**: ❌ NOT FIXED
+#### ~~[BUG-018] Server Database Configuration - TODO Comments~~ ✅ FIXED
+**Severity**: 🟠 HIGH | **Components**: Server | **Status**: ✅ FIXED
 
-**Location**: `server/internal/db/sqlite/sqlite.go:600,690`
-
-**Issue**: Account configuration storage has TODO placeholders.
-
-**Impact**: Account configurations not properly stored, potential data loss.
-
-**Fix Required**: Implement config map to JSON conversion and parsing.
-
-**Planned**: Short term (2 weeks)
+**Fix Applied**:
+- Added `"encoding/json"` import to `sqlite.go`
+- `CreateServiceAccount`: serializes `account.Config` map to JSON with `json.Marshal`
+- `GetServiceAccounts`: deserializes `configJSON` back to `map[string]interface{}` with `json.Unmarshal`, falls back to empty map on parse error
 
 ---
 
 ### 🟡 MEDIUM Priority
+
+#### [BUG-026] Certificate Authority - getCertificateAuthority() Returns Nil
+**Severity**: 🟡 MEDIUM | **Components**: Server | **Status**: ❌ NOT FIXED
+
+**Location**: `server/internal/api/certificates.go:401-404`
+
+**Issue**: `getCertificateAuthority()` is a placeholder that always returns `nil`. Two call sites at lines 62 and 379 dereference this value without nil-checks.
+
+```go
+func getCertificateAuthority() *security.CertificateAuthority {
+    // This is a placeholder - in real implementation, CA should be initialized
+    // at server startup and stored in a global variable or context
+    return nil
+}
+```
+
+**Impact**: Any request to `/api/certificates` endpoints that calls `getCertificateAuthority()` will cause a nil pointer dereference panic, crashing the server goroutine for that request.
+
+**Additional**: `server/internal/security/certificates.go:528,534` also contains placeholder comments for certificate operations.
+
+**Fix Required**:
+- Initialize `CertificateAuthority` at server startup (in `cmd/server/main.go`)
+- Store the CA instance in server context or as a package-level singleton
+- Pass it to the certificate API handlers (or retrieve from context)
+- Add nil-check guard in `getCertificateAuthority()` as a safety fallback
+
+**Planned**: Short term (v0.5.0)
+
+---
 
 #### [BUG-019] Console.log in Production Code
 **Severity**: 🟡 MEDIUM | **Components**: Frontend | **Status**: ❌ NOT FIXED
@@ -257,20 +267,33 @@
 
 | Component | Active | Fixed | Total |
 |-----------|--------|-------|-------|
-| Frontend | 1 | 22 | 23 |
-| Server | 0 | 1 | 1 |
-| **Total** | **1** | **23** | **24** |
+| Frontend | 12 | 22 | 34 |
+| Server | 2 | 1 | 3 |
+| **Total** | **14** | **23** | **37** |
 
 ---
 
 ## Quick Reference
 
-**Active Bugs**:
-- ⚠️ BUG-006 - Pending agent notification badge - Low priority
+**Active Bugs (11)**:
+- 🟠 BUG-016 - RBACPage edit permission not implemented
+- 🟠 BUG-017 - LogsTab uses mock data, WebSocket streaming missing
+- 🟡 BUG-019 - console.log in production code (8 occurrences)
+- 🟡 BUG-020 - Silent error failures, no user-facing feedback
+- 🟡 BUG-021 - ProcessDiscoveryModal no error feedback
+- 🟡 BUG-022 - AgentsContext polling fallback without visual indicator
+- 🟡 BUG-026 - getCertificateAuthority() returns nil (potential panic)
+- 🟢 BUG-006 - Pending agent notification badge missing
+- 🟢 BUG-023 - ProfileModal generic password change error messages
+- 🟢 BUG-024 - Service managers inconsistent error messages
+- 🟢 BUG-025 - Missing loading states in some async operations
 
-**Recently Fixed (v0.4.13)**:
-- ✅ BUG-013 - Project color display duplicate colors
-- ✅ BUG-012 - Hardcoded styles (1,433+ violations) - 100% COMPLETE
+**Recently Fixed**:
+- ✅ BUG-014 - ServiceDetailModal account management callbacks
+- ✅ BUG-015 - ConfigurationTab config save via service_get/update_config
+- ✅ BUG-018 - sqlite.go account config JSON serialization
+- ✅ BUG-013 - Project color display duplicate colors (v0.4.13)
+- ✅ BUG-012 - Hardcoded styles 100% COMPLETE (v0.4.13)
 
 **For Implementation Details**: See [IMPLEMENTED.md](./IMPLEMENTED.md)
 **For Test Results**: See [TESTING.md](./TESTING.md)
@@ -278,5 +301,5 @@
 
 ---
 
-*Last Updated: 2026-04-01 (v0.4.13)*
+*Last Updated: 2026-04-01 (v0.4.13 — audit corrections applied)*
 *Next Review: v0.5.0 release*

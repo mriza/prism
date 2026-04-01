@@ -1,6 +1,6 @@
 # TODO — PRISM Development Roadmap
 
-> **Last Updated**: 2026-04-01 (v0.4.13)
+> **Last Updated**: 2026-04-01 (v0.4.13 — audit corrections applied)
 >
 > **Purpose**: Development roadmap organized by priority and severity.
 >
@@ -35,7 +35,7 @@
 - ✅ Clear UX: dedicated modals for password changes only
 
 ### ✅ v0.4.11 (2026-04-01) - Bug Fixes
-- ✅ Infrastructure tab renamed to "Processes"
+- ⚠️ Infrastructure tab rename claimed but NOT applied (code still reads "Infrastructure" at `ProjectDetailPage.tsx:202,209`) — BUG-007 remains open
 - ✅ Test files cleaned up (removed .bak files)
 - ✅ Project color display fixed
 
@@ -304,9 +304,9 @@
 
 ---
 
-#### Merge Deployments & Processes Pages
+#### ~~Merge Deployments & Processes Pages~~ ✅ DONE (Phase 1)
 **Severity**: 🟡 MEDIUM | **Components**: Frontend
-**Status**: Not started
+**Status**: ✅ Phase 1 complete — unified UI, Phase 2 (Docker/Podman/Binary deployers) deferred to v0.6.0
 
 **Task**: Merge DeploymentsPage and ProcessesPage into unified "Applications" page.
 
@@ -428,43 +428,27 @@ These should be unified under a single "Applications" concept with different dep
 
 ### User Management Enhancements
 
-#### User Password Change (Self-Service)
+#### ~~User Password Change (Self-Service)~~ ✅ FIXED v0.4.9
 **Severity**: 🟢 MEDIUM | **Components**: Frontend + Server  
-**Status**: Not started
+**Status**: ✅ FIXED
 
-**Task**: Allow users to change their own password.
-
-**Requirements**:
-- Add "Change Password" option in user profile menu
-- Modal with: Current password, New password, Confirm password
-- API endpoint: `PUT /api/users/:id/password`
-- Validate current password before updating
-- Force re-login after password change (security)
-
-**Files**: 
-- Frontend: `frontend/src/components/modals/ChangePasswordModal.tsx` (NEW)
-- Frontend: `frontend/src/layouts/AppLayout.tsx` (Add menu item)
-- Server: `server/internal/api/users.go` (Add password change handler)
+**Fix Applied**:
+- `ChangePasswordModal.tsx` created with current/new/confirm password fields
+- Integrated into `ProfileModal.tsx`
+- API endpoint `PUT /api/users/:id/password` implemented
+- Password strength validation (min 8 chars)
 
 ---
 
-#### Admin Change User Password
+#### ~~Admin Change User Password~~ ✅ FIXED v0.4.9
 **Severity**: 🟢 MEDIUM | **Components**: Frontend + Server  
-**Status**: Not started
+**Status**: ✅ FIXED
 
-**Task**: Allow admins to reset/change other users' passwords.
-
-**Requirements**:
-- Add "Reset Password" action in UsersPage table
-- Modal with: New password, Confirm password (no current password required)
-- API endpoint: `POST /api/users/:id/reset-password`
-- Admin-only permission check
-- Send notification email to user (optional)
-
-**Files**: 
-- Frontend: `frontend/src/pages/UsersPage.tsx` (Add action button)
-- Frontend: `frontend/src/components/modals/ResetPasswordModal.tsx` (NEW)
-- Server: `server/internal/api/users.go` (Add reset password handler)
+**Fix Applied**:
+- `ResetPasswordModal.tsx` created
+- "Reset Password" action added to `UsersPage.tsx`
+- API endpoint `POST /api/users/:id/reset-password` implemented
+- Admin-only permission check applied
 
 ---
 
@@ -486,8 +470,6 @@ These should be unified under a single "Applications" concept with different dep
 - `frontend/src/layouts/AppLayout.tsx` - Removed user dropdown from header
 
 ---
-
-#### User Password Change (Self-Service)
 
 ### Test Coverage Gaps
 
@@ -582,7 +564,7 @@ These should be unified under a single "Applications" concept with different dep
 #### "Infrastructure" Tab Rename
 **Severity**: 🟢 MEDIUM | **Components**: Frontend  
 **Tracking**: [BUG-007](./BUG.md#bug-007-infrastructure-tab-misleading)  
-**Status**: Not started
+**Status**: Not started ⚠️ (erroneously claimed fixed in v0.4.11 release notes — code unchanged)
 
 **Task**: Rename tab to "Processes" or make non-default.
 
@@ -591,7 +573,29 @@ These should be unified under a single "Applications" concept with different dep
 2. Change `defaultActiveKey` from "infrastructure" to "accounts"
 3. Remove tab entirely (ProcessesPage exists globally)
 
-**File**: `frontend/src/pages/ProjectDetailPage.tsx`
+**File**: `frontend/src/pages/ProjectDetailPage.tsx:202,205,209`
+
+---
+
+#### Certificate Authority Initialization
+**Severity**: 🟡 MEDIUM | **Components**: Server  
+**Tracking**: [BUG-026](./BUG.md#bug-026-certificate-authority---getcertificateauthority-returns-nil)  
+**Status**: Not started
+
+**Task**: Initialize `CertificateAuthority` at server startup instead of returning `nil` from a placeholder function.
+
+**Issue**: `server/internal/api/certificates.go:401-404` — `getCertificateAuthority()` always returns `nil`. Called at lines 62 and 379 without nil-checks, causing potential panic on any certificate API request.
+
+**Fix**:
+- Initialize CA in `server/cmd/server/main.go` on startup
+- Store as package-level var or pass via server context
+- Update `getCertificateAuthority()` to retrieve from context
+- Resolve placeholder comments in `server/internal/security/certificates.go:528,534`
+
+**Files**:
+- `server/internal/api/certificates.go` - Remove placeholder, retrieve from context
+- `server/internal/security/certificates.go` - Implement placeholder stubs
+- `server/cmd/server/main.go` - Add CA initialization at startup
 
 ---
 
@@ -784,13 +788,22 @@ These should be unified under a single "Applications" concept with different dep
 - ✅ Dark mode readiness improved
 
 ### v0.5.0 (Next Sprint)
+- 🔴 **BUG-014** - ServiceDetailModal account management callbacks
+- 🔴 **BUG-015** - ConfigurationTab configuration save (API implementation)
 - 🔴 **Test Infrastructure Setup** - Fix AuthContext mocking for hook tests
 - 🔴 Frontend hooks testing (useAccounts, useDeployments, etc.) - Test templates created
 - 🔴 Integration tests for critical flows
+- 🟠 **BUG-016** - RBACPage edit permission modal
+- 🟠 **BUG-017** - LogsTab WebSocket streaming (replace mock data)
+- 🟠 **BUG-018** - sqlite.go account config JSON serialization
+- 🟡 **BUG-026** - Certificate authority initialization (getCertificateAuthority returns nil)
+- 🟡 **BUG-007** - Infrastructure tab rename in ProjectDetailPage (erroneously claimed fixed in v0.4.11)
+- 🟡 **BUG-019** - Remove console.log from production code (8 occurrences)
+- 🟡 **BUG-020** - Add user-facing error messages (silent failures)
 - 🟡 Agent modules testing
 - 🟡 Frontend pages testing
 - 🟡 Database layer testing
-- 🟡 **NEW**: Merge Deployments & Processes into "Applications" page
+- ✅ **DONE**: Merge Deployments & Processes → ApplicationsPage (Phase 1)
 - 🟡 Service activity logs tab
 - 🟡 Activity log enhancements
 - 🟢 Log clearing & retention feature

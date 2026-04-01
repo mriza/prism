@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"database/sql"
+	"encoding/json"
 	"path/filepath"
 	"os"
 	"fmt"
@@ -597,7 +598,12 @@ func (db *Database) DeleteProject(id string) error {
 // Service Account Operations
 
 func (db *Database) CreateServiceAccount(account ServiceAccount) error {
-	configJSON := "{}" // TODO: Convert config map to JSON when needed
+	configJSON := "{}"
+	if len(account.Config) > 0 {
+		if b, err := json.Marshal(account.Config); err == nil {
+			configJSON = string(b)
+		}
+	}
 	
 	_, err := db.conn.Exec(
 		`INSERT INTO service_accounts (
@@ -687,7 +693,11 @@ func (db *Database) GetServiceAccounts(projectID string) ([]ServiceAccount, erro
 			return nil, err
 		}
 		account.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-		// TODO: Parse configJSON into account.Config when needed
+		if configJSON != "" && configJSON != "{}" {
+			if err := json.Unmarshal([]byte(configJSON), &account.Config); err != nil {
+				account.Config = map[string]interface{}{}
+			}
+		}
 		accounts = append(accounts, account)
 	}
 	return accounts, nil
