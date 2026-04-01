@@ -1,6 +1,6 @@
 # TODO — PRISM Development Roadmap
 
-> **Last Updated**: 2026-04-01 (v0.4.13 — audit corrections applied)
+> **Last Updated**: 2026-04-01 (v0.4.14 — post-merge audit, 10 new bugs documented)
 >
 > **Purpose**: Development roadmap organized by priority and severity.
 >
@@ -15,6 +15,18 @@
 ---
 
 ## Recent Releases
+
+### ✅ v0.4.14 (2026-04-01) - Applications Merge + Bug Fixes + Post-Merge Audit
+- ✅ Merged DeploymentsPage + ProcessesPage → unified **ApplicationsPage** with tabs
+- ✅ **BUG-016 FIXED** — RBACPage edit permission with `updatePermission` API
+- ✅ **BUG-017 FIXED (Partial)** — LogsTab WebSocket initial batch streaming via `useWebSocketLogs`
+- ✅ **BUG-014 FIXED** — ServiceModal account management callbacks
+- ✅ **BUG-015 FIXED** — ConfigurationTab config save via real agent API
+- ✅ **BUG-018 FIXED** — sqlite.go account config JSON serialization
+- ✅ TypeScript build errors fixed (LogsTab unused import, PageContainer title type)
+- 🔍 Post-merge audit: 10 new bugs discovered (BUG-027 to BUG-036 + BUG-037)
+
+---
 
 ### ✅ v0.4.13 (2026-04-01) - BUG-012 COMPLETE: Hardcoded Styles Cleanup
 - ✅ **BUG-012: 100% COMPLETE** - All 1,433+ hardcoded style violations FIXED!
@@ -161,8 +173,7 @@
 - [ ] `ProjectsPage` - Project listing
 - [ ] `ProjectDetailPage` - Project detail with accounts
 - [ ] `AccountsPage` - Account management
-- [ ] `DeploymentsPage` - Deployment management
-- [ ] `ProcessesPage` - Process management
+- [ ] `ApplicationsPage` - Unified deployments + process management
 - [ ] `SecurityPage` - Firewall rules
 - [ ] `LogsPage` - Activity log viewer
 - [ ] `UsersPage` - User management
@@ -577,6 +588,77 @@ These should be unified under a single "Applications" concept with different dep
 
 ---
 
+#### Nftables Port Management Implementation
+**Severity**: 🟡 MEDIUM | **Components**: Agent  
+**Tracking**: [BUG-036](./BUG.md)  
+**Status**: Not started
+
+**Task**: Implement `OpenPort`, `ClosePort`, `DeleteRule`, and `SetDefaultPolicy` in the nftables agent module.
+
+**Issue**: All four methods in `agent/internal/modules/nftables.go:77-93` return `errors.New("not implemented")`. Users can discover nftables as a firewall but cannot manage rules via PRISM.
+
+**Implementation Notes**:
+- Use `nft add rule` / `nft delete rule` commands for port management
+- nftables doesn't support rule IDs natively — track rules via handles (`nft -a list ruleset`)
+- `SetDefaultPolicy` requires table + chain context: `nft add chain inet filter input '{ policy drop; }'`
+
+**Files**: `agent/internal/modules/nftables.go`
+
+---
+
+#### LogsTab Real-Time Agent Event Streaming
+**Severity**: 🟡 MEDIUM | **Components**: Server  
+**Tracking**: [BUG-037](./BUG.md)  
+**Status**: Not started (WebSocket infrastructure exists, forwarding missing)
+
+**Task**: Forward new agent log events to subscribed `/ws/logs` clients in real time.
+
+**Current Gap**: `handleLogsWS` in `server/cmd/server/main.go:1106-1109` only sends initial DB batch. New events are saved to DB but not broadcast to connected WS clients.
+
+**Fix**:
+- Add a log subscriber map: `map[string][]chan LogEntry` keyed by `agentId:service`
+- When `LogAuditAction` saves a new event, check if any WS clients subscribed to that `agentId:service` and forward the event
+- Alternatively, use the existing `wsHub` broadcast mechanism with filtered log channel
+
+**Files**:
+- `server/cmd/server/main.go` - Add subscriber tracking to `handleLogsWS`
+- `server/internal/db/db.go` - Hook into `LogAuditAction` to trigger broadcast
+
+---
+
+#### Modal Error Handling Sweep (BUG-027 to BUG-032)
+**Severity**: 🟡 MEDIUM | **Components**: Frontend  
+**Tracking**: BUG-027, BUG-028, BUG-029, BUG-030, BUG-031, BUG-032  
+**Status**: Not started
+
+**Task**: Add proper error handling across 5 modal/page files with missing try/catch and error feedback.
+
+**Files and Issues**:
+1. `frontend/src/components/modals/ProcessDiscoveryModal.tsx` — Add `.catch()` to `listSystemdUnits()` call
+2. `frontend/src/components/modals/FirewallModal.tsx` — Check `res.ok` in `controlAgent()`, add try/catch to `handleAdd`/`handleDelete`
+3. `frontend/src/components/modals/CrowdSecModal.tsx` — Same as FirewallModal
+4. `frontend/src/components/modals/ServerSettingsModal.tsx` — Add `if (!activeFw) return;` guard
+5. `frontend/src/pages/ProjectDetailPage.tsx` — Wrap `fetchProjectInfra` loop in try/catch with finally
+
+**Pattern to Apply**:
+```tsx
+const handleAdd = async (values: FormValues) => {
+    setActionLoading('add');
+    try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/control`, { ... });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        await fetchRules();
+        message.success('Rule added');
+    } catch (err) {
+        message.error(`Failed to add rule: ${err}`);
+    } finally {
+        setActionLoading('');
+    }
+};
+```
+
+---
+
 #### Certificate Authority Initialization
 **Severity**: 🟡 MEDIUM | **Components**: Server  
 **Tracking**: [BUG-026](./BUG.md#bug-026-certificate-authority---getcertificateauthority-returns-nil)  
@@ -782,35 +864,51 @@ These should be unified under a single "Applications" concept with different dep
 
 ## Release Planning
 
-### ✅ v0.4.13 (Current) - BUG-012 Phase 1
-- ✅ Hardcoded styles cleanup - 165+ violations fixed
-- ✅ Ant Design theme tokens integration
-- ✅ Dark mode readiness improved
+### ✅ v0.4.14 (Current) - Applications Merge + Bug Fixes
+- ✅ BUG-014 - ServiceModal account management callbacks
+- ✅ BUG-015 - ConfigurationTab config save via agent API
+- ✅ BUG-016 - RBACPage edit permission
+- ✅ BUG-017 - LogsTab WebSocket initial streaming (partial)
+- ✅ BUG-018 - sqlite.go account config JSON serialization
+- ✅ Merge Deployments & Processes → ApplicationsPage
 
 ### v0.5.0 (Next Sprint)
-- 🔴 **BUG-014** - ServiceDetailModal account management callbacks
-- 🔴 **BUG-015** - ConfigurationTab configuration save (API implementation)
-- 🔴 **Test Infrastructure Setup** - Fix AuthContext mocking for hook tests
-- 🔴 Frontend hooks testing (useAccounts, useDeployments, etc.) - Test templates created
-- 🔴 Integration tests for critical flows
-- 🟠 **BUG-016** - RBACPage edit permission modal
-- 🟠 **BUG-017** - LogsTab WebSocket streaming (replace mock data)
-- 🟠 **BUG-018** - sqlite.go account config JSON serialization
-- 🟡 **BUG-026** - Certificate authority initialization (getCertificateAuthority returns nil)
-- 🟡 **BUG-007** - Infrastructure tab rename in ProjectDetailPage (erroneously claimed fixed in v0.4.11)
-- 🟡 **BUG-019** - Remove console.log from production code (8 occurrences)
+
+**Bug Fixes (Medium)**:
+- 🟡 **BUG-026** - Certificate authority initialization (nil panic)
+- 🟡 **BUG-035** - certificates.go loadFile/saveFile placeholder stubs (fix with BUG-026)
+- 🟡 **BUG-036** - nftables OpenPort/ClosePort/SetDefaultPolicy not implemented
+- 🟡 **BUG-037** - LogsTab no real-time forwarding from agent events
+- 🟡 **BUG-027** - ProcessDiscoveryModal unhandled promise rejection (infinite spinner)
+- 🟡 **BUG-028** - FirewallModal/CrowdSecModal no HTTP status check in controlAgent
+- 🟡 **BUG-029** - FirewallModal missing try/catch in handleAdd/handleDelete
+- 🟡 **BUG-030** - CrowdSecModal missing try/catch in handleAdd/handleDelete
+- 🟡 **BUG-031** - ServerSettingsModal null dereference on activeFw
+- 🟡 **BUG-032** - ProjectDetailPage missing try/catch in fetchProjectInfra
+- 🟡 **BUG-019** - Remove console.log from production code (18+ occurrences)
 - 🟡 **BUG-020** - Add user-facing error messages (silent failures)
-- 🟡 Agent modules testing
-- 🟡 Frontend pages testing
-- 🟡 Database layer testing
-- ✅ **DONE**: Merge Deployments & Processes → ApplicationsPage (Phase 1)
-- 🟡 Service activity logs tab
-- 🟡 Activity log enhancements
+- 🟡 **BUG-021** - ProcessDiscoveryModal no error feedback
+- 🟡 **BUG-022** - AgentsContext polling fallback without visual indicator
+- 🟡 **BUG-007** - Infrastructure tab rename in ProjectDetailPage
+
+**Bug Fixes (Low)**:
+- 🟢 **BUG-006** - Pending agent notification badge
+- 🟢 **BUG-033** - Replace `any[]` typing with proper interfaces
+- 🟢 **BUG-034** - FirewallModal/CrowdSecModal missing VITE_API_URL prefix
+- 🟢 **BUG-023** - ProfileModal specific password change error messages
+- 🟢 **BUG-024** - Service managers specific error messages
+- 🟢 **BUG-025** - Missing loading states audit
+
+**Features**:
+- 🟡 Service activity logs tab in ServiceDetailModal
+- 🟡 Activity log enhancements (new event types)
 - 🟢 Log clearing & retention feature
-- ✅ BUG-013 - Project color display - **FIXED in v0.4.13**
-- ✅ BUG-012 - Hardcoded styles - **100% COMPLETE in v0.4.13**
+- 🔴 Test infrastructure setup + frontend hooks testing
+- 🔴 Integration tests for critical flows
+- 🟡 Agent modules testing
+- 🟡 Frontend pages + modals testing
+- 🟡 Database layer testing
 - 🔵 CI/CD GitHub Actions workflow
-- 🔵 **BUG-006** - Pending agent notification badge (LOW priority)
 
 ### v0.6.0 (Future)
 - 🔵 Legacy table unification
