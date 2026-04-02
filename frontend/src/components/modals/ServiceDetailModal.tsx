@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { 
+import { log } from '../../utils/log';
+import type { ServiceLog, StorageUser } from '../../types';
+import {
     Modal,
     Tabs,
     Button,
@@ -122,13 +124,13 @@ export function ServiceDetailModal({
     // Shared action state
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const { token: authToken } = useAuth();
-    const [serviceLogs, setServiceLogs] = useState<any[]>([]);
+    const [serviceLogs, setServiceLogs] = useState<ServiceLog[]>([]);
     const [loadingLogs, setLoadingLogs] = useState(false);
 
     // Storage state
     const [buckets, setBuckets] = useState<string[]>([]);
     const [loadingBuckets, setLoadingBuckets] = useState(false);
-    const [storageUsers, setStorageUsers] = useState<any[]>([]);
+    const [storageUsers, setStorageUsers] = useState<StorageUser[]>([]);
     const [loadingStorageUsers, setLoadingStorageUsers] = useState(false);
     const [newBucketName, setNewBucketName] = useState('');
     const [creatingBucket, setCreatingBucket] = useState(false);
@@ -282,7 +284,8 @@ export function ServiceDetailModal({
                 setServiceLogs(data || []);
             }
         } catch (err) {
-            console.error("Failed to load service logs:", err);
+            log.error("Failed to load service logs", err);
+            message.error("Failed to load service logs");
         } finally {
             setLoadingLogs(false);
         }

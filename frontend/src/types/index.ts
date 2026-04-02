@@ -179,3 +179,18 @@ export interface Event {
     message: string;
     createdAt: string;
 }
+
+export interface ServiceLog {
+    timestamp: string;
+    level: string;
+    message: string;
+    source?: string;
+}
+
+export interface StorageUser {
+    accessKeyId: string;
+    secretKey?: string;
+    name?: string;
+    policies?: string[];
+    status?: string;
+}

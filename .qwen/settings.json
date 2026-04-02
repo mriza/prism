@@ -22,7 +22,8 @@
       "Bash(s/style={{ *)",
       "Bash(eof)",
       "Bash(echo *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit *)"
     ]
   },
   "$version": 3
