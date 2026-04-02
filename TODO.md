@@ -256,14 +256,30 @@ For each duplicate found:
 
 ### ✅ v0.4.24 (2026-04-02) - DevOps Automation 🚀
 - ✅ **Service Activity Logs** — Activity tab in ServiceDetailModal
-- ✅ **GitHub Release Script** — `scripts/create_github_release.sh`
-- ✅ **Deployment Script** — `deploy.sh` (simplified, user-friendly)
+- ✅ **GitHub Release Script** — `scripts/create_release.sh`
+- ✅ **Deployment Script** — `scripts/deploy.sh` (simplified, user-friendly)
+- ✅ **VM Requirements** — `docs/VM_REQUIREMENTS.md` created
+
+### 🔄 In Progress
+
+- 🟡 **Auto Deploy Script** — Automated VM deployment (`scripts/auto_deploy.sh`)
+  - [ ] Connect to QEMU/KVM via `qemu:///system`
+  - [ ] Check VM status (prism-vm)
+  - [ ] Start VM if stopped
+  - [ ] Wait for SSH availability
+  - [ ] Deploy PRISM components via scripts/deploy.sh
+  - [ ] Verify services running
+  - [ ] Handle connection errors
+  - VM Details:
+    * Connection: `qemu:///system`
+    * Username: `prism`
+    * Password: `prism123`
+    * Default IP: `192.168.122.230`
+  - Reference: `docs/VM_REQUIREMENTS.md`
 
 ### ✅ v0.4.23 (2026-04-02) - Error Handling & Type Safety 🛡️
 - ✅ BUG-019: Console.log removal
 - ✅ BUG-033: Loose any[] typing fixed
-
-### ✅ v0.4.22 (2026-04-02) - Font Standardization 🎨
 - ✅ BUG-044: 36 fontWeight/fontSize fixes
 
 ---
