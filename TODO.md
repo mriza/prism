@@ -262,7 +262,7 @@ For each duplicate found:
 
 ### 🔄 In Progress
 
-- 🟡 **Auto Deploy Script** — Automated VM deployment (`scripts/auto_deploy.sh`)
+- 🟡 **VM Test Deploy Script** — Automated VM deployment (`scripts/vm_test_deploy.sh`)
   - [ ] Connect to QEMU/KVM via `qemu:///system`
   - [ ] Check VM status (prism-vm)
   - [ ] Start VM if stopped

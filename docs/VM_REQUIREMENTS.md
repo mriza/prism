@@ -122,7 +122,7 @@ virsh list --all | grep prism-vm
 
 ---
 
-## Deployment Script (Future: scripts/auto_deploy.sh)
+## Deployment Script (Future: scripts/vm_test_deploy.sh)
 
 The deployment script should:
 

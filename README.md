@@ -96,8 +96,8 @@ cd agent && go build -o prism-agent cmd/agent/*.go
 # 3. Build Frontend
 cd frontend && npm install && npm run build
 
-# 4. Auto Deployment (to VM)
-./auto_deploy.sh
+# 4. Deploy to VM (Test Environment)
+sudo ./scripts/vm_test_deploy.sh
 ```
 
 ## Configuration
@@ -151,11 +151,15 @@ prism/
 │       ├── hooks/             # 7 data hooks
 │       ├── contexts/          # Auth, Agents, AppConfig
 │       └── layouts/           # AppLayout + Sidebar
+├── docs/                      # Documentation
+│   └── VM_REQUIREMENTS.md     # VM configuration guide
+├── scripts/                   # Automation scripts
+│   ├── deploy.sh              # Deployment automation
+│   ├── create_release.sh      # Release creation
+│   ├── run_tests.sh           # Test runner
+│   └── vm_test_deploy.sh      # VM test deployment (QEMU/KVM)
 ├── TODO.md                    # Development roadmap
-├── IMPLEMENTED.md             # Complete feature registry
-├── auto_deploy.sh             # Automated VM deployment
-├── deploy.sh                  # Manual deployment script
-└── services_installer.sh      # Interactive service installer
+└── IMPLEMENTED.md             # Complete feature registry
 ```
 
 ## Documentation
