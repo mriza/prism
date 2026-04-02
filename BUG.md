@@ -1,6 +1,6 @@
 # PRISM Bug Report
 
-> **Last Updated**: 2026-04-02 (v0.4.21 — All audits consolidated, 100% bug resolution)
+> **Last Updated**: 2026-04-02 (v0.4.23 — BUG-019, BUG-020, BUG-021, BUG-023, BUG-024, BUG-025, BUG-033 fixed)
 >
 > **Purpose**: Active bug registry - only unfixed bugs listed here.
 >
@@ -54,6 +54,21 @@
 ---
 
 ## Historical Bug Summary
+
+### v0.4.23 - Console.log Removal & Type Safety
+- ✅ BUG-019: Removed last console.error from production code (ServiceDetailModal.tsx)
+- ✅ BUG-033: Fixed loose any[] typing with proper interfaces (ServiceLog, StorageUser)
+- ✅ BUG-020: Verified error handling in all hooks with message.error
+- ✅ BUG-021: ProcessDiscoveryModal error feedback with Alert + Retry button
+- ✅ BUG-023: Password change error messages with HTTP status-specific handling
+- ✅ BUG-024: Service managers error messages implemented
+- ✅ BUG-025: Loading states present in all async operations
+
+### v0.4.22 - Font Weight/Size Standardization
+- ✅ BUG-044: Fixed 36 hardcoded fontWeight/fontSize instances
+- ✅ Replaced fontWeight: 600/700/800/900 with token.fontWeightStrong
+- ✅ Replaced fontSize: 12/16/24 with token.fontSize*
+- ✅ 20+ files updated (Sidebar, Pages, Modals, Service Managers)
 
 ### v0.4.21 - Font Weight Standardization
 - ✅ Fixed 26 hardcoded fontWeight instances across 6 pages
