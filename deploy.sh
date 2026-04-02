@@ -1,186 +1,503 @@
 #!/bin/bash
 
-# PRISM Multi-Server Interactive Deployer
-# Versi: 2.1 (Multi-OS & GitHub Support & Token Sync)
+# PRISM Deployment Script
+# Downloads and deploys PRISM components from GitHub Releases
+# Usage: sudo ./deploy.sh
 
-echo "================================================="
-echo "   PRISM Interactive Target Deployment Wizard     "
-echo "================================================="
-echo "Skrip ini akan menginstal komponen PRISM pada server"
-echo "dengan mengunduh build artifact langsung dari GitHub."
-echo ""
+set -e
 
-# --- Configuration ---
-GITHUB_REPO="mriza/prism" # Default repository
-RELEASE_TAG="latest"      # Default tag
+# Configuration
+REPO="mriza/prism"
+BASE_DIR="/opt/prism"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-read -p "Masukkan URL GitHub Repo (Default: $GITHUB_REPO): " INPUT_REPO
-[ -n "$INPUT_REPO" ] && GITHUB_REPO=$INPUT_REPO
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-read -p "Masukkan Tag/Versi (Default: $RELEASE_TAG): " INPUT_TAG
-[ -n "$INPUT_TAG" ] && RELEASE_TAG=$INPUT_TAG
+# Helper functions
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
 
-# --- Target Information ---
-read -p "Target Server IP: " TARGET_IP
-read -p "SSH Username: " TARGET_USER
-read -p "SSH Password or Key Path: " TARGET_AUTH
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
 
-# Helper for executing SSH/SCP
-execute_remote() {
-    local CMD=$1
-    if [ -n "$TARGET_AUTH" ] && [ -f "$TARGET_AUTH" ]; then
-        ssh -i "$TARGET_AUTH" -o StrictHostKeyChecking=no $TARGET_USER@$TARGET_IP "$CMD"
-    elif [ -n "$TARGET_AUTH" ]; then
-        export SSHPASS="$TARGET_AUTH"
-        sshpass -e ssh -o StrictHostKeyChecking=no $TARGET_USER@$TARGET_IP "$CMD"
-    else
-        ssh -o StrictHostKeyChecking=no $TARGET_USER@$TARGET_IP "$CMD"
+log_warn() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Check if running as root
+check_root() {
+    if [ "$EUID" -ne 0 ]; then
+        log_error "This script must be run as root (use sudo)"
+        exit 1
     fi
 }
 
-execute_remote_sudo() {
-    local CMD=$1
-    if [ -n "$TARGET_AUTH" ] && [ -f "$TARGET_AUTH" ]; then
-        ssh -i "$TARGET_AUTH" -o StrictHostKeyChecking=no $TARGET_USER@$TARGET_IP "sudo $CMD"
-    elif [ -n "$TARGET_AUTH" ]; then
-        export SSHPASS="$TARGET_AUTH"
-        sshpass -e ssh -o StrictHostKeyChecking=no $TARGET_USER@$TARGET_IP "sudo $CMD"
+# Check basic requirements
+check_requirements() {
+    log_info "Checking requirements..."
+    
+    local missing=()
+    
+    # Check curl
+    if ! command -v curl &> /dev/null; then
+        missing+=("curl")
+    fi
+    
+    # Check jq
+    if ! command -v jq &> /dev/null; then
+        missing+=("jq")
+    fi
+    
+    # Check tar
+    if ! command -v tar &> /dev/null; then
+        missing+=("tar")
+    fi
+    
+    if [ ${#missing[@]} -gt 0 ]; then
+        log_error "Missing required tools: ${missing[*]}"
+        log_info "Please install them first:"
+        log_info "  Ubuntu/Debian: sudo apt install ${missing[*]}"
+        log_info "  CentOS/RHEL: sudo yum install ${missing[*]}"
+        exit 1
+    fi
+    
+    log_success "Requirements check passed!"
+}
+
+# Get current user (not root)
+get_current_user() {
+    # Get the actual user who invoked sudo
+    if [ -n "$SUDO_USER" ]; then
+        echo "$SUDO_USER"
     else
-        ssh -o StrictHostKeyChecking=no $TARGET_USER@$TARGET_IP "sudo $CMD"
+        echo "$USER"
     fi
 }
 
-echo "========================================="
-echo "       MEMULAI PROSES DEPLOYMENT         "
-echo "========================================="
+# Get latest version from GitHub
+get_version() {
+    local version_type="${1:-latest}"
+    
+    log_info "Fetching version information from GitHub..."
+    
+    if [ "$version_type" = "latest" ]; then
+        VERSION=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | jq -r '.tag_name')
+        log_info "Latest version: $VERSION"
+    elif [ "$version_type" = "stable" ]; then
+        VERSION=$(curl -s "https://api.github.com/repos/$REPO/releases" | jq -r '[.[] | select(.prerelease == false)] | .[0].tag_name')
+        log_info "Latest stable version: $VERSION"
+    else
+        VERSION="$version_type"
+        log_info "Using specified version: $VERSION"
+    fi
+}
 
-# 1. Hubungkan ke server dan deteksi OS
-echo "[1/4] Mendeteksi Sistem Operasi di Server..."
-REMOTE_OS=$(execute_remote "grep '^ID=' /etc/os-release | cut -d= -f2 | tr -d '\"'")
-echo "Server OS: $REMOTE_OS"
+# Select component to deploy
+select_component() {
+    echo ""
+    echo "Select component to deploy:"
+    echo "  1) Server"
+    echo "  2) Agent"
+    echo "  3) Frontend"
+    echo "  4) All components"
+    echo ""
+    
+    while true; do
+        read -p "Enter choice [1-4]: " choice
+        case $choice in
+            1)
+                COMPONENTS="server"
+                break
+                ;;
+            2)
+                COMPONENTS="agent"
+                break
+                ;;
+            3)
+                COMPONENTS="frontend"
+                break
+                ;;
+            4)
+                COMPONENTS="all"
+                break
+                ;;
+            *)
+                log_error "Invalid choice. Please enter 1-4."
+                ;;
+        esac
+    done
+    
+    log_info "Selected component(s): $COMPONENTS"
+}
 
-# 2. Persiapkan Folder
-echo "[2/4] Menyiapkan environment di server..."
-execute_remote "sudo mkdir -p /opt/prism/server /opt/prism/agent /opt/prism/frontend"
+# Select version type
+select_version() {
+    echo ""
+    echo "Select version to deploy:"
+    echo "  1) Latest (including pre-release)"
+    echo "  2) Latest stable"
+    echo "  3) Specific version"
+    echo ""
+    
+    while true; do
+        read -p "Enter choice [1-3]: " choice
+        case $choice in
+            1)
+                get_version "latest"
+                break
+                ;;
+            2)
+                get_version "stable"
+                break
+                ;;
+            3)
+                read -p "Enter version (e.g., v0.5.0): " ver
+                VERSION="$ver"
+                log_info "Using version: $VERSION"
+                break
+                ;;
+            *)
+                log_error "Invalid choice. Please enter 1-3."
+                ;;
+        esac
+    done
+}
 
-# 3. Unduh dari GitHub
-echo "[3/4] Mengunduh artifact dari GitHub di server..."
-# Link download diasumsikan mengikuti pola release GitHub
-DOWNLOAD_URL="https://github.com/$GITHUB_REPO/releases/download/$RELEASE_TAG/prism_deploy.tar.gz"
-if [ "$RELEASE_TAG" == "latest" ]; then
-    DOWNLOAD_URL="https://github.com/$GITHUB_REPO/releases/latest/download/prism_deploy.tar.gz"
-fi
+# Download file from GitHub release
+download_asset() {
+    local filename="$1"
+    local destination="$2"
+    
+    log_info "Downloading $filename..."
+    
+    # Get download URL from GitHub API
+    local download_url
+    download_url=$(curl -s "https://api.github.com/repos/$REPO/releases/tags/$VERSION" | \
+        jq -r ".assets[] | select(.name == \"$filename\") | .browser_download_url")
+    
+    if [ -z "$download_url" ] || [ "$download_url" = "null" ]; then
+        log_error "Asset '$filename' not found in release $VERSION"
+        return 1
+    fi
+    
+    # Download file
+    if ! curl -sL -o "$destination" "$download_url"; then
+        log_error "Failed to download $filename"
+        return 1
+    fi
+    
+    log_success "Downloaded $filename"
+}
 
-execute_remote "sudo curl -L $DOWNLOAD_URL -o /tmp/prism_deploy.tar.gz"
+# Deploy server component
+deploy_server() {
+    log_info "Deploying Server..."
+    
+    local component_dir="$BASE_DIR/server"
+    local tarball="/tmp/prism-server-$VERSION-linux-amd64.tar.gz"
+    
+    # Create directory
+    mkdir -p "$component_dir"
+    
+    # Download
+    if ! download_asset "prism-server-$VERSION-linux-amd64.tar.gz" "$tarball"; then
+        return 1
+    fi
+    
+    # Extract
+    tar -xzf "$tarball" -C "$component_dir" --strip-components=0
+    rm "$tarball"
+    
+    # Find and rename binary
+    local binary=$(find "$component_dir" -name "prism-server-*" -type f | head -1)
+    if [ -n "$binary" ]; then
+        mv "$binary" "$component_dir/prism-server"
+        chmod +x "$component_dir/prism-server"
+    fi
+    
+    log_success "Server deployed to $component_dir"
+}
 
-# 4. Ekstrak dan Konfigurasi
-echo "[4/4] Mengekstrak dan mengonfigurasi layanan..."
-execute_remote << 'EOF'
-    set -e
-    # Deteksi OS lagi di dalam shell remote
-    OS=$(grep '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
+# Deploy agent component
+deploy_agent() {
+    log_info "Deploying Agent..."
+    
+    local component_dir="$BASE_DIR/agent"
+    local tarball="/tmp/prism-agent-$VERSION-linux-amd64.tar.gz"
+    
+    # Create directory
+    mkdir -p "$component_dir"
+    
+    # Download
+    if ! download_asset "prism-agent-$VERSION-linux-amd64.tar.gz" "$tarball"; then
+        return 1
+    fi
+    
+    # Extract
+    tar -xzf "$tarball" -C "$component_dir" --strip-components=0
+    rm "$tarball"
+    
+    # Find and rename binary
+    local binary=$(find "$component_dir" -name "prism-agent-*" -type f | head -1)
+    if [ -n "$binary" ]; then
+        mv "$binary" "$component_dir/prism-agent"
+        chmod +x "$component_dir/prism-agent"
+    fi
+    
+    # Create config directory
+    mkdir -p "$component_dir/config"
+    
+    # Create default config if not exists
+    if [ ! -f "$component_dir/config/agent.yaml" ]; then
+        cat > "$component_dir/config/agent.yaml" << EOF
+# PRISM Agent Configuration
+server_url: "http://localhost:8080"
+agent_name: "$(hostname)"
+log_level: "info"
+EOF
+        log_info "Created default config: $component_dir/config/agent.yaml"
+    fi
+    
+    log_success "Agent deployed to $component_dir"
+}
 
-    sudo tar -xzf /tmp/prism_deploy.tar.gz -C /tmp/
+# Deploy frontend component
+deploy_frontend() {
+    log_info "Deploying Frontend..."
+    
+    local component_dir="$BASE_DIR/frontend"
+    local tarball="/tmp/prism-frontend-$VERSION.tar.gz"
+    
+    # Check if Node.js is available for future builds
+    if ! command -v node &> /dev/null; then
+        log_warn "Node.js not found. You won't be able to rebuild frontend from source."
+        log_info "Install Node.js 18+ from: https://nodejs.org/"
+    fi
+    
+    # Create directory
+    mkdir -p "$component_dir"
+    
+    # Download
+    if ! download_asset "prism-frontend-$VERSION.tar.gz" "$tarball"; then
+        return 1
+    fi
+    
+    # Extract
+    tar -xzf "$tarball" -C "$component_dir"
+    rm "$tarball"
+    
+    log_success "Frontend deployed to $component_dir"
+    log_info "Configure your web server to serve files from $component_dir"
+}
 
-    # Pindahkan binary
-    [ -f /tmp/prism-server ] && sudo mv /tmp/prism-server /opt/prism/server/prism-server
-    [ -f /tmp/prism-server.conf ] && sudo mv /tmp/prism-server.conf /opt/prism/server/
-    [ -f /tmp/prism-agent ] && sudo mv /tmp/prism-agent /opt/prism/agent/prism-agent
-    [ -f /tmp/prism-agent.conf ] && sudo mv /tmp/prism-agent.conf /opt/prism/agent/
-    [ -d /tmp/dist ] && (sudo rm -rf /opt/prism/frontend/dist; sudo mv /tmp/dist /opt/prism/frontend/dist)
+# Create systemd service for server
+create_server_service() {
+    local run_user="$1"
+    local service_file="/etc/systemd/system/prism-server.service"
+    
+    log_info "Creating systemd service for Server..."
+    
+    cat > "$service_file" << EOF
+[Unit]
+Description=PRISM Server
+After=network.target
 
-    sudo chmod +x /opt/prism/server/prism-server 2>/dev/null || true
-    sudo chmod +x /opt/prism/agent/prism-agent 2>/dev/null || true
+[Service]
+Type=simple
+User=$run_user
+Group=$run_user
+WorkingDirectory=$BASE_DIR/server
+ExecStart=$BASE_DIR/server/prism-server
+Restart=on-failure
+RestartSec=5
 
-    # Install systemd services
-    [ -f /tmp/prism-server.service ] && sudo mv /tmp/prism-server.service /etc/systemd/system/
-    [ -f /tmp/prism-agent.service ] && sudo mv /tmp/prism-agent.service /etc/systemd/system/
-    sudo systemctl daemon-reload
-    sudo systemctl enable prism-server 2>/dev/null || true
-    sudo systemctl enable prism-agent 2>/dev/null || true
+# Environment
+Environment=NODE_ENV=production
 
-    # Nginx Configuration
-    case "$OS" in
-        ubuntu|debian)
-            NGINX_CONF="/etc/nginx/sites-available/default"
-            NGINX_LINK="/etc/nginx/sites-enabled/default"
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    log_success "Created systemd service: $service_file"
+}
+
+# Create systemd service for agent
+create_agent_service() {
+    local run_user="$1"
+    local service_file="/etc/systemd/system/prism-agent.service"
+    
+    log_info "Creating systemd service for Agent..."
+    
+    cat > "$service_file" << EOF
+[Unit]
+Description=PRISM Agent
+After=network.target
+
+[Service]
+Type=simple
+User=$run_user
+Group=$run_user
+WorkingDirectory=$BASE_DIR/agent
+ExecStart=$BASE_DIR/agent/prism-agent --config $BASE_DIR/agent/config/agent.yaml
+Restart=on-failure
+RestartSec=5
+
+# Environment
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    log_success "Created systemd service: $service_file"
+}
+
+# Enable and start services
+manage_services() {
+    echo ""
+    echo "Service Management:"
+    echo "  1) Enable and start services now"
+    echo "  2) Only enable services (start on boot)"
+    echo "  3) Do nothing (manual setup)"
+    echo ""
+    
+    read -p "Enter choice [1-3]: " choice
+    case $choice in
+        1)
+            log_info "Reloading systemd daemon..."
+            systemctl daemon-reload
+            
+            if [[ "$COMPONENTS" == "all" || "$COMPONENTS" == "server" ]]; then
+                log_info "Enabling and starting prism-server..."
+                systemctl enable prism-server
+                systemctl start prism-server
+            fi
+            
+            if [[ "$COMPONENTS" == "all" || "$COMPONENTS" == "agent" ]]; then
+                log_info "Enabling and starting prism-agent..."
+                systemctl enable prism-agent
+                systemctl start prism-agent
+            fi
+            
+            log_success "Services enabled and started!"
             ;;
-        fedora|rocky|almalinux|rhel)
-            NGINX_CONF="/etc/nginx/conf.d/prism.conf"
-            NGINX_LINK=""
+        2)
+            log_info "Reloading systemd daemon..."
+            systemctl daemon-reload
+            
+            if [[ "$COMPONENTS" == "all" || "$COMPONENTS" == "server" ]]; then
+                log_info "Enabling prism-server..."
+                systemctl enable prism-server
+            fi
+            
+            if [[ "$COMPONENTS" == "all" || "$COMPONENTS" == "agent" ]]; then
+                log_info "Enabling prism-agent..."
+                systemctl enable prism-agent
+            fi
+            
+            log_success "Services enabled! Start them manually with:"
+            log_info "  systemctl start prism-server"
+            log_info "  systemctl start prism-agent"
+            ;;
+        3)
+            log_info "Skipping service setup. You can enable them later with:"
+            log_info "  sudo systemctl daemon-reload"
+            log_info "  sudo systemctl enable prism-server"
+            log_info "  sudo systemctl start prism-server"
+            ;;
+        *)
+            log_warn "Invalid choice, skipping service setup"
             ;;
     esac
-
-    echo "Configuring Nginx ($NGINX_CONF)..."
-    sudo tee $NGINX_CONF > /dev/null << 'NGINX'
-server {
-    listen 80;
-    root /opt/prism/frontend/dist;
-    index index.html;
-    
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-    
-    location /api/ {
-        proxy_pass http://127.0.0.1:65432;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    }
-    
-    location /agent/connect {
-        proxy_pass http://127.0.0.1:65432;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "Upgrade";
-        proxy_set_header Host $host;
-    }
 }
-NGINX
 
-    if [ -n "$NGINX_LINK" ]; then
-        sudo ln -sf $NGINX_CONF $NGINX_LINK
+# Show deployment summary
+show_summary() {
+    echo ""
+    echo "========================================"
+    log_success "Deployment completed successfully!"
+    echo "========================================"
+    echo ""
+    echo "Installation paths:"
+    if [[ "$COMPONENTS" == "all" || "$COMPONENTS" == "server" ]]; then
+        echo "  Server:  $BASE_DIR/server/"
+        echo "           Binary: $BASE_DIR/server/prism-server"
     fi
-
-    # Firewall
-    if command -v ufw >/dev/null; then
-        sudo ufw allow 80/tcp 2>/dev/null || true
-        sudo ufw allow 65432/tcp 2>/dev/null || true
-    elif command -v firewall-cmd >/dev/null; then
-        sudo firewall-cmd --permanent --add-port=80/tcp 2>/dev/null || true
-        sudo firewall-cmd --permanent --add-port=65432/tcp 2>/dev/null || true
-        sudo firewall-cmd --reload 2>/dev/null || true
+    if [[ "$COMPONENTS" == "all" || "$COMPONENTS" == "agent" ]]; then
+        echo "  Agent:   $BASE_DIR/agent/"
+        echo "           Binary: $BASE_DIR/agent/prism-agent"
+        echo "           Config: $BASE_DIR/agent/config/agent.yaml"
     fi
-
-    # Restart services
-    echo "Restarting services..."
-    sudo systemctl restart nginx 2>/dev/null || true
-    sudo systemctl restart prism-server 2>/dev/null || true
-    
-    # Wait for server to initialize
-    echo "Waiting for server to initialize..."
-    sleep 10
-    
-    # Sync token
-    echo "Syncing agent token with server..."
-    SERVER_TOKEN=$(sudo grep "^token =" /opt/prism/server/prism-server.conf | head -1 | sed 's/token *= *//;s/^["'\'']//;s/["'\'']$//' | tr -d ' ')
-    
-    if [ -n "$SERVER_TOKEN" ]; then
-        sudo sed -i "s|^token = .*|token = '$SERVER_TOKEN'|" /opt/prism/agent/prism-agent.conf
-        echo "Token synced successfully"
-        sudo systemctl restart prism-agent 2>/dev/null || true
-    else
-        echo "Warning: Could not sync token automatically"
+    if [[ "$COMPONENTS" == "all" || "$COMPONENTS" == "frontend" ]]; then
+        echo "  Frontend: $BASE_DIR/frontend/"
     fi
-    
-    echo "Deployment completed!"
-EOF
+    echo ""
+    echo "Next steps:"
+    echo "  1. Configure Agent: $BASE_DIR/agent/config/agent.yaml"
+    echo "  2. Check service status: systemctl status prism-server prism-agent"
+    echo "  3. View logs: journalctl -u prism-server -f"
+    echo ""
+}
 
-echo "========================================="
-echo "   DEPLOYMENT SELESAI DENGAN SUKSES!     "
-echo "========================================="
-echo ""
-echo "Akses dashboard di: http://$TARGET_IP"
-echo "Server API: http://$TARGET_IP:65432"
-echo ""
+# Main execution
+main() {
+    echo "========================================"
+    echo "  PRISM Deployment Script"
+    echo "  Repository: $REPO"
+    echo "========================================"
+    echo ""
+    
+    check_root
+    check_requirements
+    
+    RUN_USER=$(get_current_user)
+    log_info "Running as user: $RUN_USER"
+    
+    select_component
+    select_version
+    
+    echo ""
+    log_info "Starting deployment..."
+    echo ""
+    
+    case "$COMPONENTS" in
+        all)
+            deploy_server && create_server_service "$RUN_USER"
+            echo ""
+            deploy_agent && create_agent_service "$RUN_USER"
+            echo ""
+            deploy_frontend
+            manage_services
+            ;;
+        server)
+            deploy_server && create_server_service "$RUN_USER"
+            manage_services
+            ;;
+        agent)
+            deploy_agent && create_agent_service "$RUN_USER"
+            manage_services
+            ;;
+        frontend)
+            deploy_frontend
+            ;;
+        *)
+            log_error "Unknown component: $COMPONENTS"
+            exit 1
+            ;;
+    esac
+    
+    show_summary
+}
+
+main
