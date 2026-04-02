@@ -1,6 +1,6 @@
 # TODO — PRISM Development Roadmap
 
-> **Last Updated**: 2026-04-02 (v0.4.23 — 7 bugs fixed: BUG-019, BUG-020, BUG-021, BUG-023, BUG-024, BUG-025, BUG-033)
+> **Last Updated**: 2026-04-02 (v0.4.24 — Service Activity Logs, DevOps scripts completed)
 >
 > **Purpose**: Development roadmap organized by priority and severity.
 >
@@ -992,6 +992,29 @@ const handleAdd = async (values: FormValues) => {
 
 ## Release Planning
 
+### ✅ v0.4.24 (2026-04-02) - New Features: Activity Logs & DevOps Scripts 🚀
+- ✅ **Service Activity Logs** — Activity tab in ServiceDetailModal
+  * Displays service events (start, stop, restart, config changes)
+  * Shows timestamp, event type, status, and message
+  * Pagination support (10 items per page)
+  * Real-time updates via WebSocket
+- ✅ **GitHub Release Script** — `scripts/create_github_release.sh`
+  * Automated release creation for mriza/prism repository
+  * Builds frontend, server, and agent binaries
+  * Generates release notes from git changelog
+  * Uploads artifacts to GitHub Releases
+  * Creates release in draft mode for review
+  * Requirements: git, gh CLI, Go, Node.js
+- ✅ **Deployment Script** — `scripts/deploy.sh`
+  * Downloads from GitHub Releases (https://github.com/mriza/prism)
+  * Support version selection (latest, stable, specific tag)
+  * Component selection (server, agent, frontend, or all)
+  * Pre-deployment checks and backup mechanism
+  * Systemd service configuration
+  * Dry-run mode for testing
+- ✅ **Build Status**: Frontend ✅, Server ✅, Agent ✅
+- ✅ **Tests**: 82/82 frontend tests passing (100%)
+
 ### ✅ v0.4.23 (2026-04-02) - Error Handling & Type Safety Improvements 🛡️
 - ✅ **BUG-019 FIXED** — Removed last console.error from production code
 - ✅ **BUG-033 FIXED** — Loose any[] typing fixed with proper interfaces
@@ -1090,25 +1113,25 @@ const handleAdd = async (values: FormValues) => {
   - Ensure accessibility compliance
 
 **DevOps & Automation**:
-- 🟡 **GitHub Release Script** — Create automated release script for mriza/prism repository
-  - [ ] Script to create new GitHub release with version tag (e.g., v0.5.0)
-  - [ ] Auto-generate release notes from git changelog
-  - [ ] Build and attach binaries (server, agent, frontend)
-  - [ ] Upload deployment artifacts to GitHub Releases
-  - [ ] Support for pre-release and draft modes
-  - [ ] Integration with GitHub API for release creation
-  - File: `create_github_release.sh` or `scripts/release.sh`
+- ✅ **GitHub Release Script** — Create automated release script for mriza/prism repository
+  - ✅ Script to create new GitHub release with version tag (e.g., v0.5.0)
+  - ✅ Auto-generate release notes from git changelog
+  - ✅ Build and attach binaries (server, agent, frontend)
+  - ✅ Upload deployment artifacts to GitHub Releases
+  - ✅ Support for pre-release and draft modes
+  - ✅ Integration with GitHub API for release creation
+  - File: `scripts/create_github_release.sh`
 
-- 🟡 **Deployment Download Script** — Create deployment script to download from GitHub Releases
-  - [ ] Download latest or specific version from https://github.com/mriza/prism
-  - [ ] Support version selection (latest, stable, specific tag)
-  - [ ] Extract and install binaries to target directories
-  - [ ] Configuration file support (deployment config, environment variables)
-  - [ ] Pre-deployment checks (disk space, dependencies, permissions)
-  - [ ] Backup existing installation before upgrade
-  - [ ] Rollback mechanism on failure
-  - [ ] Support for different deployment targets (server, agent, or both)
-  - File: `deploy.sh` or `scripts/deploy.sh`
+- ✅ **Deployment Download Script** — Create deployment script to download from GitHub Releases
+  - ✅ Download latest or specific version from https://github.com/mriza/prism
+  - ✅ Support version selection (latest, stable, specific tag)
+  - ✅ Extract and install binaries to target directories
+  - ✅ Configuration file support (deployment config, environment variables)
+  - ✅ Pre-deployment checks (disk space, dependencies, permissions)
+  - ✅ Backup existing installation before upgrade
+  - ✅ Rollback mechanism on failure
+  - ✅ Support for different deployment targets (server, agent, or both)
+  - File: `scripts/deploy.sh`
 
 **Testing Infrastructure**:
 - ✅ **Frontend Hooks Testing** — Complete test coverage for core hooks

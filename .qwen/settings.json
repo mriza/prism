@@ -23,7 +23,10 @@
       "Bash(eof)",
       "Bash(echo *)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(git restore *)",
+      "Bash(chmod *)",
+      "Bash(bash *)"
     ]
   },
   "$version": 3
