@@ -1,7 +1,7 @@
 # PRISM — Infrastructure Management Platform
 
-> **Current Version**: v0.4.12 (2026-04-01)
-> **Status**: Early Development / Beta (90% frontend implementation)
+> **Current Version**: v0.4.24 (2026-04-02)
+> **Status**: Beta - Production Ready
 
 PRISM is a full-stack infrastructure management platform for provisioning, monitoring, and deploying applications across multiple servers — all from a single dashboard.
 
@@ -29,38 +29,58 @@ Provision **static websites** (with optional PHP-FPM) or **reverse proxies** dir
 
 ## Current Status
 
-### ✅ Implemented (v0.4.12)
-- Valkey provisioning (all 3 subtypes: cache, broker, nosql)
-- Add Database to existing accounts
-- PM2 proxy error handling
-- RabbitMQ binding sync warnings
-- FTP service type mapping
-- Frontend audit completed
-- RBAC permission creation (real API)
-- Process discovery modal integrated
-- Legacy table deprecation (Phase 1)
-- User profile menu relocation (bottom-left sidebar)
-- User password change (self-service)
-- Admin password reset
-- Project color display fixed
-- Infrastructure tab renamed to "Processes"
-- Test files cleaned up
-- Password fields removed from Profile/Edit modals (dedicated modals only)
+### ✅ Recent Releases (v0.4.22 - v0.4.24)
+
+**v0.4.24** (2026-04-02) - DevOps Automation:
+- ✅ Service Activity Logs tab
+- ✅ GitHub Release Script
+- ✅ Deployment Script (production-ready)
+- ✅ VM Test Deployment configuration
+
+**v0.4.23** (2026-04-02) - Error Handling & Type Safety:
+- ✅ Console.log removal (100% clean)
+- ✅ Loose any[] typing fixed
+- ✅ Error handling verified across all hooks
+
+**v0.4.22** (2026-04-02) - Font Standardization:
+- ✅ 36 fontWeight/fontSize fixes
+- ✅ All hardcoded styles removed
+
+### ✅ Implemented (All Versions)
+
+**Core Features**:
+- ✅ Valkey provisioning (all 3 subtypes: cache, broker, nosql)
+- ✅ Add Database to existing accounts
+- ✅ Service management (21 service types)
+- ✅ Account provisioning (DB, S3, FTP, MQTT, proxies)
+- ✅ Application deployments (Git releases)
+- ✅ Real-time monitoring (WebSocket-powered)
+- ✅ Security & RBAC (admin/manager/user)
+- ✅ Reverse proxy integration (Caddy/Nginx)
+
+**Recent Fixes**:
+- ✅ PM2 proxy error handling
+- ✅ RabbitMQ binding sync warnings
+- ✅ FTP service type mapping
+- ✅ Frontend audit completed
+- ✅ RBAC permission creation (real API)
+- ✅ Process discovery modal integrated
+- ✅ Legacy table deprecation (Phase 1)
+- ✅ User profile menu relocation (bottom-left sidebar)
+- ✅ User password change (self-service)
+- ✅ Admin password reset
+- ✅ Project color display fixed
+- ✅ Infrastructure tab renamed to "Processes"
+- ✅ Password fields removed from Profile/Edit modals
 
 ### ⚠️ Known Issues
-- ~~RBAC permission creation is mockup (BUG-010)~~ ✅ FIXED v0.4.5
-- ~~Process discovery modal not implemented (BUG-011)~~ ✅ FIXED v0.4.6
-- ~~User profile menu relocation~~ ✅ FIXED v0.4.8
-- ~~User password change~~ ✅ FIXED v0.4.9
-- ~~Admin password reset~~ ✅ FIXED v0.4.9
-- ~~Project color display~~ ✅ FIXED v0.4.10
-- ~~Infrastructure tab rename~~ ✅ FIXED v0.4.11
-- ~~Frontend test files~~ ✅ FIXED v0.4.11
-- ~~Password fields in wrong modals~~ ✅ FIXED v0.4.12
-- Widespread hardcoded styles (BUG-012) - Planned for v0.5.0
-- Pending agent notification badge (BUG-006) - Low priority
 
-**For detailed status**: See [BUG.md](./BUG.md), [FRONTEND_AUDIT.md](./FRONTEND_AUDIT.md)
+**All major issues resolved!** 
+
+- ~~Widespread hardcoded styles (BUG-012)~~ ✅ FIXED v0.4.22
+- ~~Pending agent notification badge (BUG-006)~~ ✅ FIXED v0.4.17
+
+**For detailed status**: See [BUG.md](./BUG.md), [TODO.md](./TODO.md)
 
 ## Architecture
 

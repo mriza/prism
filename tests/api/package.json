@@ -1,0 +1,22 @@
+{
+  "name": "prism-api-tests",
+  "version": "1.0.0",
+  "description": "API Integration Tests for PRISM",
+  "main": "api.test.js",
+  "scripts": {
+    "test": "jest api.test.js --verbose",
+    "test:watch": "jest api.test.js --watch",
+    "test:coverage": "jest api.test.js --coverage"
+  },
+  "dependencies": {
+    "supertest": "^6.3.3"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "verbose": true,
+    "testTimeout": 30000
+  }
+}

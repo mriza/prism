@@ -1,0 +1,6 @@
+# Performance test results
+results.json
+*.log
+
+# k6 output
+output/

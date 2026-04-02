@@ -1,0 +1,374 @@
+openapi: 3.0.0
+info:
+  title: PRISM API
+  description: Infrastructure Management Platform API
+  version: 1.0.0
+  contact:
+    name: PRISM Team
+
+servers:
+  - url: http://localhost:65432
+    description: Development server
+  - url: http://192.168.122.230:65432
+    description: Production server (VM)
+
+tags:
+  - name: Authentication
+    description: User authentication endpoints
+  - name: Agents
+    description: Agent management endpoints
+  - name: Projects
+    description: Project management endpoints
+  - name: Service Accounts
+    description: Service account management
+  - name: Settings
+    description: System settings
+  - name: Health
+    description: Health check endpoints
+
+paths:
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login to get JWT token
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/agents:
+    get:
+      tags:
+        - Agents
+      summary: List all agents
+      operationId: listAgents
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of agents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Agent'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/agents/{id}/approve:
+    post:
+      tags:
+        - Agents
+      summary: Approve a pending agent
+      operationId: approveAgent
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveAgentRequest'
+      responses:
+        '200':
+          description: Agent approved
+        '403':
+          description: Forbidden (admin only)
+        '404':
+          description: Agent not found
+
+  /api/projects:
+    get:
+      tags:
+        - Projects
+      summary: List all projects
+      operationId: listProjects
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
+
+    post:
+      tags:
+        - Projects
+      summary: Create a new project
+      operationId: createProject
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+      responses:
+        '201':
+          description: Project created
+        '400':
+          description: Bad request
+
+  /api/settings:
+    get:
+      tags:
+        - Settings
+      summary: Get all settings
+      operationId: getSettings
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of settings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Setting'
+
+    post:
+      tags:
+        - Settings
+      summary: Update settings
+      operationId: updateSettings
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                type: string
+      responses:
+        '200':
+          description: Settings updated
+        '400':
+          description: Bad request
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Get server health status
+      operationId: getHealth
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '503':
+          description: Server is unhealthy
+
+  /ready:
+    get:
+      tags:
+        - Health
+      summary: Get server readiness status
+      operationId: getReady
+      responses:
+        '200':
+          description: Server is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyStatus'
+        '503':
+          description: Server is not ready
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: admin
+        password:
+          type: string
+          example: admin123
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        username:
+          type: string
+        role:
+          type: string
+        fullName:
+          type: string
+        email:
+          type: string
+
+    Agent:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        hostname:
+          type: string
+        osInfo:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, online, offline]
+        lastSeen:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceInfo'
+
+    ServiceInfo:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+        metrics:
+          type: object
+          additionalProperties:
+            type: number
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        color:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    Setting:
+      type: object
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+
+    ApproveAgentRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    CreateProjectRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        color:
+          type: string
+
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+        database:
+          type: string
+        websocket_clients:
+          type: integer
+        connected_agents:
+          type: integer
+
+    ReadyStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ready, not ready]
+        reasons:
+          type: array
+          items:
+            type: string
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string

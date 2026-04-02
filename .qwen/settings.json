@@ -28,7 +28,9 @@
       "Bash(chmod *)",
       "Bash(bash *)",
       "Bash(ls *)",
-      "Bash(mkdir *)"
+      "Bash(mkdir *)",
+      "Bash(git reset *)",
+      "Bash(git show *)"
     ]
   },
   "$version": 3

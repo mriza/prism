@@ -1,0 +1,22 @@
+# PRISM VM Configuration
+# Used by scripts/vm_test_deploy.sh
+
+[vm]
+name = "prism-vm"
+hypervisor = "qemu:///system"
+
+[vm.network]
+ip = "192.168.122.230"
+gateway = "192.168.122.1"
+subnet = "255.255.255.0"
+
+[auth]
+username = "prism"
+password = "prism123"
+ssh_port = 22
+
+[deployment]
+base_path = "/opt/prism"
+components = ["server", "agent", "frontend"]
+auto_start_vm = true
+wait_timeout = 120

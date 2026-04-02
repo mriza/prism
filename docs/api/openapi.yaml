@@ -1,0 +1,544 @@
+openapi: 3.0.3
+info:
+  title: PRISM API
+  description: |
+    PRISM (Infrastructure Management Platform) REST API
+    
+    This API allows you to manage servers, services, accounts, projects, and deployments.
+    
+    ## Authentication
+    All API endpoints require authentication using Bearer tokens.
+    
+    ### Getting a Token
+    1. Login via `/api/login` with username and password
+    2. Use the returned token in Authorization header
+    
+    ### Using the Token
+    ```
+    Authorization: Bearer <your-token>
+    ```
+    
+    ## Versioning
+    API version follows semantic versioning (MAJOR.MINOR.PATCH).
+    Current version: v0.4.24
+  version: 0.4.24
+  contact:
+    name: PRISM Development Team
+    url: https://github.com/mriza/prism
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Development server
+  - url: https://your-production-server.com
+    description: Production server
+
+tags:
+  - name: Authentication
+    description: Login and token management
+  - name: Projects
+    description: Project management
+  - name: Servers
+    description: Server/Agent management
+  - name: Services
+    description: Service management (databases, message queues, etc.)
+  - name: Accounts
+    description: Service account management
+  - name: Users
+    description: User management
+  - name: Deployments
+    description: Application deployment management
+  - name: Logs
+    description: Activity and audit logs
+
+paths:
+  /api/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login
+      description: Authenticate user and return JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  example: admin
+                password:
+                  type: string
+                  format: password
+                  example: password123
+      responses:
+        '200':
+          description: Successful authentication
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/projects:
+    get:
+      tags:
+        - Projects
+      summary: List all projects
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      tags:
+        - Projects
+      summary: Create a new project
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: My Project
+                description:
+                  type: string
+                  example: Project description
+                color:
+                  type: string
+                  example: primary
+      responses:
+        '201':
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/projects/{id}:
+    get:
+      tags:
+        - Projects
+      summary: Get project by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    put:
+      tags:
+        - Projects
+      summary: Update project
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                color:
+                  type: string
+      responses:
+        '200':
+          description: Project updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '404':
+          description: Project not found
+    
+    delete:
+      tags:
+        - Projects
+      summary: Delete project
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Project deleted
+        '404':
+          description: Project not found
+
+  /api/servers:
+    get:
+      tags:
+        - Servers
+      summary: List all servers
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of servers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Server'
+    
+    post:
+      tags:
+        - Servers
+      summary: Register a new server
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - hostname
+              properties:
+                name:
+                  type: string
+                hostname:
+                  type: string
+                osInfo:
+                  type: string
+      responses:
+        '201':
+          description: Server registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Server'
+
+  /api/servers/{id}/approve:
+    post:
+      tags:
+        - Servers
+      summary: Approve a pending server
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Server approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Server'
+        '404':
+          description: Server not found
+
+  /api/accounts:
+    get:
+      tags:
+        - Accounts
+      summary: List all accounts
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Account'
+    
+    post:
+      tags:
+        - Accounts
+      summary: Create a new account
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+                - name
+              properties:
+                type:
+                  type: string
+                  enum: [mysql, postgresql, mongodb, rabbitmq, s3-minio, ftp-vsftpd]
+                name:
+                  type: string
+                serverId:
+                  type: string
+                projectId:
+                  type: string
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+
+  /api/users:
+    get:
+      tags:
+        - Users
+      summary: List all users
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+    
+    post:
+      tags:
+        - Users
+      summary: Create a new user
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - email
+                - role
+              properties:
+                username:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                role:
+                  type: string
+                  enum: [admin, manager, user]
+                fullName:
+                  type: string
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /api/logs:
+    get:
+      tags:
+        - Logs
+      summary: Get activity logs
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Log'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        color:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    
+    Server:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        hostname:
+          type: string
+        status:
+          type: string
+          enum: [pending, online, offline]
+        osInfo:
+          type: string
+        lastSeen:
+          type: string
+          format: date-time
+    
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        name:
+          type: string
+        serverId:
+          type: string
+        projectId:
+          type: string
+        status:
+          type: string
+          enum: [active, disabled]
+        createdAt:
+          type: string
+          format: date-time
+    
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [admin, manager, user]
+        fullName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    
+    Log:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        service:
+          type: string
+        status:
+          type: string
+        message:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: integer

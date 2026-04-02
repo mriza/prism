@@ -2,7 +2,9 @@
 
 # PRISM Release Creator
 # Creates a new release and prepares deployment artifacts
-# Usage: ./create_release.sh v0.5.0
+# Usage: ./create_release.sh [v0.5.0]
+#
+# If no version is provided, reads from VERSION.md or suggests next version
 
 set -e
 
@@ -11,6 +13,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"  # Go up one level to project root
 RELEASE_DIR="$ROOT_DIR/.release"
 REPO="mriza/prism"
+VERSION_FILE="$ROOT_DIR/VERSION.md"
 
 # Colors
 RED='\033[0;31m'
@@ -24,14 +27,58 @@ log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-# Check version argument
-if [ -z "$1" ]; then
+# Get version from argument or suggest from VERSION.md
+get_version() {
+    if [ -n "$1" ]; then
+        echo "$1"
+        return 0
+    fi
+    
+    # Try to get last version from VERSION.md
+    if [ -f "$VERSION_FILE" ]; then
+        local last_version
+        last_version=$(grep -E "^v[0-9]+\.[0-9]+\.[0-9]+" "$VERSION_FILE" | head -1 | awk '{print $1}')
+        
+        if [ -n "$last_version" ]; then
+            # Suggest next patch version
+            local major minor patch
+            major=$(echo "$last_version" | cut -d. -f1 | tr -d 'v')
+            minor=$(echo "$last_version" | cut -d. -f2)
+            patch=$(echo "$last_version" | cut -d. -f3)
+            patch=$((patch + 1))
+            
+            echo "v${major}.${minor}.${patch}"
+            return 0
+        fi
+    fi
+    
+    # Fallback to git tag
+    local git_tag
+    git_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+    
+    if [ -n "$git_tag" ]; then
+        echo "$git_tag"
+        return 0
+    fi
+    
+    log_error "No version provided and cannot determine version from VERSION.md or git"
     log_error "Usage: $0 <version>"
     log_error "Example: $0 v0.5.0"
     exit 1
+}
+
+# Get version (suppress logging for clean output)
+VERSION=$(get_version "$1" 2>/dev/null)
+
+# If version is empty or contains log output, get it cleanly
+if [[ "$VERSION" == *"INFO"* ]] || [ -z "$VERSION" ]; then
+    VERSION=$(get_version "$1" 2>&1 | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+")
 fi
 
-VERSION="$1"
+# If still empty, call again without suppressing
+if [ -z "$VERSION" ]; then
+    VERSION=$(get_version "$1")
+fi
 
 # Check prerequisites
 check_prerequisites() {
@@ -117,21 +164,22 @@ build_server() {
         log_warn "Skipping server build"
         return
     fi
-    
+
     log_info "Building server..."
+    
+    # Change to server directory
     cd "$ROOT_DIR/server"
     
-    # Build with version info
+    # Build with version info (output to release dir)
     go build -ldflags="-s -w -X main.Version=$VERSION" \
         -o "$RELEASE_DIR/prism-server-$VERSION" \
         ./cmd/server
-    
+
     # Create tarball
-    cd "$ROOT_DIR"
     tar -czf "$RELEASE_DIR/prism-server-$VERSION-linux-amd64.tar.gz" \
         -C "$RELEASE_DIR" "prism-server-$VERSION"
     rm "$RELEASE_DIR/prism-server-$VERSION"
-    
+
     log_success "Server built: prism-server-$VERSION-linux-amd64.tar.gz"
 }
 
@@ -141,21 +189,22 @@ build_agent() {
         log_warn "Skipping agent build"
         return
     fi
-    
+
     log_info "Building agent..."
+    
+    # Change to agent directory
     cd "$ROOT_DIR/agent"
     
-    # Build with version info
+    # Build with version info (output to release dir)
     go build -ldflags="-s -w -X main.Version=$VERSION" \
         -o "$RELEASE_DIR/prism-agent-$VERSION" \
         ./cmd/agent
     
     # Create tarball
-    cd "$ROOT_DIR"
     tar -czf "$RELEASE_DIR/prism-agent-$VERSION-linux-amd64.tar.gz" \
         -C "$RELEASE_DIR" "prism-agent-$VERSION"
     rm "$RELEASE_DIR/prism-agent-$VERSION"
-    
+
     log_success "Agent built: prism-agent-$VERSION-linux-amd64.tar.gz"
 }
 
@@ -366,62 +415,100 @@ EOF
     echo "----------------------------------------"
 }
 
-# Create GitHub release (optional)
-create_github_release() {
-    echo ""
-    log_info "Do you want to create a GitHub release now?"
-    echo "  1) Yes, create release and upload artifacts"
-    echo "  2) No, just prepare artifacts locally"
-    echo ""
+# Create Git tag and GitHub release (automated)
+create_git_tag_and_release() {
+    log_info "Creating Git tag and GitHub release..."
     
-    read -p "Enter choice [1-2]: " choice
-    
-    if [ "$choice" = "1" ]; then
-        # Check if gh CLI is available
-        if ! command -v gh &> /dev/null; then
-            log_warn "GitHub CLI (gh) not found"
-            log_info "Install from: https://cli.github.com/"
-            log_info "Skipping GitHub release creation"
-            return
-        fi
-        
-        # Check if authenticated
-        if ! gh auth status &> /dev/null 2>&1; then
-            log_warn "GitHub CLI not authenticated"
-            log_info "Run 'gh auth login' to authenticate"
-            log_info "Skipping GitHub release creation"
-            return
-        fi
-        
-        log_info "Creating GitHub release..."
-        cd "$RELEASE_DIR"
-        
-        # Check if release exists
-        if gh release view "$VERSION" --repo "$REPO" &> /dev/null; then
-            log_warn "Release $VERSION already exists!"
-            read -p "Delete and recreate? (y/N): " -n 1 -r
-            echo
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
-                gh release delete "$VERSION" --repo "$REPO" --yes || true
-            else
-                log_info "Keeping existing release"
-                return
-            fi
-        fi
-        
-        # Create release
-        gh release create "$VERSION" \
-            --repo "$REPO" \
-            --title "PRISM $VERSION" \
-            --notes-file "RELEASE_NOTES.md" \
-            --draft \
-            *.tar.gz
-        
-        log_success "Release created: https://github.com/$REPO/releases/tag/$VERSION"
-        log_warn "Note: Release is in DRAFT mode. Publish manually when ready."
-    else
-        log_info "Artifacts prepared locally in: $RELEASE_DIR"
+    # Check if git is available
+    if ! command -v git &> /dev/null; then
+        log_error "Git not found. Cannot create tag."
+        return 1
     fi
+    
+    # Check if gh CLI is available
+    if ! command -v gh &> /dev/null; then
+        log_error "GitHub CLI (gh) not found."
+        log_info "Install from: https://cli.github.com/"
+        log_info "Or create release manually via GitHub UI"
+        return 1
+    fi
+    
+    # Check if authenticated
+    if ! gh auth status &> /dev/null 2>&1; then
+        log_error "GitHub CLI not authenticated"
+        log_info "Run 'gh auth login' to authenticate"
+        return 1
+    fi
+    
+    # Check if tag already exists locally
+    if git rev-parse -q --verify "refs/tags/$VERSION" &> /dev/null; then
+        log_warn "Tag $VERSION already exists locally!"
+        read -p "Delete and recreate? (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            log_info "Keeping existing tag"
+            return 1
+        fi
+        git tag -d "$VERSION" || true
+    fi
+    
+    # Check if tag already exists remotely
+    if git ls-remote --tags origin "$VERSION" &> /dev/null; then
+        log_warn "Tag $VERSION already exists on remote!"
+        read -p "Delete and recreate? (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            log_info "Keeping existing remote tag"
+            return 1
+        fi
+        git push origin :refs/tags/$VERSION || true
+    fi
+    
+    # Create annotated tag
+    log_info "Creating annotated tag: $VERSION"
+    git tag -a "$VERSION" -m "PRISM $VERSION - Released $(date '+%Y-%m-%d')"
+    
+    # Push code changes first (if any uncommitted)
+    if ! git diff --quiet || ! git diff --cached --quiet; then
+        log_info "Committing uncommitted changes..."
+        git add -A
+        git commit -m "release: $VERSION - Automated release commit"
+        git push origin HEAD
+    fi
+    
+    # Push tag to remote
+    log_info "Pushing tag to GitHub..."
+    git push origin "$VERSION"
+    
+    # Create GitHub release
+    log_info "Creating GitHub release..."
+    cd "$RELEASE_DIR"
+    
+    # Check if release exists
+    if gh release view "$VERSION" --repo "$REPO" &> /dev/null; then
+        log_warn "Release $VERSION already exists!"
+        read -p "Delete and recreate? (y/N): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            gh release delete "$VERSION" --repo "$REPO" --yes || true
+        else
+            log_info "Keeping existing release"
+            return 0
+        fi
+    fi
+    
+    # Create release (published immediately, not draft)
+    gh release create "$VERSION" \
+        --repo "$REPO" \
+        --title "PRISM $VERSION" \
+        --notes-file "RELEASE_NOTES.md" \
+        --latest \
+        *.tar.gz
+    
+    log_success "✅ Git tag created: $VERSION"
+    log_success "✅ Git tag pushed: origin $VERSION"
+    log_success "✅ GitHub release created: https://github.com/$REPO/releases/tag/$VERSION"
+    log_success "✅ Release published and set as latest!"
 }
 
 # Show summary
@@ -472,7 +559,30 @@ main() {
     build_server
     build_agent
     generate_release_notes
-    create_github_release
+    
+    # Debug: Check gh CLI status
+    log_info "Checking GitHub CLI status..."
+    if command -v gh &> /dev/null; then
+        log_success "GitHub CLI found: $(gh --version | head -1)"
+        
+        # Check authentication
+        log_info "Checking GitHub authentication..."
+        if gh auth status &> /dev/null 2>&1; then
+            log_success "GitHub CLI authenticated"
+            create_git_tag_and_release
+        else
+            log_error "GitHub CLI not authenticated"
+            log_info "Run: gh auth login"
+            log_info "Artifacts saved locally in: $RELEASE_DIR"
+            log_info "You can create release manually via GitHub UI"
+        fi
+    else
+        log_error "GitHub CLI (gh) not found"
+        log_info "Install from: https://cli.github.com/"
+        log_info "Artifacts saved locally in: $RELEASE_DIR"
+        log_info "You can create release manually via GitHub UI"
+    fi
+    
     show_summary
 }
 

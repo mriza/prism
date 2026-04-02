@@ -1,0 +1,19 @@
+{
+  "name": "prism-performance-tests",
+  "version": "1.0.0",
+  "description": "Performance tests for PRISM using k6",
+  "scripts": {
+    "test:api": "k6 run tests/performance/api-load.js",
+    "test:ws": "k6 run tests/performance/websocket-stress.js",
+    "test:db": "k6 run tests/performance/database-load.js",
+    "test:all": "npm run test:api && npm run test:ws && npm run test:db"
+  },
+  "keywords": [
+    "performance",
+    "load-testing",
+    "k6",
+    "prism"
+  ],
+  "author": "PRISM Development Team",
+  "license": "MIT"
+}
