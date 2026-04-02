@@ -10,6 +10,40 @@
 
 ---
 
+## Development Guidelines
+
+### Script Creation Policy
+
+**⚠️ IMPORTANT: Before creating any new script:**
+
+1. **Check Existing Scripts First**
+   - Search in `scripts/` directory
+   - Search in root directory
+   - Use: `find . -name "*.sh" -type f`
+
+2. **If Similar Script Exists:**
+   - ✅ **REVISE** the existing script (add features, fix bugs)
+   - ✅ **REFACTOR** if needed (improve structure, remove redundancy)
+   - ❌ **DO NOT CREATE** duplicate/overlapping scripts
+
+3. **Script Organization:**
+   - All scripts go in `scripts/` directory
+   - One script = One clear purpose
+   - No functional overlap between scripts
+
+4. **Examples of What NOT to Do:**
+   - ❌ Creating `create_release.sh` when `generate_release_notes.sh` exists
+   - ❌ Creating `deploy.sh` in root when `scripts/deploy.sh` exists
+   - ❌ Creating `create_github_release.sh` when `create_release.sh` already does it
+
+5. **Best Practices:**
+   - ✅ Consolidate functionality into single script
+   - ✅ Use feature flags or arguments for variations
+   - ✅ Document what each script does
+   - ✅ Remove obsolete scripts when replacing
+
+---
+
 ## Recent Releases
 
 ### ✅ v0.4.24 (2026-04-02) - DevOps Automation 🚀
