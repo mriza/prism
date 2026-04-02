@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Project } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { message } from 'antd';
+import { log } from '../utils/log';
 
 
 export function useProjects() {
@@ -23,7 +25,8 @@ export function useProjects() {
                 setProjects(data || []);
             }
         } catch (err) {
-            console.error('Failed to fetch projects', err);
+            log.error('Failed to fetch projects', err);
+            message.error('Failed to fetch projects');
         } finally {
             setLoading(false);
         }
@@ -38,7 +41,7 @@ export function useProjects() {
         try {
             const res = await fetch(`${apiBase}/api/projects`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
@@ -50,9 +53,10 @@ export function useProjects() {
                 return newProject;
             }
         } catch (err) {
-            console.error('Failed to create project', err);
+            log.error('Failed to create project', err);
+            message.error('Failed to create project');
         }
-        return null; // or throw
+        return null;
     }, [token, apiBase]);
 
     const updateProject = useCallback(async (id: string, data: Partial<Omit<Project, 'id' | 'createdAt'>>) => {
@@ -60,7 +64,7 @@ export function useProjects() {
         try {
             const res = await fetch(`${apiBase}/api/projects/${id}`, {
                 method: 'PUT',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
@@ -71,7 +75,8 @@ export function useProjects() {
                 setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updatedProject } : p));
             }
         } catch (err) {
-            console.error('Failed to update project', err);
+            log.error('Failed to update project', err);
+            message.error('Failed to update project');
         }
     }, [token, apiBase]);
 
@@ -88,7 +93,8 @@ export function useProjects() {
                 setProjects(prev => prev.filter(p => p.id !== id));
             }
         } catch (err) {
-            console.error('Failed to delete project', err);
+            log.error('Failed to delete project', err);
+            message.error('Failed to delete project');
         }
     }, [token, apiBase]);
 

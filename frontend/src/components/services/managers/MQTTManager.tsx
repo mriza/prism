@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { log } from '../../../utils/log';
 import {
     Button,
     Space,
@@ -72,7 +73,7 @@ export function MQTTManager({ sendCommand }: MQTTManagerProps) {
                 form.setFieldsValue(settingsData);
             }
         } catch (err: any) {
-            console.error('Failed to load settings:', err);
+            log.error('Failed to load settings', err); message.error('Failed to load settings');
         } finally {
             setLoadingSettings(false);
         }
@@ -86,7 +87,7 @@ export function MQTTManager({ sendCommand }: MQTTManagerProps) {
                 message.success('Settings updated successfully');
                 loadSettings();
             }
-        } catch (err: any) {
+        } catch {
             message.error('Failed to update settings');
         } finally {
             setUpdatingSettings(false);

@@ -1,18 +1,19 @@
 import { useState, useEffect } from 'react';
-import { 
-    Modal, 
-    Table, 
-    Button, 
-    Form, 
-    Input, 
-    Select, 
-    Space, 
-    Tag, 
-    Typography, 
-    theme, 
-    Alert, 
+import {
+    Modal,
+    Table,
+    Button,
+    Form,
+    Input,
+    Select,
+    Space,
+    Tag,
+    Typography,
+    theme,
+    Alert,
     Popconfirm
 } from 'antd';
+import { log } from '../../utils/log';
 import { 
     DeleteOutlined, 
     PlusOutlined, 
@@ -90,7 +91,7 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
                 setRules([]);
             }
         } catch (err: any) {
-            console.error(err);
+            log.error('Failed to communicate with agent', err);
             setError(err.message || 'Failed to communicate with agent');
         } finally {
             setLoading(false);
@@ -130,7 +131,7 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
             form.resetFields();
             await fetchRules();
         } catch (err: any) {
-            console.error(err);
+            log.error('Failed to add rule', err);
             setError(err.message || 'Failed to add rule');
         } finally {
             setSubmitting(false);
@@ -167,7 +168,7 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
 
             await fetchRules();
         } catch (err: any) {
-            console.error(err);
+            log.error('Failed to delete rule', err);
             setError(err.message || 'Failed to delete rule');
             setLoading(false);
         }
@@ -185,7 +186,7 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
             dataIndex: 'Action',
             key: 'Action',
             render: (action: string) => (
-                <Tag color={action.toUpperCase().includes('ALLOW') ? 'success' : 'error'} style={{ fontWeight: 800 }}>
+                <Tag color={action.toUpperCase().includes('ALLOW') ? 'success' : 'error'} style={{ fontWeight: themeToken.fontWeightStrong }}>
                     {action.toUpperCase()}
                 </Tag>
             )
@@ -282,12 +283,12 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
                             </Form.Item>
 
                             <Form.Item style={{ marginBottom: 0 }}>
-                                <Button 
-                                    type="primary" 
-                                    htmlType="submit" 
-                                    icon={<PlusOutlined />} 
+                                <Button
+                                    type="primary"
+                                    htmlType="submit"
+                                    icon={<PlusOutlined />}
                                     loading={submitting}
-                                    style={{ height: themeToken.marginLG, fontWeight: 600 }}
+                                    style={{ height: themeToken.marginLG, fontWeight: themeToken.fontWeightStrong }}
                                 >
                                     Add Rule
                                 </Button>

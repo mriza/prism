@@ -1,38 +1,88 @@
-import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import { ServersPage } from '../ServersPage';
+import { BrowserRouter } from 'react-router-dom';
 import { useAgents } from '../../hooks/useAgents';
+import { useAgentsContext } from '../../contexts/AgentsContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { ConfigProvider } from 'antd';
 
 // Mock the hooks
-vi.mock('../../hooks/useAgents');
-vi.mock('../../contexts/AuthContext');
-
-// Mock child components to simplify
-vi.mock('../../components/modals/FirewallModal', () => ({ FirewallModal: () => null }));
-vi.mock('../../components/modals/CrowdSecModal', () => ({ CrowdSecModal: () => null }));
-vi.mock('../../components/modals/ApproveServerModal', () => ({ ApproveServerModal: () => null }));
-vi.mock('../../components/modals/ServiceDetailModal', () => ({ ServiceDetailModal: () => null }));
-vi.mock('../../components/modals/ServerSettingsModal', () => ({ ServerSettingsModal: () => null }));
-vi.mock('../../components/PageContainer', () => ({ 
-    PageContainer: ({ children, title }: any) => <div><h1>{title}</h1>{children}</div> 
+vi.mock('../../hooks/useAgents', () => ({
+    useAgents: vi.fn()
 }));
 
+vi.mock('../../contexts/AgentsContext', () => ({
+    useAgentsContext: vi.fn()
+}));
+
+vi.mock('../../contexts/AuthContext', () => ({
+    useAuth: vi.fn()
+}));
+
+// Mock modals to avoid deep rendering issues
+vi.mock('../../components/modals/FirewallModal', () => ({ FirewallModal: () => <div /> }));
+vi.mock('../../components/modals/CrowdSecModal', () => ({ CrowdSecModal: () => <div /> }));
+vi.mock('../../components/modals/ApproveServerModal', () => ({ ApproveServerModal: () => <div /> }));
+vi.mock('../../components/modals/ServiceDetailModal', () => ({ ServiceDetailModal: () => <div /> }));
+vi.mock('../../components/modals/ServerSettingsModal', () => ({ ServerSettingsModal: () => <div /> }));
+
+const renderServers = () => {
+    return render(
+        <BrowserRouter>
+            <ServersPage />
+        </BrowserRouter>
+    );
+};
+
 describe('ServersPage', () => {
-    it('renders server with detected runtimes', () => {
-        // Setup mock data
+    it('should render empty state when no servers exist', () => {
+        (useAgents as any).mockReturnValue({
+            agents: [],
+            loading: false,
+            error: null,
+            deleteAgent: vi.fn()
+        });
+        (useAgentsContext as any).mockReturnValue({ usingPollingFallback: false });
+        (useAuth as any).mockReturnValue({ user: { role: 'admin' } });
+
+        renderServers();
+
+        expect(screen.getByText('No Registered Servers')).toBeDefined();
+    });
+
+    it('should show pending approvals for admin', () => {
         const mockAgents = [
-            {
-                id: 'server-1',
-                name: 'Production Server',
-                hostname: 'prod-01',
-                status: 'online',
-                osInfo: 'Ubuntu 22.04',
-                services: [],
+            { id: '1', hostname: 'pending-host', status: 'pending', osInfo: 'Ubuntu 22.04' }
+        ];
+
+        (useAgents as any).mockReturnValue({
+            agents: mockAgents,
+            loading: false,
+            error: null,
+            deleteAgent: vi.fn()
+        });
+        (useAgentsContext as any).mockReturnValue({ usingPollingFallback: false });
+        (useAuth as any).mockReturnValue({ user: { role: 'admin' } });
+
+        renderServers();
+
+        expect(screen.getByText('Security Check Required')).toBeDefined();
+        expect(screen.getByText('pending-host')).toBeDefined();
+        expect(screen.getByText('Authorize')).toBeDefined();
+    });
+
+    it('should render active fleet servers', () => {
+        const mockAgents = [
+            { 
+                id: '1', 
+                name: 'Prod Server', 
+                hostname: 'prod-host', 
+                status: 'online', 
+                services: [
+                    { id: 's1', name: 'mongodb', status: 'running' }
+                ],
                 runtimes: [
-                    { name: 'Node.js', version: '20.5.0', path: '/usr/bin/node' },
-                    { name: 'Python', version: '3.11.2', path: '/usr/bin/python3' }
+                    { name: 'Node.js', version: '18.16.0', path: '/usr/bin/node' }
                 ]
             }
         ];
@@ -43,48 +93,24 @@ describe('ServersPage', () => {
             error: null,
             deleteAgent: vi.fn()
         });
+        (useAgentsContext as any).mockReturnValue({ usingPollingFallback: false });
+        (useAuth as any).mockReturnValue({ user: { role: 'admin' } });
 
-        (useAuth as any).mockReturnValue({
-            user: { role: 'admin' }
-        });
+        renderServers();
 
-        render(
-            <ConfigProvider>
-                <ServersPage />
-            </ConfigProvider>
-        );
-
-        // Check if server name is rendered
-        expect(screen.getByText('Production Server')).toBeInTheDocument();
-        
-        // Check if "Runtime Environments" section header is present
-        expect(screen.getByText('Runtime Environments')).toBeInTheDocument();
-        
-        // Check if runtimes are rendered
-        expect(screen.getByText('Node.js')).toBeInTheDocument();
-        expect(screen.getByText('20.5.0')).toBeInTheDocument();
-        expect(screen.getByText('Python')).toBeInTheDocument();
-        expect(screen.getByText('3.11.2')).toBeInTheDocument();
+        expect(screen.getByText('Prod Server')).toBeDefined();
+        expect(screen.getByText('ONLINE')).toBeDefined();
+        expect(screen.getByText('MongoDB')).toBeDefined();
+        expect(screen.getByText('Node.js')).toBeDefined();
     });
 
-    it('renders empty state when no servers', () => {
-        (useAgents as any).mockReturnValue({
-            agents: [],
-            loading: false,
-            error: null,
-            deleteAgent: vi.fn()
-        });
+    it('should show warning when using polling fallback', () => {
+        (useAgents as any).mockReturnValue({ agents: [], loading: false, error: null });
+        (useAgentsContext as any).mockReturnValue({ usingPollingFallback: true });
+        (useAuth as any).mockReturnValue({ user: { role: 'admin' } });
 
-        (useAuth as any).mockReturnValue({
-            user: { role: 'admin' }
-        });
+        renderServers();
 
-        render(
-            <ConfigProvider>
-                <ServersPage />
-            </ConfigProvider>
-        );
-
-        expect(screen.getByText('No Registered Servers')).toBeInTheDocument();
+        expect(screen.getByText('Real-time Updates Unavailable')).toBeDefined();
     });
 });

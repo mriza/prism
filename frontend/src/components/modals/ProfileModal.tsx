@@ -134,7 +134,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         >
             {loading ? (
                 <div style={{ padding: `${themeToken.paddingXL}px 0`, textAlign: 'center' }}>
-                    <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} tip="Loading profile..." />
+                    <Spin indicator={<LoadingOutlined style={{ fontSize: themeToken.fontSizeHeading3 }} spin />} tip="Loading profile..." />
                 </div>
             ) : (
                 <Form
@@ -223,7 +223,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                         >
                             Change Password
                         </Button>
-                        <Button type="primary" htmlType="submit" loading={saving} style={{ borderRadius: themeToken.borderRadius, fontWeight: 600 }}>
+                        <Button type="primary" htmlType="submit" loading={saving} style={{ borderRadius: themeToken.borderRadius, fontWeight: themeToken.fontWeightStrong }}>
                             Save Changes
                         </Button>
                     </div>

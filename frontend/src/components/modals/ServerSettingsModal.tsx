@@ -1,23 +1,24 @@
 import { useState } from 'react';
-import { 
-    Modal, 
-    Button, 
-    Space, 
-    Typography, 
-    theme, 
-    Alert, 
-    Divider, 
-    Card, 
-    Badge 
+import {
+    Modal,
+    Button,
+    Space,
+    Typography,
+    theme,
+    Alert,
+    Divider,
+    Card,
+    Badge
 } from 'antd';
-import { 
-    SettingOutlined, 
-    SafetyOutlined, 
-    CheckOutlined, 
-    LoadingOutlined 
+import {
+    SettingOutlined,
+    SafetyOutlined,
+    CheckOutlined,
+    LoadingOutlined
 } from '@ant-design/icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAgents } from '../../hooks/useAgents';
+import { log } from '../../utils/log';
 
 const { Text } = Typography;
 
@@ -47,27 +48,28 @@ export function ServerSettingsModal({ isOpen, onClose, agentId, agentName }: Ser
     ) || firewalls[0];
 
     const handleSwitchFirewall = async (engineName: string) => {
-        if (engineName === activeFw?.name) return;
-        
+        // Guard: ensure activeFw exists before attempting comparison
+        if (!activeFw || engineName === activeFw.name) return;
+
         setSwitchingFw(true);
         setError(null);
         try {
             const apiBase = import.meta.env.VITE_API_URL || '';
             const res = await fetch(`${apiBase}/api/control`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${authToken}`
                 },
-                body: JSON.stringify({ 
-                    agent_id: agentId, 
+                body: JSON.stringify({
+                    agent_id: agentId,
                     service: engineName,
                     action: 'firewall_set_active'
                 })
             });
             if (!res.ok) throw new Error('Failed to switch firewall engine');
         } catch (err: any) {
-            console.error(err);
+            log.error('Failed to switch firewall engine', err);
             setError(err.message || 'Failed to set active firewall.');
         } finally {
             setSwitchingFw(false);

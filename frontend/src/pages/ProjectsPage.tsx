@@ -56,7 +56,7 @@ export function ProjectsPage() {
                         size="large"
                         icon={<PlusOutlined />}
                         onClick={() => setShowCreate(true)}
-                        style={{ borderRadius: token.borderRadius, fontWeight: 600 }}
+                        style={{ borderRadius: token.borderRadius, fontWeight: token.fontWeightStrong }}
                     >
                         New Project
                     </Button>
@@ -150,7 +150,7 @@ export function ProjectsPage() {
                                                 type="link"
                                                 icon={<RocketOutlined />}
                                                 onClick={() => navigate(`/projects/${p.id}`)}
-                                                style={{ display: 'flex', alignItems: 'center', fontWeight: 700, textTransform: 'uppercase', fontSize: token.fontSizeSM }}
+                                                style={{ display: 'flex', alignItems: 'center', fontWeight: token.fontWeightStrong, textTransform: 'uppercase', fontSize: token.fontSizeSM }}
                                             >
                                                 Orchestrate
                                             </Button>

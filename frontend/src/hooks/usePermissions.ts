@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
+import { log } from '../utils/log';
+import { message } from 'antd';
 import { useAuth } from '../contexts/AuthContext';
 
 export interface Permission {
@@ -35,7 +37,8 @@ export function usePermissions() {
                 setPermissions(data || []);
             }
         } catch (err) {
-            console.error('Failed to fetch permissions:', err);
+            log.error('Failed to fetch permissions', err);
+            message.error('Failed to fetch permissions');
         } finally {
             setLoading(false);
         }
@@ -65,7 +68,8 @@ export function usePermissions() {
                 throw new Error(error);
             }
         } catch (err) {
-            console.error('Failed to create permission:', err);
+            log.error('Failed to create permission', err);
+            message.error('Failed to create permission');
             throw err;
         }
     }, [token, apiBase]);
@@ -90,7 +94,8 @@ export function usePermissions() {
                 throw new Error(error);
             }
         } catch (err) {
-            console.error('Failed to update permission:', err);
+            log.error('Failed to update permission', err);
+            message.error('Failed to update permission');
             throw err;
         }
     }, [token, apiBase]);
@@ -109,7 +114,8 @@ export function usePermissions() {
                 return true;
             }
         } catch (err) {
-            console.error('Failed to delete permission:', err);
+            log.error('Failed to delete permission', err);
+            message.error('Failed to delete permission');
         }
         return false;
     }, [token, apiBase]);

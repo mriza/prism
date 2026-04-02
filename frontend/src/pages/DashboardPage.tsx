@@ -84,7 +84,7 @@ export function DashboardPage() {
                                 styles={{ body: { padding: token.paddingLG } }}
                             >
                                 <Statistic
-                                    title={<Text type="secondary" strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '1px' }}>{stat.title}</Text>}
+                                    title={<Text type="secondary" strong style={{ fontSize: token.fontSize, textTransform: 'uppercase', letterSpacing: '1px' }}>{stat.title}</Text>}
                                     value={stat.value}
                                     prefix={React.cloneElement(stat.icon as React.ReactElement<any>, {
                                         style: {
@@ -93,7 +93,7 @@ export function DashboardPage() {
                                             marginRight: token.marginSM
                                         }
                                     })}
-                                    valueStyle={{ fontWeight: 800, fontSize: token.fontSizeHeading4 }}
+                                    valueStyle={{ fontWeight: token.fontWeightStrong, fontSize: token.fontSizeHeading4 }}
                                 />
                             </Card>
                         </Col>
@@ -172,7 +172,7 @@ export function DashboardPage() {
                         title={
                             <Space>
                                 <ThunderboltOutlined style={{ color: token.colorPrimary }} />
-                                <Text strong style={{ textTransform: 'uppercase', letterSpacing: '1px', fontSize: token.fontSizeSM }}>Recent Deployments</Text>
+                                <Text strong style={{ textTransform: 'uppercase', letterSpacing: '1px', fontSize: token.fontSize }}>Recent Deployments</Text>
                             </Space>
                         }
                         extra={<Button type="link" onClick={() => navigate('/projects')}>View All Assets</Button>}
@@ -204,7 +204,7 @@ export function DashboardPage() {
                                                 }} />
                                                 <Text strong>{project.name}</Text>
                                             </Space>
-                                            <ArrowRightOutlined style={{ fontSize: token.fontSizeSM, opacity: 0.3 }} />
+                                            <ArrowRightOutlined style={{ fontSize: token.fontSize, opacity: 0.3 }} />
                                         </div>
                                     </Card>
                                 </List.Item>

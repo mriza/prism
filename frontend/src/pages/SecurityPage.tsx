@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAgents } from '../hooks/useAgents';
+import { log } from '../utils/log';
 import { useAuth } from '../contexts/AuthContext';
 import { 
     Button, 
@@ -80,7 +81,7 @@ export function SecurityPage() {
                 setDecisions(data || []);
             }
         } catch (err) {
-            console.error("Failed to fetch decisions", err);
+            log.error("Failed to fetch decisions", err);
         } finally {
             setLoadingDecisions(false);
         }
@@ -111,7 +112,7 @@ export function SecurityPage() {
                 setDecisions(prev => prev.filter(d => d.value !== ip));
             }
         } catch (err) {
-            console.error("Failed to unban", err);
+            log.error("Failed to unban", err);
         } finally {
             setUnbanningIp(null);
         }
@@ -138,8 +139,8 @@ export function SecurityPage() {
             setBanIp('');
             setBanReason('');
             fetchDecisions();
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            log.error('Failed to issue global ban', err);
         } finally {
             setBanning(false);
         }
@@ -150,19 +151,19 @@ export function SecurityPage() {
             title: 'Target IP',
             dataIndex: 'value',
             key: 'value',
-            render: (ip: string) => <Text strong style={{ color: antdToken.colorError, fontFamily: 'monospace' }}>{ip}</Text>
+            render: (ip: string) => <Text strong className="prism-monospace" style={{ color: antdToken.colorError }}>{ip}</Text>
         },
         {
             title: 'Incident Scenario',
             dataIndex: 'scenario',
             key: 'scenario',
-            render: (s: string) => <Text style={{ fontSize: antdToken.fontSizeSM }}>{s}</Text>
+            render: (s: string) => <Text className="prism-font-size-sm">{s}</Text>
         },
         {
             title: 'TTL',
             dataIndex: 'duration',
             key: 'duration',
-            render: (d: string) => <Tag color="default" style={{ fontFamily: 'monospace', borderRadius: antdToken.borderRadiusSM }}>{d}</Tag>
+            render: (d: string) => <Tag color="default" className="prism-monospace prism-rounded">{d}</Tag>
         },
         {
             title: 'Enforcement Node',
@@ -170,7 +171,7 @@ export function SecurityPage() {
             render: (_: any, d: any) => (
                 <Space>
                     <CloudServerOutlined style={{ opacity: 0.3 }} />
-                    <Text type="secondary" style={{ fontSize: antdToken.fontSizeSM, fontWeight: 600 }}>{d.agent_name}</Text>
+                    <Text type="secondary" className="prism-font-size-sm" style={{ fontWeight: antdToken.fontWeightStrong }}>{d.agent_name}</Text>
                 </Space>
             )
         },
@@ -206,7 +207,7 @@ export function SecurityPage() {
             key: 'status',
             render: (status: string) => {
                 const color = status === 'online' ? 'success' : status === 'offline' ? 'error' : 'default';
-                return <Badge status={color as any} text={<Text strong style={{ textTransform: 'capitalize' }}>{status}</Text>} />;
+                return <Badge status={color as any} text={<Text strong className="prism-status-text">{status}</Text>} />;
             }
         },
         {
@@ -218,10 +219,10 @@ export function SecurityPage() {
                 const isRunning = activeFw?.status === 'running';
                 return (
                     <Space direction="vertical" size={0}>
-                        <Tag color={isRunning ? 'blue' : 'default'} style={{ borderRadius: antdToken.borderRadiusSM, fontSize: antdToken.fontSizeSM, fontWeight: 800, textTransform: 'uppercase' }}>
+                        <Tag color={isRunning ? 'blue' : 'default'} className="prism-rounded prism-font-size-sm prism-uppercase" style={{ fontWeight: antdToken.fontWeightStrong }}>
                             {activeFw?.status || 'disarmed'}
                         </Tag>
-                        {activeFw && <Text type="secondary" style={{ fontSize: antdToken.fontSizeSM, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{activeFw.name}</Text>}
+                        {activeFw && <Text type="secondary" className="prism-font-size-sm prism-uppercase" style={{ fontWeight: antdToken.fontWeightStrong, letterSpacing: '0.05em' }}>{activeFw.name}</Text>}
                     </Space>
                 );
             }
@@ -233,7 +234,7 @@ export function SecurityPage() {
                 const csSvc = server.services?.find((s: any) => s.name === 'crowdsec');
                 const isRunning = csSvc?.status === 'running';
                 return (
-                    <Tag color={isRunning ? 'gold' : 'default'} style={{ borderRadius: antdToken.borderRadiusSM, fontSize: antdToken.fontSizeSM, fontWeight: 800, textTransform: 'uppercase' }}>
+                    <Tag color={isRunning ? 'gold' : 'default'} className="prism-rounded prism-font-size-sm prism-uppercase" style={{ fontWeight: antdToken.fontWeightStrong }}>
                         {csSvc?.status || 'inactive'}
                     </Tag>
                 );
@@ -270,7 +271,7 @@ export function SecurityPage() {
             title="Security Fleet"
             description="Unified defense layer across your entire infrastructure. Monitor firewalls, manage global blacklists, and respond to threats."
         >
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <Space direction="vertical" size="large" className="prism-full-width">
                 {error && (
                     <Alert
                         message="Security Alert"
@@ -278,40 +279,40 @@ export function SecurityPage() {
                         type="error"
                         showIcon
                         closable
-                        style={{ borderRadius: antdToken.borderRadiusLG }}
+                        className="prism-rounded"
                     />
                 )}
 
                 {/* Aggregates Dashboard */}
                 <Row gutter={24}>
                     <Col xs={24} md={8}>
-                        <Card style={{ borderRadius: antdToken.borderRadiusLG, backgroundColor: antdToken.colorBgContainerDisabled }}>
+                        <Card className="prism-rounded" style={{ backgroundColor: antdToken.colorBgContainerDisabled }}>
                             <Statistic
-                                title={<Text type="secondary" style={{ fontSize: antdToken.fontSizeSM, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Infrastructure Core</Text>}
+                                title={<Text type="secondary" className="prism-statistic-title">Infrastructure Core</Text>}
                                 value={registeredServers.length}
-                                suffix={<Text type="secondary" style={{ fontSize: antdToken.fontSizeSM, fontWeight: 700 }}>ACTIVE NODES</Text>}
-                                valueStyle={{ fontWeight: 900, fontSize: antdToken.fontSizeHeading2 }}
+                                suffix={<Text type="secondary" style={{ fontSize: antdToken.fontSizeSM, fontWeight: antdToken.fontWeightStrong }}>ACTIVE NODES</Text>}
+                                valueStyle={{ fontWeight: antdToken.fontWeightStrong, fontSize: antdToken.fontSizeHeading2 }}
                             />
                         </Card>
                     </Col>
                     <Col xs={24} md={8}>
-                        <Card style={{ borderRadius: antdToken.borderRadiusLG, border: `1px solid ${antdToken.colorInfoBorder}` }}>
+                        <Card style={{ border: `1px solid ${antdToken.colorInfoBorder}` }} className="prism-rounded">
                             <Statistic
-                                title={<Text style={{ color: antdToken.colorInfo, fontSize: antdToken.fontSizeSM, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Firewall Perimeter</Text>}
+                                title={<Text style={{ color: antdToken.colorInfo }} className="prism-statistic-title">Firewall Perimeter</Text>}
                                 value={activeFirewalls}
-                                suffix={<Text type="secondary" style={{ fontSize: antdToken.fontSizeSM, fontWeight: 700 }}>ACTIVE SHIELDS</Text>}
-                                valueStyle={{ fontWeight: 900, fontSize: antdToken.fontSizeHeading2, color: antdToken.colorInfo }}
+                                suffix={<Text type="secondary" className="prism-font-size-sm" style={{ fontWeight: antdToken.fontWeightStrong }}>ACTIVE SHIELDS</Text>}
+                                valueStyle={{ fontWeight: antdToken.fontWeightStrong, fontSize: antdToken.fontSizeHeading2, color: antdToken.colorInfo }}
                                 prefix={<SafetyCertificateOutlined />}
                             />
                         </Card>
                     </Col>
                     <Col xs={24} md={8}>
-                        <Card style={{ borderRadius: antdToken.borderRadiusLG, border: `1px solid ${antdToken.colorWarningBorder}` }}>
+                        <Card style={{ border: `1px solid ${antdToken.colorWarningBorder}` }} className="prism-rounded">
                             <Statistic
-                                title={<Text style={{ color: antdToken.colorWarning, fontSize: antdToken.fontSizeSM, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Threat Intelligence</Text>}
+                                title={<Text style={{ color: antdToken.colorWarning }} className="prism-statistic-title">Threat Intelligence</Text>}
                                 value={globalAlerts}
-                                suffix={<Text type="secondary" style={{ fontSize: antdToken.fontSizeSM, fontWeight: 700 }}>ACTIVE DECISIONS</Text>}
-                                valueStyle={{ fontWeight: 900, fontSize: antdToken.fontSizeHeading2, color: antdToken.colorWarning }}
+                                suffix={<Text type="secondary" className="prism-font-size-sm" style={{ fontWeight: antdToken.fontWeightStrong }}>ACTIVE DECISIONS</Text>}
+                                valueStyle={{ fontWeight: antdToken.fontWeightStrong, fontSize: antdToken.fontSizeHeading2, color: antdToken.colorWarning }}
                                 prefix={<WarningOutlined />}
                             />
                         </Card>
@@ -321,25 +322,26 @@ export function SecurityPage() {
                 {/* Global Actions */}
                 {user?.role !== 'user' && (
                     <Card
-                        title={<Space><SafetyOutlined style={{ color: antdToken.colorError }} /> <Text strong style={{ fontSize: antdToken.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', color: antdToken.colorError }}>Global Banishment</Text></Space>}
-                        style={{ borderRadius: antdToken.borderRadiusLG, border: `1px solid ${antdToken.colorErrorBorder}`, backgroundColor: `${antdToken.colorError}05` }}
+                        title={<Space><SafetyOutlined style={{ color: antdToken.colorError }} /> <Text strong style={{ color: antdToken.colorError }} className="prism-statistic-title">Global Banishment</Text></Space>}
+                        className="prism-rounded"
+                        style={{ border: `1px solid ${antdToken.colorErrorBorder}`, backgroundColor: `${antdToken.colorError}05` }}
                     >
                         <Row gutter={24} align="bottom">
                             <Col xs={24} md={6}>
-                                <Space direction="vertical" style={{ width: '100%' }}>
-                                    <Text strong style={{ fontSize: antdToken.fontSizeSM }}>Target IP address</Text>
+                                <Space direction="vertical" className="prism-full-width">
+                                    <Text strong className="prism-font-size-sm">Target IP address</Text>
                                     <Input placeholder="e.g. 1.2.3.4" value={banIp} onChange={e => setBanIp(e.target.value)} />
                                 </Space>
                             </Col>
                             <Col xs={24} md={4}>
-                                <Space direction="vertical" style={{ width: '100%' }}>
-                                    <Text strong style={{ fontSize: antdToken.fontSizeSM }}>Ban duration</Text>
+                                <Space direction="vertical" className="prism-full-width">
+                                    <Text strong className="prism-font-size-sm">Ban duration</Text>
                                     <Input placeholder="e.g. 4h, 7d" value={banDuration} onChange={e => setBanDuration(e.target.value)} />
                                 </Space>
                             </Col>
                             <Col xs={24} md={8}>
-                                <Space direction="vertical" style={{ width: '100%' }}>
-                                    <Text strong style={{ fontSize: antdToken.fontSizeSM }}>Policy justification</Text>
+                                <Space direction="vertical" className="prism-full-width">
+                                    <Text strong className="prism-font-size-sm">Policy justification</Text>
                                     <Input placeholder="Reason for ban" value={banReason} onChange={e => setBanReason(e.target.value)} />
                                 </Space>
                             </Col>
@@ -352,13 +354,14 @@ export function SecurityPage() {
                                     loading={banning}
                                     disabled={!banIp}
                                     onClick={handleGlobalBan}
-                                    style={{ height: 'auto', fontWeight: 700 }}
+                                    style={{ height: 'auto' }}
+                                    className="prism-status-text"
                                 >
                                     EXECUTE POLICY
                                 </Button>
                             </Col>
                         </Row>
-                        <Paragraph type="secondary" style={{ fontSize: antdToken.fontSizeSM, marginTop: antdToken.marginSM, marginBottom: 0 }}>
+                        <Paragraph type="secondary" className="prism-font-size-sm" style={{ marginTop: antdToken.marginSM, marginBottom: 0 }}>
                             * Deploy a fleet-wide IP ban across all connected infrastructure. This action is recorded and synced globally.
                         </Paragraph>
                     </Card>
@@ -366,10 +369,11 @@ export function SecurityPage() {
 
                 {/* Decisions Explorer */}
                 <Card
-                    title={<Space><LineChartOutlined /> <Text strong style={{ fontSize: antdToken.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Active Bans (CrowdSec Explorer)</Text></Space>}
+                    title={<Space><LineChartOutlined /> <Text strong className="prism-statistic-title">Active Bans (CrowdSec Explorer)</Text></Space>}
                     extra={<Button size="small" icon={<SyncOutlined spin={loadingDecisions} />} onClick={fetchDecisions} disabled={loadingDecisions}>Synch Explorer</Button>}
                     styles={{ body: { padding: 0 } }}
-                    style={{ borderRadius: antdToken.borderRadiusLG, overflow: 'hidden' }}
+                    className="prism-rounded"
+                    style={{ overflow: 'hidden' }}
                 >
                     <Table 
                         columns={decisionColumns} 
@@ -382,9 +386,10 @@ export function SecurityPage() {
 
                 {/* Unified Server View */}
                 <Card
-                    title={<Space><SecurityScanOutlined /> <Text strong style={{ fontSize: antdToken.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Infrastructure Security Matrix</Text></Space>}
+                    title={<Space><SecurityScanOutlined /> <Text strong className="prism-statistic-title">Infrastructure Security Matrix</Text></Space>}
                     styles={{ body: { padding: 0 } }}
-                    style={{ borderRadius: antdToken.borderRadiusLG, overflow: 'hidden' }}
+                    className="prism-rounded"
+                    style={{ overflow: 'hidden' }}
                 >
                     <Table 
                         columns={infraColumns} 

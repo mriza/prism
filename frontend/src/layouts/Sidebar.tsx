@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Menu, Layout, Typography, Button, Divider, theme, Dropdown, Avatar, type MenuProps } from 'antd';
+import { Menu, Layout, Typography, Button, Divider, theme, Dropdown, Avatar, Badge, type MenuProps } from 'antd';
 import {
     DashboardOutlined,
     ProjectOutlined,
@@ -14,6 +14,7 @@ import {
     UnorderedListOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
+import { useAgentsContext } from '../contexts/AgentsContext';
 import { ProfileModal } from '../components/modals/ProfileModal';
 import { useState } from 'react';
 
@@ -22,17 +23,28 @@ const { Text, Title } = Typography;
 
 export function Sidebar({ collapsed }: { collapsed: boolean }) {
     const { user, logout } = useAuth();
+    const { agents } = useAgentsContext();
     const navigate = useNavigate();
     const location = useLocation();
     const { token } = theme.useToken();
     const [profileOpen, setProfileOpen] = useState(false);
+
+    const pendingCount = agents.filter(a => a.status === 'pending').length;
 
     const menuItems = [
         { key: '/', icon: <DashboardOutlined />, label: 'Dashboard' },
         { key: '/projects', icon: <ProjectOutlined />, label: 'Projects' },
         { key: '/accounts', icon: <KeyOutlined />, label: 'Accounts' },
         { key: '/applications', icon: <AppstoreOutlined />, label: 'Applications' },
-        { key: '/servers', icon: <CloudServerOutlined />, label: 'Servers' },
+        { 
+            key: '/servers', 
+            icon: <CloudServerOutlined />, 
+            label: (
+                <Badge count={pendingCount} size="small" color="warning" style={{ display: 'flex' }}>
+                    <span>Servers</span>
+                </Badge>
+            )
+        },
         { key: '/security', icon: <SafetyCertificateOutlined />, label: 'Security' },
         { key: '/logs', icon: <UnorderedListOutlined />, label: 'Activity Logs' },
         { key: '/settings', icon: <SettingOutlined />, label: 'Settings' },
@@ -106,7 +118,7 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
                 </div>
                 {!collapsed && (
                     <div style={{ whiteSpace: 'nowrap' }}>
-                        <Title level={4} style={{ margin: 0, fontSize: token.fontSizeHeading5, fontWeight: 700 }}>PRISM</Title>
+                        <Title level={4} style={{ margin: 0, fontSize: token.fontSizeHeading5, fontWeight: token.fontWeightStrong }}>PRISM</Title>
                         <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '1px' }}>
                             Infra Manager
                         </Text>

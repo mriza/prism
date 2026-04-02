@@ -45,7 +45,7 @@ export function PageContainer({ title, description, extra, children, breadcrumb 
                     gap: token.marginSM
                 }}>
                     <div style={{ flex: 1, minWidth: '100%' }}>
-                        <Title level={2} style={{ margin: 0, fontWeight: 800, letterSpacing: '-0.02em' }}>
+                        <Title level={2} style={{ margin: 0, fontWeight: token.fontWeightStrong, letterSpacing: '-0.02em' }}>
                             {title}
                         </Title>
                         {description && (

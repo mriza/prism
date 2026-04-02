@@ -1,18 +1,19 @@
 import { useState } from 'react';
 import { useAgents } from '../hooks/useAgents';
+import { useAgentsContext } from '../contexts/AgentsContext';
+import { theme } from 'antd';
 import { useAuth } from '../contexts/AuthContext';
-import { 
-    Card, 
-    Row, 
-    Col, 
-    Badge, 
-    Button, 
-    Typography, 
-    Space, 
-    Tag, 
-    Alert, 
-    theme, 
-    Empty, 
+import {
+    Card,
+    Row,
+    Col,
+    Badge,
+    Button,
+    Typography,
+    Space,
+    Tag,
+    Alert,
+    Empty,
     Tooltip,
     Divider,
     Dropdown
@@ -62,6 +63,8 @@ const SERVICE_NAME_TO_TYPE: Record<string, ServiceType> = {
 
 export function ServersPage() {
     const { agents, loading, error, deleteAgent } = useAgents();
+    const { usingPollingFallback } = useAgentsContext();
+    const { token } = theme.useToken();
     const [fwAgent, setFwAgent] = useState<string | null>(null);
     const [csAgent, setCsAgent] = useState<string | null>(null);
     const [approvingAgentId, setApprovingAgentId] = useState<string | null>(null);
@@ -77,7 +80,6 @@ export function ServersPage() {
     } | null>(null);
     const [serverSettingsAgent, setServerSettingsAgent] = useState<{id: string, name: string} | null>(null);
     const { user } = useAuth();
-    const { token } = theme.useToken();
 
     const pendingAgents = agents.filter(a => a.status === 'pending');
     const registeredServers = agents.filter(a => a.status !== 'pending');
@@ -94,11 +96,21 @@ export function ServersPage() {
     };
 
     return (
-        <PageContainer 
-            title="Servers" 
+        <PageContainer
+            title="Servers"
             description="Centrally manage your distributed fleet of PRISM agents and infrastructure."
         >
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <Space direction="vertical" size="large" className="prism-full-width">
+                {usingPollingFallback && (
+                    <Alert
+                        message="Real-time Updates Unavailable"
+                        description="WebSocket connection failed. Using polling mode for agent updates (refreshes every 5 seconds). Check your network connection or server status."
+                        type="warning"
+                        showIcon
+                        className="prism-margin-lg"
+                    />
+                )}
+
                 {error && (
                     <Alert
                         message="Deployment Alert"
@@ -106,48 +118,41 @@ export function ServersPage() {
                         type="error"
                         showIcon
                         icon={<ExclamationCircleOutlined />}
-                        style={{ borderRadius: token.borderRadiusLG }}
+                        className="prism-rounded"
                     />
                 )}
 
                 {/* Pending Approvals */}
                 {pendingAgents.length > 0 && user?.role === 'admin' && (
                     <div>
-                        <Divider titlePlacement="left" style={{ margin: `${token.marginSM}px 0` }}>
+                        <Divider titlePlacement="left" className="prism-margin-sm prism-margin-top-0">
                             <Space>
-                                <ExclamationCircleOutlined style={{ color: token.colorWarning }} />
-                                <Text strong style={{ textTransform: 'uppercase', letterSpacing: '1px', fontSize: token.fontSizeSM, color: token.colorWarning }}>Security Check Required</Text>
+                                <ExclamationCircleOutlined className="prism-text-warning" />
+                                <Text strong className="prism-section-header prism-text-warning">Security Check Required</Text>
                             </Space>
                         </Divider>
                         <Row gutter={[24, 24]}>
                             {pendingAgents.map(agent => (
                                 <Col xs={24} md={12} lg={8} key={agent.id}>
                                     <Card
-                                        style={{ border: `1px solid ${token.colorWarningOutline}`, background: token.colorWarningBgHover }}
+                                        className="prism-border-warning-outline prism-bg-warning-hover"
                                         styles={{ body: { padding: token.paddingLG } }}
                                     >
-                                        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                                        <Space direction="vertical" size="middle" className="prism-full-width">
                                             <Space align="start">
-                                                <div style={{
-                                                    padding: token.paddingSM,
-                                                    borderRadius: token.borderRadiusLG,
-                                                    background: token.colorWarningBg,
-                                                    color: token.colorWarning,
-                                                    display: 'flex',
-                                                    border: `1px solid ${token.colorWarningBorder}`
-                                                }}>
-                                                    <CloudServerOutlined style={{ fontSize: token.fontSizeLG }} />
+                                                <div className="prism-padding-sm prism-rounded-lg prism-bg-warning prism-text-warning prism-flex-center prism-border-warning">
+                                                    <CloudServerOutlined className="prism-text-lg" />
                                                 </div>
                                                 <div>
                                                     <Text strong>{agent.hostname}</Text>
                                                     <br />
-                                                    <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>{agent.osInfo || 'Awaiting Specs'}</Text>
+                                                    <Text type="secondary" className="prism-text-sm prism-uppercase">{agent.osInfo || 'Awaiting Specs'}</Text>
                                                 </div>
                                             </Space>
-                                            <Text type="secondary" style={{ fontSize: token.fontSize }}>
+                                            <Text type="secondary" className="prism-text-sm">
                                                 An unauthorized agent is attempting to join the fleet. Please verify credentials.
                                             </Text>
-                                            <Space style={{ width: '100%' }}>
+                                            <Space className="prism-full-width">
                                                 <Button type="primary" block onClick={() => setApprovingAgentId(agent.id)}>Authorize</Button>
                                                 <Button danger block onClick={() => handleDelete(agent.id, agent.hostname)}>Reject</Button>
                                             </Space>
@@ -164,15 +169,15 @@ export function ServersPage() {
                     <Divider titlePlacement="left" plain>
                         <Space>
                             <CloudServerOutlined />
-                            <Text strong style={{ textTransform: 'uppercase', letterSpacing: '1px', fontSize: token.fontSizeSM }}>Active Fleet</Text>
+                            <Text strong className="prism-section-header">Active Fleet</Text>
                         </Space>
                     </Divider>
 
                     {loading && registeredServers.length === 0 ? (
-                        <div style={{ padding: `${token.paddingXL * 2}px`, textAlign: 'center' }}>
+                        <div className="prism-padding-xl-2 prism-text-center">
                             <Space direction="vertical">
                                 <Button type="text" loading />
-                                <Text type="secondary" strong style={{ textTransform: 'uppercase', letterSpacing: '1px', fontSize: token.fontSizeSM }}>Connecting to infrastructure...</Text>
+                                <Text type="secondary" strong className="prism-text-sm prism-uppercase prism-letter-spacing-1">Connecting to infrastructure...</Text>
                             </Space>
                         </div>
                     ) : registeredServers.length === 0 ? (
@@ -191,21 +196,21 @@ export function ServersPage() {
                                 <Col xs={24} md={12} lg={8} key={server.id}>
                                     <Card
                                         hoverable
-                                        style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusLG }}
+                                        className="prism-card"
                                         styles={{ body: { padding: 0 } }}
                                     >
                                         {/* Header */}
-                                        <div style={{ padding: `${token.paddingMD}px ${token.paddingLG}`, borderBottom: `1px solid ${token.colorBorderSecondary}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div className="prism-padding-md-lg prism-border-bottom prism-flex-between">
                                             <Space size="middle">
-                                                <CloudServerOutlined style={{ color: server.status === 'online' ? token.colorSuccess : token.colorTextDisabled, fontSize: token.fontSizeLG }} />
+                                                <CloudServerOutlined className={`${server.status === 'online' ? 'prism-text-success' : 'prism-text-secondary'} prism-text-lg`} />
                                                 <div>
-                                                    <Text strong style={{ fontSize: token.fontSize }}>{server.name || server.hostname}</Text>
+                                                    <Text strong className="prism-text-sm">{server.name || server.hostname}</Text>
                                                     <br />
-                                                    <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>{server.hostname}</Text>
+                                                    <Text type="secondary" className="prism-text-sm prism-uppercase">{server.hostname}</Text>
                                                 </div>
                                             </Space>
                                             <Space>
-                                                <Badge status={server.status === 'online' ? 'success' : 'default'} text={server.status.toUpperCase()} style={{ fontSize: token.fontSizeSM, fontWeight: 700 }} />
+                                                <Badge status={server.status === 'online' ? 'success' : 'default'} text={server.status.toUpperCase()} className="prism-text-sm prism-text-bold" />
                                                 {user?.role !== 'user' && (
                                                     <Dropdown 
                                                         menu={{ 
@@ -224,20 +229,20 @@ export function ServersPage() {
                                         </div>
 
                                         {/* Content */}
-                                        <div style={{ padding: token.paddingLG }}>
+                                        <div className="prism-padding-lg">
                                             {server.description && (
-                                                <Paragraph type="secondary" italic style={{ fontSize: token.fontSizeSM, borderLeft: `3px solid ${token.colorPrimaryBg}`, paddingLeft: token.paddingSM, marginBottom: token.marginLG }}>
+                                                <Paragraph type="secondary" italic className="prism-text-sm prism-border-left-primary prism-padding-left-sm prism-margin-lg">
                                                     {server.description}
                                                 </Paragraph>
                                             )}
 
-                                            <div style={{ marginBottom: token.marginXS }}>
-                                                <Space style={{ marginBottom: token.marginSM }}>
-                                                    <DashboardOutlined style={{ fontSize: token.fontSizeSM, opacity: 0.3 }} />
-                                                    <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.3 }}>Managed Services</Text>
+                                            <div className="prism-margin-xs">
+                                                <Space className="prism-margin-sm">
+                                                    <DashboardOutlined className="prism-text-sm prism-opacity-3" />
+                                                    <Text strong className="prism-section-header">Managed Services</Text>
                                                 </Space>
 
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: token.marginXS }}>
+                                                <div className="prism-flex-wrap prism-gap-xs">
                                                     {server.services && server.services.length > 0 ? (
                                                         // Sort services alphabetically for consistent display
                                                         [...server.services]
@@ -273,39 +278,18 @@ export function ServersPage() {
                                                                 <Tooltip title={`Manage ${displayName}`} key={svc.name}>
                                                                     <Tag
                                                                         onClick={handleClick}
-                                                                        style={{
-                                                                            cursor: 'pointer',
-                                                                            borderRadius: token.borderRadiusSM,
-                                                                            padding: `${token.paddingXXS}px ${token.paddingSM}px`,
-                                                                            display: 'flex',
-                                                                            alignItems: 'center',
-                                                                            gap: token.marginXXS,
-                                                                            marginRight: 0,
-                                                                            border: isSecurity ? undefined : `1px solid ${token.colorBorderSecondary}`,
-                                                                            background: isSecurity ? (svc.name === 'ufw' ? token.colorInfoBg : token.colorWarningBg) : token.colorBgContainer
-                                                                        }}
+                                                                        className={`prism-pointer prism-rounded-sm prism-flex-center prism-gap-sm ${isSecurity ? '' : 'prism-border-secondary'} ${isSecurity ? (svc.name === 'ufw' ? 'prism-bg-info' : 'prism-bg-warning') : 'prism-bg-container'}`}
                                                                         color={isSecurity ? (svc.name === 'ufw' ? 'info' : 'warning') : undefined}
                                                                     >
-                                                                        <div style={{
-                                                                            width: token.paddingXXS,
-                                                                            height: token.paddingXXS,
-                                                                            borderRadius: '50%',
-                                                                            background: isSvcOnline ? token.colorSuccess : token.colorTextDisabled
-                                                                        }} />
-                                                                        <Text style={{ fontSize: token.fontSizeSM, fontWeight: 600, color: 'inherit' }}>{displayName}</Text>
+                                                                        <div className={`prism-status-dot ${isSvcOnline ? 'prism-bg-success' : 'prism-bg-secondary'}`} />
+                                                                        <Text className="prism-text-sm prism-text-bold" style={{ color: 'currentColor' }}>{displayName}</Text>
                                                                     </Tag>
                                                                 </Tooltip>
                                                             );
                                                         })
                                                     ) : (
-                                                        <div style={{
-                                                            width: '100%',
-                                                            padding: token.paddingLG,
-                                                            borderRadius: token.borderRadius,
-                                                            border: `1px dashed ${token.colorBorder}`,
-                                                            textAlign: 'center'
-                                                        }}>
-                                                            <Text type="secondary" italic style={{ fontSize: token.fontSizeSM }}>No managed services reported</Text>
+                                                        <div className="prism-full-width prism-padding-lg prism-rounded prism-border-dashed prism-text-center">
+                                                            <Text type="secondary" italic className="prism-text-sm">No managed services reported</Text>
                                                         </div>
                                                     )}
                                                 </div>
@@ -313,25 +297,17 @@ export function ServersPage() {
 
                                             {/* Runtimes Section */}
                                             {server.runtimes && server.runtimes.length > 0 && (
-                                                <div style={{ marginTop: token.marginLG }}>
-                                                    <Space style={{ marginBottom: token.marginSM }}>
-                                                        <SettingOutlined style={{ fontSize: token.fontSizeSM, opacity: 0.3 }} />
-                                                        <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.3 }}>Runtime Environments</Text>
+                                                <div className="prism-margin-lg">
+                                                    <Space className="prism-margin-sm">
+                                                        <SettingOutlined className="prism-text-sm prism-opacity-3" />
+                                                        <Text strong className="prism-section-header">Runtime Environments</Text>
                                                     </Space>
-                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: token.marginXS }}>
+                                                    <div className="prism-flex-wrap prism-gap-xs">
                                                         {server.runtimes.map(rt => (
                                                             <Tooltip title={`${rt.name} ${rt.version} detected at ${rt.path}`} key={rt.name}>
-                                                                <Tag
-                                                                    style={{
-                                                                        borderRadius: token.borderRadiusSM,
-                                                                        fontSize: token.fontSizeSM,
-                                                                        background: token.colorBgLayout,
-                                                                        border: `1px solid ${token.colorBorderSecondary}`,
-                                                                        padding: '2px 8px'
-                                                                    }}
-                                                                >
-                                                                    <Text strong style={{ color: token.colorPrimary }}>{rt.name}</Text>
-                                                                    <Text type="secondary" style={{ marginLeft: token.paddingXXS, fontSize: token.paddingSM }}>{rt.version}</Text>
+                                                                <Tag className="prism-rounded-sm prism-text-sm prism-bg-layout prism-border-secondary prism-padding-xs">
+                                                                    <Text strong className="prism-text-primary">{rt.name}</Text>
+                                                                    <Text type="secondary" className="prism-margin-left-xs prism-text-sm">{rt.version}</Text>
                                                                 </Tag>
                                                             </Tooltip>
                                                         ))}

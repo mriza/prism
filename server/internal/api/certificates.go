@@ -11,6 +11,16 @@ import (
 	"time"
 )
 
+// globalCA holds the Certificate Authority instance for signing agent certificates
+// It is initialized at server startup in cmd/server/main.go via SetCertificateAuthority
+var globalCA *security.CertificateAuthority
+
+// SetCertificateAuthority sets the global Certificate Authority instance
+// This should be called once at server startup
+func SetCertificateAuthority(ca *security.CertificateAuthority) {
+	globalCA = ca
+}
+
 // HandleCertificates handles certificate management endpoints
 func HandleCertificates(w http.ResponseWriter, r *http.Request) {
 	if handleCORS(w, r) {
@@ -21,21 +31,21 @@ func HandleCertificates(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		// Get all certificates or filter by status
 		status := r.URL.Query().Get("status")
-		
+
 		var certificates []models.AgentCertificate
 		var err error
-		
+
 		if status != "" {
 			certificates, err = db.GetCertificatesByStatus(status)
 		} else {
 			certificates, err = db.GetCertificatesByStatus("active")
 		}
-		
+
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		
+
 		if certificates == nil {
 			certificates = []models.AgentCertificate{}
 		}
@@ -47,45 +57,45 @@ func HandleCertificates(w http.ResponseWriter, r *http.Request) {
 			ServerID string `json:"server_id"`
 			Hostname string `json:"hostname"`
 		}
-		
+
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Invalid input", http.StatusBadRequest)
 			return
 		}
-		
+
 		if req.ServerID == "" {
 			http.Error(w, "server_id is required", http.StatusBadRequest)
 			return
 		}
-		
+
 		// Get CA from context (initialized at startup)
 		ca := getCertificateAuthority()
 		if ca == nil {
 			http.Error(w, "Certificate authority not initialized", http.StatusInternalServerError)
 			return
 		}
-		
+
 		// Generate certificate
 		certPEM, keyPEM, err := ca.GenerateAgentCertificate(req.ServerID, req.Hostname)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		
+
 		// Get fingerprint
 		fingerprint, err := security.GetCertificateFingerprint(certPEM)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		
+
 		// Get certificate info
 		certInfo, err := security.GetCertificateInfo(certPEM)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		
+
 		// Store in database
 		cert := models.AgentCertificate{
 			ID:          certInfo["serial"].(string),
@@ -94,20 +104,20 @@ func HandleCertificates(w http.ResponseWriter, r *http.Request) {
 			IssuedAt:    certInfo["not_before"].(time.Time),
 			ExpiresAt:   certInfo["not_after"].(time.Time),
 		}
-		
+
 		_, err = db.CreateAgentCertificate(cert)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		
+
 		// Log audit
 		db.LogAuditAction("system", "certificate_generated", "agent_certificate", cert.ID, r.RemoteAddr, map[string]interface{}{
 			"server_id":   req.ServerID,
 			"hostname":    req.Hostname,
 			"fingerprint": fingerprint,
 		})
-		
+
 		// Return certificate and key
 		response := map[string]interface{}{
 			"certificate": string(certPEM),
@@ -115,7 +125,7 @@ func HandleCertificates(w http.ResponseWriter, r *http.Request) {
 			"fingerprint": fingerprint,
 			"expires_at":  cert.ExpiresAt,
 		}
-		
+
 		json.NewEncoder(w).Encode(response)
 
 	default:
@@ -153,27 +163,27 @@ func HandleCertificateDetail(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Reason string `json:"reason"`
 		}
-		
+
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Invalid input", http.StatusBadRequest)
 			return
 		}
-		
+
 		if req.Reason == "" {
 			req.Reason = "administrative"
 		}
-		
+
 		err := db.RevokeAgentCertificate(id, req.Reason)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		
+
 		// Log audit
 		db.LogAuditAction("system", "certificate_revoked", "agent_certificate", id, r.RemoteAddr, map[string]interface{}{
 			"reason": req.Reason,
 		})
-		
+
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "revoked"})
 
@@ -192,29 +202,29 @@ func HandleEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 	case "GET":
 		// Get all enrollment keys
 		includeUsed := r.URL.Query().Get("include_used") == "true"
-		
+
 		keys, err := db.GetEnrollmentKeys(includeUsed)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		
+
 		if keys == nil {
 			keys = []models.EnrollmentKey{}
 		}
-		
+
 		// Don't return key hashes
 		sanitizedKeys := make([]map[string]interface{}, len(keys))
 		for i, key := range keys {
 			sanitizedKeys[i] = map[string]interface{}{
-				"id":              key.ID,
-				"created_by":      key.CreatedBy,
-				"expires_at":      key.ExpiresAt,
-				"used_at":         key.UsedAt,
+				"id":                key.ID,
+				"created_by":        key.CreatedBy,
+				"expires_at":        key.ExpiresAt,
+				"used_at":           key.UsedAt,
 				"used_by_server_id": key.UsedByServerID,
 			}
 		}
-		
+
 		json.NewEncoder(w).Encode(sanitizedKeys)
 
 	case "POST":
@@ -222,12 +232,12 @@ func HandleEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Validity string `json:"validity"` // e.g., "1h", "24h"
 		}
-		
+
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Invalid input", http.StatusBadRequest)
 			return
 		}
-		
+
 		// Parse validity duration
 		validity := 1 * time.Hour // default 1 hour
 		if req.Validity != "" {
@@ -238,23 +248,23 @@ func HandleEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		
+
 		// Get user from context (for now, use "system")
 		createdBy := "system"
-		
+
 		// Generate key
 		psk, key, err := db.GenerateEnrollmentKeyWithCallback(r.Context(), createdBy, validity)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		
+
 		// Log audit
 		db.LogAuditAction("system", "enrollment_key_created", "enrollment_key", key.ID, r.RemoteAddr, map[string]interface{}{
-			"validity": validity.String(),
+			"validity":   validity.String(),
 			"expires_at": key.ExpiresAt,
 		})
-		
+
 		// Return the PSK (only time it's available)
 		response := map[string]interface{}{
 			"psk":        psk,
@@ -263,9 +273,9 @@ func HandleEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 			"validity":   validity.String(),
 			"warning":    "Save this PSK securely. It will not be shown again.",
 		}
-		
+
 		log.Printf("Generated enrollment key: %s", psk)
-		
+
 		json.NewEncoder(w).Encode(response)
 
 	default:
@@ -296,16 +306,16 @@ func HandleEnrollmentKeyDetail(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Enrollment key not found", http.StatusNotFound)
 			return
 		}
-		
+
 		// Don't return key hash
 		response := map[string]interface{}{
-			"id":              key.ID,
-			"created_by":      key.CreatedBy,
-			"expires_at":      key.ExpiresAt,
-			"used_at":         key.UsedAt,
+			"id":                key.ID,
+			"created_by":        key.CreatedBy,
+			"expires_at":        key.ExpiresAt,
+			"used_at":           key.UsedAt,
 			"used_by_server_id": key.UsedByServerID,
 		}
-		
+
 		json.NewEncoder(w).Encode(response)
 
 	case "DELETE":
@@ -314,10 +324,10 @@ func HandleEnrollmentKeyDetail(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		
+
 		// Log audit
 		db.LogAuditAction("system", "enrollment_key_deleted", "enrollment_key", id, r.RemoteAddr, nil)
-		
+
 		w.WriteHeader(http.StatusNoContent)
 
 	default:
@@ -384,22 +394,20 @@ func HandleCertificateAuthority(w http.ResponseWriter, r *http.Request) {
 
 	// Return CA info (not the private key!)
 	info := map[string]interface{}{
-		"common_name":    ca.CACert.Subject.CommonName,
-		"organization":   ca.CACert.Subject.Organization,
-		"not_before":     ca.CACert.NotBefore,
-		"not_after":      ca.CACert.NotAfter,
-		"serial":         ca.CACert.SerialNumber.String(),
-		"is_ca":          ca.CACert.IsCA,
-		"max_path_len":   ca.CACert.MaxPathLen,
+		"common_name":  ca.CACert.Subject.CommonName,
+		"organization": ca.CACert.Subject.Organization,
+		"not_before":   ca.CACert.NotBefore,
+		"not_after":    ca.CACert.NotAfter,
+		"serial":       ca.CACert.SerialNumber.String(),
+		"is_ca":        ca.CACert.IsCA,
+		"max_path_len": ca.CACert.MaxPathLen,
 	}
 
 	json.NewEncoder(w).Encode(info)
 }
 
 // getCertificateAuthority returns the global CA instance
-// In real implementation, this should be properly initialized and stored
+// The CA is initialized at server startup in cmd/server/main.go
 func getCertificateAuthority() *security.CertificateAuthority {
-	// This is a placeholder - in real implementation, CA should be initialized
-	// at server startup and stored in a global variable or context
-	return nil
+	return globalCA
 }

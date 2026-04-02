@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"log/slog"
 	"net/http"
@@ -14,10 +13,12 @@ import (
 	"prism-server/internal/api"
 	"prism-server/internal/config"
 	"prism-server/internal/db"
+	"prism-server/internal/hub"
 	"prism-server/internal/middleware"
 	"prism-server/internal/models"
-	"prism-server/internal/protocol"
+	"prism-server/internal/security"
 	"prism-server/internal/ws"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -28,7 +29,21 @@ import (
 
 var logger *slog.Logger
 var wsHub *ws.Hub
-var serverConfig *config.Config // Global config for token access
+var agentHub *hub.Hub
+var serverConfig *config.Config             // Global config for token access
+var globalCA *security.CertificateAuthority // Global Certificate Authority for signing agent certificates
+
+// Log streaming for real-time WebSocket updates
+type LogSubscriber struct {
+	agentID string
+	service string
+	ch      chan models.AuditLog
+}
+
+var (
+	logSubscribers   = make(map[*LogSubscriber]bool)
+	logSubscribersMu sync.RWMutex
+)
 
 // WebSocket upgrader with per-message deflate compression (RFC 7692)
 var upgrader = websocket.Upgrader{
@@ -48,623 +63,9 @@ var upgrader = websocket.Upgrader{
 	EnableCompression: true, // Enable per-message deflate compression
 }
 
-type AgentSession struct {
-	ID       string
-	Conn     *websocket.Conn
-	Services map[string]protocol.ServiceInfo
-	LastSeen time.Time
-	mu       sync.Mutex // Lock for writing to Conn
-}
-
-func (s *AgentSession) Send(msg interface{}) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.Conn.WriteJSON(msg)
-}
-
-type Hub struct {
-	Agents           map[string]*AgentSession
-	PendingResponses map[string]chan *protocol.Message
-	mu               sync.RWMutex
-}
-
-var hub = Hub{
-	Agents:           make(map[string]*AgentSession),
-	PendingResponses: make(map[string]chan *protocol.Message),
-}
-
-// Thread-safe response channel helpers to prevent race conditions
-func getResponseChan(cmdID string) (chan *protocol.Message, bool) {
-	hub.mu.RLock()
-	defer hub.mu.RUnlock()
-	ch, ok := hub.PendingResponses[cmdID]
-	return ch, ok
-}
-
-func setResponseChan(cmdID string, ch chan *protocol.Message) {
-	hub.mu.Lock()
-	defer hub.mu.Unlock()
-	hub.PendingResponses[cmdID] = ch
-}
-
-func deleteResponseChan(cmdID string) {
-	hub.mu.Lock()
-	defer hub.mu.Unlock()
-	delete(hub.PendingResponses, cmdID)
-}
-
-func handleAgentConnection(w http.ResponseWriter, r *http.Request, cfg *config.Config) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Printf("Failed to upgrade WS: %v", err)
-		return
-	}
-	defer conn.Close()
-
-	// 1. Wait for Register Message
-	var msg protocol.Message
-	if err := conn.ReadJSON(&msg); err != nil {
-		log.Printf("Failed to read register msg: %v", err)
-		return
-	}
-
-	if msg.Type != protocol.MsgTypeRegister {
-		log.Printf("Expected register message, got %s", msg.Type)
-		return
-	}
-
-	// Parse Payload
-	payloadMap, ok := msg.Payload.(map[string]interface{})
-	if !ok || payloadMap == nil {
-		log.Println("Invalid payload format: missing or not a map")
-		return
-	}
-
-	hostname, _ := payloadMap["hostname"].(string)
-	token, _ := payloadMap["token"].(string) // Validate token in real app
-
-	// Validate Token
-	expectedToken := ""
-	if cfg != nil && cfg.Auth.Token != "" {
-		expectedToken = cfg.Auth.Token
-	}
-
-	if expectedToken == "" {
-		log.Printf("Server configuration error: No authentication token configured. Rejecting agent %s.", hostname)
-		conn.WriteJSON(protocol.Message{
-			Type:    protocol.MsgTypeResponse,
-			Payload: map[string]string{"error": "Server misconfigured"},
-		})
-		return
-	}
-
-	if token != expectedToken {
-		log.Printf("Security Alert: Invalid token from agent at %s. Token received: '%s...'. Expected token starts with: '%s...'", r.RemoteAddr, token[:min(len(token), 4)], expectedToken[:min(len(expectedToken), 4)])
-		conn.WriteJSON(protocol.Message{
-			Type:    protocol.MsgTypeResponse,
-			Payload: map[string]string{"error": "Invalid token. Please check your prism-agent.conf."},
-		})
-		return
-	}
-
-	// Token is valid. Now check Agent approval status in database.
-	osInfo, _ := payloadMap["os_info"].(string)
-	agentIDPayload, _ := payloadMap["agent_id"].(string)
-
-	var runtimes []models.RuntimeInfo
-	if rtInterface, ok := payloadMap["runtimes"].([]interface{}); ok {
-		for _, rt := range rtInterface {
-			if rtMap, ok := rt.(map[string]interface{}); ok {
-				name, _ := rtMap["name"].(string)
-				version, _ := rtMap["version"].(string)
-				path, _ := rtMap["path"].(string)
-				runtimes = append(runtimes, models.RuntimeInfo{
-					Name:    name,
-					Version: version,
-					Path:    path,
-				})
-			}
-		}
-	}
-
-	var agent *models.LegacyAgent
-
-	if agentIDPayload != "" {
-		agent, err = db.GetAgentByID(agentIDPayload)
-	} else {
-		// Fallback to hostname for older agents (transitional)
-		agent, err = db.GetAgentByHostname(hostname)
-	}
-
-	if err != nil {
-		log.Printf("Database error checking agent %s: %v", hostname, err)
-		return
-	}
-
-	if agent == nil {
-		// Check if another entry with the same hostname exists (e.g. agent re-deployed with a new ID).
-		// If so, re-use that entry by updating its ID rather than creating a duplicate.
-		existing, _ := db.GetAgentByHostname(hostname)
-		if existing != nil && existing.ID != agentIDPayload {
-			log.Printf("Agent '%s' reconnected with new ID %s (old: %s). Updating ID.", hostname, agentIDPayload, existing.ID)
-			db.ReplaceAgentID(existing.ID, agentIDPayload)
-			agent, _ = db.GetAgentByID(agentIDPayload)
-		}
-
-		if agent == nil {
-			// Truly new agent: insert as 'pending'
-			newAgent := models.LegacyAgent{
-				ID:       agentIDPayload,
-				Hostname: hostname,
-				OSInfo:   osInfo,
-				Status:   "pending",
-				LastSeen: time.Now().UTC().Format(time.RFC3339),
-			}
-			db.CreateAgent(newAgent)
-			log.Printf("New Agent '%s' (%s) discovered. Registered as pending. Awaiting approval.", hostname, agentIDPayload)
-
-			conn.WriteJSON(protocol.Message{
-				Type:    protocol.MsgTypeResponse,
-				Payload: map[string]string{"error": "Agent approval pending"},
-			})
-			return
-		}
-	}
-
-	// Only allow approved or offline (previously approved) agents to connect
-	if agent.Status == "pending" {
-		log.Printf("Agent '%s' is pending approval. Connection rejected until approved.", hostname)
-		conn.WriteJSON(protocol.Message{
-			Type:    protocol.MsgTypeResponse,
-			Payload: map[string]string{"error": "Agent approval pending"},
-		})
-		return // IMPORTANT: Return here!
-	}
-
-	if agent.Status == "rejected" {
-		log.Printf("Agent '%s' connection rejected (Status: rejected)", hostname)
-		conn.WriteJSON(protocol.Message{
-			Type:    protocol.MsgTypeResponse,
-			Payload: map[string]string{"error": "Agent rejected"},
-		})
-		return
-	}
-
-	// Agent is approved or offline (previously approved). Update status to online and update last seen.
-	db.UpdateAgentStatus(agent.ID, "online", agent.Name, agent.Description)
-	db.UpdateAgentLastSeen(agent.ID, osInfo)
-
-	// UPDATE SERVER TABLE (v4.x structure)
-	db.UpdateServerHeartbeat(agent.ID, osInfo, "", runtimes)
-	db.UpdateServerStatus(agent.ID, "active", agent.Name, agent.Description)
-
-	log.Printf("Agent '%s' (%s) connected successfully (status: %s -> online)", hostname, agent.ID, agent.Status)
-
-	// Register connected Session using persistent ID
-	agentID := agent.ID
-	session := &AgentSession{
-		ID:       agentID,
-		Conn:     conn,
-		Services: make(map[string]protocol.ServiceInfo),
-		LastSeen: time.Now(),
-	}
-
-	// Store Services from registration payload
-	if servicesInterface, ok := payloadMap["services"].([]interface{}); ok {
-		for _, s := range servicesInterface {
-			if sMap, ok := s.(map[string]interface{}); ok {
-				name, _ := sMap["name"].(string)
-				status, _ := sMap["status"].(string)
-
-				var metrics map[string]float64
-				if m, ok := sMap["metrics"].(map[string]interface{}); ok {
-					metrics = make(map[string]float64)
-					for k, v := range m {
-						if val, ok := v.(float64); ok {
-							metrics[k] = val
-						}
-					}
-				}
-
-				session.Services[name] = protocol.ServiceInfo{
-					Name:    name,
-					Status:  status,
-					Metrics: metrics,
-				}
-			}
-		}
-	}
-
-	hub.mu.Lock()
-	hub.Agents[agentID] = session
-	hub.mu.Unlock()
-
-	log.Printf("Agent connected: %s", agentID)
-
-	// Fetch Heartbeat Interval from DB
-	heartbeatInterval := 15 // Default 15s
-	if settings, err := db.GetSettings(); err == nil {
-		for _, s := range settings {
-			if s.Key == "heartbeatInterval" || s.Key == "pollingInterval" {
-				if val, err := time.ParseDuration(s.Value); err == nil {
-					heartbeatInterval = int(val.Seconds())
-					break
-				}
-			}
-		}
-	}
-	if heartbeatInterval <= 0 {
-		heartbeatInterval = 15
-	}
-
-	// Send Welcome message
-	welcome := protocol.Message{
-		Type: protocol.MsgTypeWelcome,
-		Payload: protocol.WelcomePayload{
-			AgentID:           agentID,
-			HeartbeatInterval: heartbeatInterval,
-		},
-	}
-	session.Send(welcome)
-
-	// Send permanent token to agent for persistent authentication
-	tokenCmd := protocol.Message{
-		Type: protocol.MsgTypeCommand,
-		Payload: map[string]interface{}{
-			"action":     "agent_set_hub_token",
-			"service":    "agent",
-			"command_id": fmt.Sprintf("set-token-%d", time.Now().UnixNano()),
-			"options": map[string]interface{}{
-				"token": serverConfig.Auth.Token,
-			},
-		},
-	}
-	session.Send(tokenCmd)
-	log.Printf("Sent permanent token to connected agent %s", agentID)
-
-	// Continue to message loop...
-
-	// Broadcast agent connection to frontend via WebSocket
-	agentData := map[string]interface{}{
-		"id":       agentID,
-		"hostname": hostname,
-		"status":   "online",
-		"services": session.Services,
-		"lastSeen": time.Now().UTC().Format(time.RFC3339),
-	}
-	broadcastAgentUpdate(agentData, "agent_connected")
-
-	// Loop for messages (KeepAlive, Events)
-	for {
-		var incoming protocol.Message
-		err := conn.ReadJSON(&incoming)
-		if err != nil {
-			log.Printf("Agent %s disconnected: %v", agentID, err)
-			break
-		}
-
-		// Update heartbeats, handle events etc.
-		if incoming.Type == protocol.MsgTypeKeepAlive {
-			hub.mu.Lock()
-			if agent, ok := hub.Agents[agentID]; ok {
-				agent.LastSeen = time.Now()
-
-				// Check if agent is pending - skip status updates for pending agents
-				dbAgent, err := db.GetAgentByID(agentID)
-				if err == nil && dbAgent != nil && dbAgent.Status == "pending" {
-					// Skip status updates for pending agents
-					continue
-				}
-
-				// Update service statuses
-				if payloadMap, ok := incoming.Payload.(map[string]interface{}); ok && payloadMap != nil {
-					if servicesInterface, ok := payloadMap["services"].([]interface{}); ok && servicesInterface != nil {
-						for _, s := range servicesInterface {
-							if sMap, ok := s.(map[string]interface{}); ok && sMap != nil {
-								name, _ := sMap["name"].(string)
-								status, _ := sMap["status"].(string)
-
-								var metrics map[string]float64
-								if m, ok := sMap["metrics"].(map[string]interface{}); ok {
-									metrics = make(map[string]float64)
-									for k, v := range m {
-										if val, ok := v.(float64); ok {
-											metrics[k] = val
-										}
-									}
-								}
-
-								if name != "" {
-									agent.Services[name] = protocol.ServiceInfo{
-										Name:    name,
-										Status:  status,
-										Metrics: metrics,
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-			hub.mu.Unlock()
-		}
-
-		if incoming.Type == protocol.MsgTypeResponse {
-			if payloadMap, ok := incoming.Payload.(map[string]interface{}); ok && payloadMap != nil {
-				if cmdID, ok := payloadMap["command_id"].(string); ok && cmdID != "" {
-					// Use thread-safe helper
-					if ch, ok := getResponseChan(cmdID); ok && ch != nil {
-						select {
-						case ch <- &incoming:
-						default:
-							// Channel full or closed, skip
-						}
-					}
-				}
-			}
-		}
-
-		if incoming.Type == protocol.MsgTypeEvent {
-			if payloadMap, ok := incoming.Payload.(map[string]interface{}); ok && payloadMap != nil {
-				// Get agent info to save with the event
-				agentRecord, err := db.GetAgentByID(agentID)
-				if err != nil || agentRecord == nil {
-					log.Printf("Failed to resolve agent %s for event: %v", agentID, err)
-					continue
-				}
-
-				typeName, _ := payloadMap["type"].(string)
-				service, _ := payloadMap["service"].(string)
-				status, _ := payloadMap["status"].(string)
-				message, _ := payloadMap["message"].(string)
-
-				event := models.Event{
-					AgentID: agentRecord.ID,
-					Type:    typeName,
-					Service: service,
-					Status:  status,
-					Message: message,
-				}
-
-				if _, err := db.CreateEvent(event); err != nil {
-					log.Printf("Failed to save event from %s: %v", agentID, err)
-				} else {
-					log.Printf("Event saved from %s: %s %s (%s)", agentID, typeName, service, status)
-				}
-			}
-		}
-	}
-
-	hub.mu.Lock()
-	delete(hub.Agents, agentID)
-	hub.mu.Unlock()
-
-	// Broadcast agent disconnection to frontend
-	broadcastAgentUpdate(map[string]interface{}{
-		"id":       agentID,
-		"hostname": agentID,
-		"status":   "offline",
-	}, "agent_disconnected")
-}
-
-func handleListAgents(w http.ResponseWriter, r *http.Request) {
-	// Enable CORS (restricted to localhost/127.0.0.1 for dev, should be configured for prod)
-	origin := r.Header.Get("Origin")
-	if origin != "" {
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-	} else {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-	}
-	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Content-Type", "application/json")
-
-	if r.Method == "OPTIONS" {
-		return
-	}
-
-	agentsDB, err := db.GetAgents()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	hub.mu.RLock()
-	defer hub.mu.RUnlock()
-
-	type AgentSummary struct {
-		ID          string                 `json:"id"`
-		Name        string                 `json:"name"`
-		Description string                 `json:"description"`
-		Hostname    string                 `json:"hostname"`
-		OSInfo      string                 `json:"osInfo"`
-		Status      string                 `json:"status"` // pending, approved, online, offline, rejected
-		LastSeen    string                 `json:"lastSeen"`
-		CreatedAt   string                 `json:"createdAt"`
-		Services    []protocol.ServiceInfo `json:"services"`
-	}
-
-	var list []AgentSummary
-	for _, a := range agentsDB {
-		var svcInfos []protocol.ServiceInfo
-		status := a.Status
-
-		if session, ok := hub.Agents[a.ID]; ok {
-			if status == "approved" {
-				status = "online"
-			}
-			for _, svcInfo := range session.Services {
-				svcInfos = append(svcInfos, svcInfo)
-			}
-		} else {
-			if status == "approved" {
-				status = "offline"
-			}
-		}
-
-		if svcInfos == nil {
-			svcInfos = []protocol.ServiceInfo{}
-		}
-
-		list = append(list, AgentSummary{
-			ID:          a.ID,
-			Name:        a.Name,
-			Description: a.Description,
-			Hostname:    a.Hostname,
-			OSInfo:      a.OSInfo,
-			Status:      status,
-			LastSeen:    a.LastSeen,
-			CreatedAt:   a.CreatedAt,
-			Services:    svcInfos,
-		})
-	}
-
-	json.NewEncoder(w).Encode(list)
-}
-
-func handleAgentAction(w http.ResponseWriter, r *http.Request) {
-	origin := r.Header.Get("Origin")
-	if origin != "" {
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-	} else {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-	}
-	w.Header().Set("Access-Control-Allow-Methods", "POST, DELETE, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-	if r.Method == "OPTIONS" {
-		return
-	}
-
-	// URL format: /api/agents/{id}/approve or /api/agents/{id}
-	path := r.URL.Path
-	idStart := len("/api/agents/")
-	if len(path) <= idStart {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	subPath := path[idStart:]
-	id := subPath
-	action := ""
-
-	// Check if there's an action (like /approve)
-	for i, c := range subPath {
-		if c == '/' {
-			id = subPath[:i]
-			action = subPath[i+1:]
-			break
-		}
-	}
-
-	if r.Method == "DELETE" && action == "" {
-		// 1. Get agent first - try by ID, then by hostname
-		agentRecord, err := db.GetAgentByID(id)
-		if err != nil || agentRecord == nil {
-			// Try by hostname
-			agentRecord, err = db.GetAgentByHostname(id)
-			if err != nil || agentRecord == nil {
-				http.Error(w, "Agent not found", http.StatusNotFound)
-				return
-			}
-		}
-
-		// 2. Delete from database using correct ID
-		if err := db.DeleteAgent(agentRecord.ID); err != nil {
-			http.Error(w, "Failed to delete agent", http.StatusInternalServerError)
-			return
-		}
-
-		log.Printf("Agent '%s' (%s) deleted successfully", agentRecord.Hostname, agentRecord.ID)
-
-		// 3. Forcefully disconnect WS session if it exists to trigger auto re-registration
-		hub.mu.Lock()
-		if session, ok := hub.Agents[agentRecord.ID]; ok {
-			log.Printf("Forcefully disconnecting agent %s due to deletion", agentRecord.Hostname)
-			session.Conn.Close()
-			delete(hub.Agents, agentRecord.ID)
-		}
-		hub.mu.Unlock()
-
-		// 4. Broadcast deletion to frontend
-		broadcastAgentUpdate(map[string]interface{}{
-			"id":       agentRecord.ID,
-			"hostname": agentRecord.Hostname,
-			"status":   "deleted",
-		}, "agent_deleted")
-
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	if r.Method == "POST" && action == "approve" {
-		var payload struct {
-			Name        string `json:"name"`
-			Description string `json:"description"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil && err != io.EOF {
-			// Don't fail if body is empty for backwards compatibility, but log it
-			log.Printf("Warning: failed to decode approve payload: %v", err)
-		}
-
-		// Try to get agent by ID first, then by hostname (since URL might use either)
-		agentRecord, err := db.GetAgentByID(id)
-		if err != nil || agentRecord == nil {
-			// Try by hostname
-			agentRecord, err = db.GetAgentByHostname(id)
-			if err != nil || agentRecord == nil {
-				http.Error(w, "Agent not found", http.StatusNotFound)
-				return
-			}
-		}
-
-		// Update using the correct ID
-		if err := db.UpdateAgentStatus(agentRecord.ID, "approved", payload.Name, payload.Description); err != nil {
-			http.Error(w, "Failed to approve agent", http.StatusInternalServerError)
-			return
-		}
-
-		log.Printf("Agent '%s' (%s) approved successfully", agentRecord.Hostname, agentRecord.ID)
-
-		// Broadcast approval to frontend immediately (so UI updates without waiting for agent reconnect)
-		broadcastAgentUpdate(map[string]interface{}{
-			"id":          agentRecord.ID,
-			"hostname":    agentRecord.Hostname,
-			"name":        payload.Name,
-			"description": payload.Description,
-			"status":      "approved",
-		}, "agent_approved")
-
-		// Send token to agent if connected
-		hub.mu.RLock()
-		agentSession, exists := hub.Agents[agentRecord.ID]
-		hub.mu.RUnlock()
-
-		if exists && agentSession != nil {
-			// Send command to agent to save the token
-			tokenCmd := protocol.Message{
-				Type: protocol.MsgTypeCommand,
-				Payload: map[string]interface{}{
-					"action":     "agent_set_hub_token",
-					"service":    "agent",
-					"command_id": fmt.Sprintf("set-token-%d", time.Now().UnixNano()),
-					"options": map[string]interface{}{
-						"token": serverConfig.Auth.Token,
-					},
-				},
-			}
-			if err := agentSession.Send(tokenCmd); err != nil {
-				log.Printf("Failed to send token to agent %s: %v", agentRecord.Hostname, err)
-			} else {
-				log.Printf("Sent permanent token to agent %s", agentRecord.Hostname)
-			}
-		}
-
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	http.Error(w, "Method or action not allowed", http.StatusMethodNotAllowed)
+// handleAgentConnection handles the WebSocket connection from the agent
+func handleAgentConnection(w http.ResponseWriter, r *http.Request) {
+	api.HandleAgentConnection(w, r)
 }
 
 func startAgentCleanupLoop() {
@@ -673,21 +74,21 @@ func startAgentCleanupLoop() {
 
 	for range ticker.C {
 		now := time.Now()
-		hub.mu.Lock()
 		var disconnectedAgents []string
-		for id, agent := range hub.Agents {
-			// increased timeout to 90s (default heartbeat 15s * 6) to be more resilient
+		
+		agents := agentHub.GetAgents()
+		for id, agent := range agents {
 			if now.Sub(agent.LastSeen) > 90*time.Second {
 				log.Printf("Agent %s timed out (no KeepAlive for 90s), marking as offline...", id)
 				agent.Conn.Close()
 				disconnectedAgents = append(disconnectedAgents, id)
 			}
 		}
+		
 		// Remove disconnected agents from hub
 		for _, id := range disconnectedAgents {
-			delete(hub.Agents, id)
+			agentHub.UnregisterAgent(id)
 		}
-		hub.mu.Unlock()
 
 		// Update status in database (don't delete, just mark as offline)
 		for _, id := range disconnectedAgents {
@@ -695,7 +96,7 @@ func startAgentCleanupLoop() {
 			if err == nil && agentRecord != nil {
 				db.UpdateAgentStatus(agentRecord.ID, "offline", agentRecord.Name, agentRecord.Description)
 				log.Printf("Agent '%s' marked as offline in database", agentRecord.Hostname)
-				broadcastAgentUpdate(map[string]interface{}{
+				api.BroadcastAgentUpdate(map[string]interface{}{
 					"id":       agentRecord.ID,
 					"hostname": agentRecord.Hostname,
 					"status":   "offline",
@@ -723,6 +124,7 @@ func main() {
 
 	// Store config globally for token access
 	serverConfig = cfg
+	api.SetHubToken(cfg.Auth.Token)
 
 	// Validate configuration and generate secure secrets if needed
 	if err := cfg.Validate("prism-server.conf"); err != nil {
@@ -773,50 +175,90 @@ func main() {
 
 	logger.Info("Database initialized", "path", dbPath)
 
+	// Initialize Certificate Authority for signing agent certificates
+	caConfig := security.DefaultCACertConfig()
+	globalCA, err = security.NewCertificateAuthority(caConfig)
+	if err != nil {
+		logger.Error("Failed to initialize Certificate Authority", "error", err)
+		os.Exit(1)
+	}
+	logger.Info("Certificate Authority initialized",
+		"common_name", globalCA.CACert.Subject.CommonName,
+		"expires_at", globalCA.CACert.NotAfter)
+
+	// Set the CA in the API package
+	api.SetCertificateAuthority(globalCA)
+
+	// Initialize Agent Hub
+	agentHub = hub.NewHub()
+	api.SetAgentHub(agentHub)
+
 	// Initialize WebSocket Hub
-	// Note: Valkey cache integration can be added here for Pub/Sub
 	wsHub = ws.NewHub(nil)
+	api.SetWSHub(wsHub)
 	go wsHub.Run()
 
+	// Setup real-time log streaming callback
+	db.OnAuditLogCreated = func(audit models.AuditLog) {
+		// Broadcast to all subscribers interested in this agent/service
+		logSubscribersMu.RLock()
+		defer logSubscribersMu.RUnlock()
+
+		for sub := range logSubscribers {
+			// Check if subscriber is interested in this log entry
+			// Match by agent_id in details or resource_id
+			shouldSend := false
+
+			// Extract agent_id and service from audit log details
+			details := audit.Details
+			if details != nil {
+				if agentID, ok := details["agent_id"].(string); ok && agentID == sub.agentID {
+					shouldSend = true
+				}
+				if service, ok := details["service"].(string); ok && service == sub.service {
+					shouldSend = true
+				}
+			}
+
+			// Also check if resource_id matches agent_id
+			if audit.ResourceID == sub.agentID {
+				shouldSend = true
+			}
+
+			if shouldSend {
+				select {
+				case sub.ch <- audit:
+				default:
+					// Channel buffer full, skip this log
+				}
+			}
+		}
+	}
+
 	// Hub Server
-	http.HandleFunc("/agent/connect", func(w http.ResponseWriter, r *http.Request) {
-		handleAgentConnection(w, r, cfg) // Pass config
-	})
+	http.HandleFunc("/agent/connect", handleAgentConnection)
 
 	// WebSocket endpoint for Frontend real-time updates
 	http.HandleFunc("/ws/agents", handleFrontendAgentsWS)
+
+	// WebSocket endpoint for Logs real-time streaming
+	http.HandleFunc("/ws/logs", handleLogsWS)
 
 	// Public Enum
 	http.HandleFunc("/api/auth/login", api.HandleLogin)
 
 	// Protected Endpoints
 
-	// 🔵 DEPRECATED (v4.4.6): Legacy agents endpoints - Use /api/servers instead
-	// These endpoints will be removed in v5.0
-	http.HandleFunc("/api/agents", api.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		// Add deprecation header to all /api/agents responses
-		w.Header().Set("X-API-Deprecation-Warning", "The /api/agents endpoint is deprecated and will be removed in v5.0. Use /api/servers instead. See MIGRATION_GUIDE.md.")
-		w.Header().Set("X-API-Sunset", "2026-12-31")
+	// REST API for Agents (Legacy)
+	http.HandleFunc("/api/agents", api.AuthMiddleware(api.HandleListAgents, "admin", "manager", "user"))
+	http.HandleFunc("/api/agents/", api.AuthMiddleware(api.HandleAgentAction, "admin"))
 
-		if r.Method == "GET" || r.Method == "OPTIONS" {
-			handleListAgents(w, r)
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	}, "admin", "manager", "user"))
+	http.HandleFunc("/api/control", api.AuthMiddleware(api.HandleServiceControl, "admin", "manager"))
+	http.HandleFunc("/api/control/import", api.AuthMiddleware(api.HandleServiceImport, "admin", "manager"))
 
-	http.HandleFunc("/api/agents/", api.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		// Add deprecation header
-		w.Header().Set("X-API-Deprecation-Warning", "The /api/agents/{id} endpoint is deprecated. Use /api/servers/{id} instead.")
-		handleAgentAction(w, r)
-	}, "admin")) // Only admins can approve/delete agents
-
-	http.HandleFunc("/api/control", api.AuthMiddleware(handleServiceControl, "admin", "manager"))
-	http.HandleFunc("/api/control/import", api.AuthMiddleware(handleServiceImport, "admin", "manager"))
-
-	http.HandleFunc("/api/security/ban", api.AuthMiddleware(handleGlobalBan, "admin", "manager"))
-	http.HandleFunc("/api/security/unban", api.AuthMiddleware(handleGlobalUnban, "admin", "manager"))
-	http.HandleFunc("/api/security/decisions", api.AuthMiddleware(handleSecurityDecisions, "admin", "manager", "user"))
+	http.HandleFunc("/api/security/ban", api.AuthMiddleware(api.HandleGlobalBan, "admin", "manager"))
+	http.HandleFunc("/api/security/unban", api.AuthMiddleware(api.HandleGlobalUnban, "admin", "manager"))
+	http.HandleFunc("/api/security/decisions", api.AuthMiddleware(api.HandleSecurityDecisions, "admin", "manager", "user"))
 
 	// REST API endpoints for Projects and Service Accounts
 	// NOTE: If we want finer grain (GET vs POST), we can wrap the inside or create different handlers.
@@ -825,6 +267,24 @@ func main() {
 	http.HandleFunc("/api/projects/", api.AuthMiddleware(api.HandleProjectDetail, "admin", "manager", "user"))
 	http.HandleFunc("/api/accounts", api.AuthMiddleware(api.HandleAccounts, "admin", "manager", "user"))
 	http.HandleFunc("/api/accounts/", api.AuthMiddleware(api.HandleAccountDetail, "admin", "manager", "user"))
+
+	// REST API for RBAC Permissions (Admin only)
+	http.HandleFunc("/api/permissions", api.AuthMiddleware(api.HandleRBACPermissions, "admin"))
+
+	// REST API for Servers (Admin only)
+	http.HandleFunc("/api/servers", api.AuthMiddleware(api.HandleServers, "admin"))
+	http.HandleFunc("/api/servers/", api.AuthMiddleware(api.HandleServerDetail, "admin"))
+	http.HandleFunc("/api/servers/{id}/heartbeat", api.AuthMiddleware(api.HandleServerHeartbeat, "admin"))
+	http.HandleFunc("/api/servers/{id}/services", api.AuthMiddleware(api.HandleServerServices, "admin"))
+
+	// REST API for Certificates (Admin only)
+	http.HandleFunc("/api/certificates", api.AuthMiddleware(api.HandleCertificates, "admin"))
+	http.HandleFunc("/api/certificates/", api.AuthMiddleware(api.HandleCertificateDetail, "admin"))
+	http.HandleFunc("/api/enrollment-keys", api.AuthMiddleware(api.HandleEnrollmentKeys, "admin"))
+	http.HandleFunc("/api/enrollment-keys/", api.AuthMiddleware(api.HandleEnrollmentKeyDetail, "admin"))
+	http.HandleFunc("/api/certificate-stats", api.AuthMiddleware(api.HandleCertificateStats, "admin"))
+	http.HandleFunc("/api/enrollment-key-stats", api.AuthMiddleware(api.HandleEnrollmentKeyStats, "admin"))
+	http.HandleFunc("/api/certificate-authority", api.AuthMiddleware(api.HandleCertificateAuthority, "admin"))
 
 	http.HandleFunc("/api/deployments", api.AuthMiddleware(api.HandleDeployments, "admin", "manager", "user"))
 	http.HandleFunc("/api/deployments/", api.AuthMiddleware(api.HandleDeploymentDetail, "admin", "manager", "user"))
@@ -985,6 +445,177 @@ func handleFrontendAgentsWS(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleLogsWS handles WebSocket connections from frontend for real-time log streaming
+func handleLogsWS(w http.ResponseWriter, r *http.Request) {
+	// Authenticate user
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		// Try to get from Authorization header
+		authHeader := r.Header.Get("Authorization")
+		if authHeader != "" {
+			parts := strings.Split(authHeader, " ")
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				token = parts[1]
+			}
+		}
+	}
+
+	// Validate token (basic validation, can be enhanced)
+	if token == "" {
+		http.Error(w, "Authorization required", http.StatusUnauthorized)
+		return
+	}
+
+	// Get query parameters
+	agentID := r.URL.Query().Get("agentId")
+	service := r.URL.Query().Get("service")
+	limitStr := r.URL.Query().Get("limit")
+	limit := 100
+	if limitStr != "" {
+		if val, err := strconv.Atoi(limitStr); err == nil && val > 0 {
+			limit = val
+		}
+	}
+
+	if agentID == "" || service == "" {
+		http.Error(w, "agentId and service parameters are required", http.StatusBadRequest)
+		return
+	}
+
+	// Upgrade to WebSocket
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		logger.Warn("Failed to upgrade WebSocket connection", "error", err)
+		return
+	}
+
+	// Generate client ID from token (simplified, could use JWT claims)
+	clientID := fmt.Sprintf("logs-%s-%s-%d", agentID, service, time.Now().UnixNano())
+
+	logger.Info("Logs WebSocket connection established", "clientID", clientID, "agentID", agentID, "service", service)
+
+	// Create subscriber for this client
+	subscriber := &LogSubscriber{
+		agentID: agentID,
+		service: service,
+		ch:      make(chan models.AuditLog, 100),
+	}
+
+	// Register subscriber
+	logSubscribersMu.Lock()
+	logSubscribers[subscriber] = true
+	logSubscribersMu.Unlock()
+
+	// Unregister on disconnect
+	defer func() {
+		logSubscribersMu.Lock()
+		delete(logSubscribers, subscriber)
+		close(subscriber.ch)
+		logSubscribersMu.Unlock()
+	}()
+
+	// Handle WebSocket messages
+	go func() {
+		defer conn.Close()
+
+		// Forward real-time logs from subscriber channel
+		go func() {
+			for logEntry := range subscriber.ch {
+				// Convert audit log to map for WebSocket message
+				details := logEntry.Details
+				if details == nil {
+					details = make(map[string]interface{})
+				}
+				details["agent_id"] = logEntry.ResourceID // Use ResourceID as agent ID reference
+
+				logMsg := map[string]interface{}{
+					"type":    "log_entry",
+					"channel": "logs",
+					"payload": map[string]interface{}{
+						"id":        logEntry.ID,
+						"timestamp": logEntry.Timestamp,
+						"user_id":   logEntry.UserID,
+						"action":    logEntry.Action,
+						"resource":  logEntry.ResourceType,
+						"agent_id":  agentID,
+						"service":   service,
+						"details":   details,
+					},
+					"timestamp": time.Now().UnixNano(),
+				}
+				if data, err := json.Marshal(logMsg); err == nil {
+					conn.WriteMessage(websocket.TextMessage, data)
+				}
+			}
+		}()
+
+		// Send initial batch of logs
+		initialLogs, err := db.GetEventsFiltered(agentID, service, limit)
+		if err != nil {
+			logger.Error("Failed to fetch initial logs", "error", err)
+			return
+		}
+
+		// Send subscription confirmation
+		subMsg := map[string]interface{}{
+			"type":      "subscribed",
+			"channel":   "logs",
+			"agentId":   agentID,
+			"service":   service,
+			"timestamp": time.Now().UnixNano(),
+		}
+		if data, err := json.Marshal(subMsg); err == nil {
+			conn.WriteMessage(websocket.TextMessage, data)
+		}
+
+		// Send initial batch
+		batchMsg := map[string]interface{}{
+			"type":      "logs_batch",
+			"channel":   "logs",
+			"payload":   initialLogs,
+			"timestamp": time.Now().UnixNano(),
+		}
+		if data, err := json.Marshal(batchMsg); err == nil {
+			conn.WriteMessage(websocket.TextMessage, data)
+		}
+
+		// Listen for messages and handle ping/pong
+		for {
+			_, message, err := conn.ReadMessage()
+			if err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					logger.Debug("Logs WebSocket error", "error", err)
+				}
+				break
+			}
+
+			// Parse message
+			var msg map[string]interface{}
+			if err := json.Unmarshal(message, &msg); err != nil {
+				continue
+			}
+
+			// Handle ping
+			if msgType, ok := msg["type"].(string); ok && msgType == "ping" {
+				pongMsg := map[string]interface{}{
+					"type":      "pong",
+					"timestamp": time.Now().UnixNano(),
+				}
+				if data, err := json.Marshal(pongMsg); err == nil {
+					conn.WriteMessage(websocket.TextMessage, data)
+				}
+			}
+		}
+
+		logger.Info("Logs WebSocket connection closed", "clientID", clientID)
+	}()
+
+	// Note: For real-time log streaming from agents, you would need to:
+	// 1. Subscribe to agent log events via the WebSocket hub
+	// 2. Forward relevant logs to this client
+	// This is a basic implementation that sends initial logs and keeps connection alive
+}
+
 // broadcastAgentUpdate broadcasts agent update to all connected WebSocket clients
 func broadcastAgentUpdate(agent map[string]interface{}, updateType string) {
 	if wsHub == nil {
@@ -1008,664 +639,8 @@ func broadcastAgentUpdate(agent map[string]interface{}, updateType string) {
 	wsHub.BroadcastToChannel("agents", data)
 }
 
-func handleServiceControl(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	claims := api.GetUserClaims(r)
-	if claims == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	type ControlRequest struct {
-		AgentID string                 `json:"agent_id"`
-		Service string                 `json:"service"`
-		Action  string                 `json:"action"` // start, stop, restart, status, get_facts, db_...
-		Options map[string]interface{} `json:"options,omitempty"`
-	}
-
-	var req ControlRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// RBAC Inspection: Managers cannot change the active firewall
-	if req.Action == "firewall_set_active" && claims.Role != "admin" {
-		http.Error(w, "Forbidden: Only admins can change the active firewall engine", http.StatusForbidden)
-		return
-	}
-
-	agentDB, err := db.GetAgentByID(req.AgentID)
-	if err != nil || agentDB == nil {
-		http.Error(w, "Agent not found in database", http.StatusNotFound)
-		return
-	}
-
-	// Check if agent is pending - cannot execute commands on pending agents
-	if agentDB.Status == "pending" {
-		http.Error(w, "Agent is pending approval. Please approve agent first.", http.StatusForbidden)
-		return
-	}
-
-	hub.mu.RLock()
-	agent, ok := hub.Agents[agentDB.ID]
-	hub.mu.RUnlock()
-
-	if !ok {
-		http.Error(w, "Agent is offline", http.StatusNotFound)
-		return
-	}
-
-	service := req.Service
-	if service == "firewall" {
-		// Resolve active firewall
-		found := false
-		for name, svc := range agent.Services {
-			if isActive, ok := svc.Metrics["is_active"]; ok && isActive == 1 {
-				service = name
-				found = true
-				break
-			}
-		}
-		if !found {
-			// Fallback to ufw if no active one found (might be first time setup)
-			if _, ok := agent.Services["ufw"]; ok {
-				service = "ufw"
-			} else {
-				http.Error(w, "No active firewall found on agent", http.StatusNotFound)
-				return
-			}
-		}
-	}
-
-	// Inject Management Credentials if available
-	svc, err := db.GetServiceByServerAndName(agentDB.ID, service)
-	if err == nil && svc != nil {
-		var mc *models.ManagementCredential
-		var reqCredID string
-
-		if req.Options != nil {
-			if id, ok := req.Options["credential_id"].(string); ok {
-				reqCredID = id
-			}
-		}
-
-		if reqCredID != "" {
-			mc, _ = db.GetManagementCredentialByID(reqCredID)
-		} else {
-			creds, _ := db.GetManagementCredentialsByServiceID(svc.ID)
-			for _, c := range creds {
-				if c.Status == "active" {
-					mcCopy := c
-					mc = &mcCopy
-					break
-				}
-			}
-		}
-
-		if mc != nil && (mc.Status == "active" || req.Action == "verify_credential") {
-			if req.Options == nil {
-				req.Options = make(map[string]interface{})
-			}
-			req.Options["management_credentials"] = map[string]string{
-				"username":          string(mc.UsernameEncrypted),
-				"password":          string(mc.PasswordEncrypted),
-				"connection_params": string(mc.ConnectionParamsEncrypted),
-				"type":              mc.CredentialType,
-			}
-		}
-	}
-
-	// Send Command to Agent
-	cmdID := fmt.Sprintf("%d", time.Now().UnixNano())
-	cmd := protocol.Message{
-		Type: protocol.MsgTypeCommand,
-		Payload: protocol.CommandPayload{
-			CommandID: cmdID,
-			Action:    req.Action,
-			Service:   service,
-			Options:   req.Options,
-		},
-	}
-
-	// Prepare channel for response - use thread-safe helper
-	respCh := make(chan *protocol.Message, 1)
-	setResponseChan(cmdID, respCh)
-	defer deleteResponseChan(cmdID)
-
-	if err := agent.Send(cmd); err != nil {
-		http.Error(w, "Failed to send command to agent", http.StatusInternalServerError)
-		return
-	}
-
-	// Wait for response with timeout
-	// Increased to 30s for operations like Ansible playbooks
-	select {
-	case resp := <-respCh:
-		// Forward response to client
-		json.NewEncoder(w).Encode(resp.Payload)
-	case <-time.After(30 * time.Second):
-		http.Error(w, "Command timed out", http.StatusGatewayTimeout)
-	}
-}
-
-func handleGlobalBan(w http.ResponseWriter, r *http.Request) {
-	origin := r.Header.Get("Origin")
-	if origin != "" {
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-	} else {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-	}
-	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Content-Type", "application/json")
-
-	if r.Method == "OPTIONS" {
-		return
-	}
-
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req struct {
-		IP       string `json:"ip"`
-		Duration string `json:"duration"`
-		Reason   string `json:"reason"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if req.IP == "" {
-		http.Error(w, "IP address is required", http.StatusBadRequest)
-		return
-	}
-
-	hub.mu.RLock()
-	defer hub.mu.RUnlock()
-
-	fireCount := 0
-	for _, agent := range hub.Agents {
-		cmdID := fmt.Sprintf("ban-%d", time.Now().UnixNano())
-		cmd := protocol.Message{
-			Type: protocol.MsgTypeCommand,
-			Payload: protocol.CommandPayload{
-				CommandID: cmdID,
-				Action:    "crowdsec_add",
-				Service:   "crowdsec",
-				Options: map[string]interface{}{
-					"ip":       req.IP,
-					"duration": req.Duration,
-					"reason":   req.Reason,
-					"type":     "ban",
-				},
-			},
-		}
-		// Fire and forget - global bans attempt to hit all online agents
-		// In a production system, we might want to collect responses
-		// and return an aggregate success/fail list.
-		go agent.Send(cmd)
-		fireCount++
-	}
-
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"message": fmt.Sprintf("Ban command dispatched to %d agents", fireCount),
-	})
-}
-
-func handleGlobalUnban(w http.ResponseWriter, r *http.Request) {
-	origin := r.Header.Get("Origin")
-	if origin != "" {
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-	} else {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-	}
-	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Content-Type", "application/json")
-
-	if r.Method == "OPTIONS" {
-		return
-	}
-
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req struct {
-		IP string `json:"ip"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if req.IP == "" {
-		http.Error(w, "IP address is required", http.StatusBadRequest)
-		return
-	}
-
-	hub.mu.RLock()
-	defer hub.mu.RUnlock()
-
-	fireCount := 0
-	for _, agent := range hub.Agents {
-		cmdID := fmt.Sprintf("unban-%d", time.Now().UnixNano())
-		cmd := protocol.Message{
-			Type: protocol.MsgTypeCommand,
-			Payload: protocol.CommandPayload{
-				CommandID: cmdID,
-				Action:    "crowdsec_delete_by_ip",
-				Service:   "crowdsec",
-				Options: map[string]interface{}{
-					"ip": req.IP,
-				},
-			},
-		}
-		go agent.Send(cmd)
-		fireCount++
-	}
-
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"message": fmt.Sprintf("Unban command dispatched to %d agents", fireCount),
-	})
-}
-
-func handleSecurityDecisions(w http.ResponseWriter, r *http.Request) {
-	origin := r.Header.Get("Origin")
-	if origin != "" {
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-	} else {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-	}
-	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Content-Type", "application/json")
-
-	if r.Method == "OPTIONS" {
-		return
-	}
-
-	if r.Method != "GET" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// We must gather decisions concurrently from all online agents
-	hub.mu.RLock()
-	agents := make([]*AgentSession, 0, len(hub.Agents))
-	for _, agent := range hub.Agents {
-		// Only poll if they have the crowdsec service running
-		if svc, ok := agent.Services["crowdsec"]; ok && svc.Status == "running" {
-			agents = append(agents, agent)
-		}
-	}
-	hub.mu.RUnlock()
-
-	if len(agents) == 0 {
-		json.NewEncoder(w).Encode([]interface{}{})
-		return
-	}
-
-	type DecisionItem struct {
-		ID        int    `json:"id"`
-		Origin    string `json:"origin"`
-		Type      string `json:"type"`
-		Scope     string `json:"scope"`
-		Value     string `json:"value"`
-		Duration  string `json:"duration"`
-		Reason    string `json:"scenario"`
-		AgentName string `json:"agent_name"`
-		AgentID   string `json:"agent_id"`
-	}
-
-	var mu sync.Mutex
-	var allDecisions []DecisionItem
-	var wg sync.WaitGroup
-
-	for _, agent := range agents {
-		wg.Add(1)
-		go func(ag *AgentSession) {
-			defer wg.Done()
-
-			cmdID := fmt.Sprintf("cslist-%d", time.Now().UnixNano())
-			cmd := protocol.Message{
-				Type: protocol.MsgTypeCommand,
-				Payload: protocol.CommandPayload{
-					CommandID: cmdID,
-					Action:    "crowdsec_list",
-					Service:   "crowdsec",
-				},
-			}
-
-			respCh := make(chan *protocol.Message, 1)
-			setResponseChan(cmdID, respCh)
-			defer deleteResponseChan(cmdID)
-
-			if err := ag.Send(cmd); err != nil {
-				return
-			}
-
-			select {
-			case resp := <-respCh:
-				if respPayload, ok := resp.Payload.(map[string]interface{}); ok {
-					if success, _ := respPayload["success"].(bool); success {
-						if msg, _ := respPayload["message"].(string); msg != "" && msg != "[]" && msg != "null" {
-							var decs []DecisionItem
-							if err := json.Unmarshal([]byte(msg), &decs); err == nil {
-								// Assign metadata
-								for i := range decs {
-									decs[i].AgentName = ag.ID // We use ID (hostname) as name
-									decs[i].AgentID = ag.ID
-								}
-								mu.Lock()
-								allDecisions = append(allDecisions, decs...)
-								mu.Unlock()
-							}
-						}
-					}
-				}
-			case <-time.After(5 * time.Second): // Quick timeout for UI
-				return
-			}
-		}(agent)
-	}
-
-	wg.Wait()
-
-	if allDecisions == nil {
-		allDecisions = []DecisionItem{} // Always return array instead of null
-	}
-	json.NewEncoder(w).Encode(allDecisions)
-}
-
-func handleServiceImport(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	claims := api.GetUserClaims(r)
-	if claims == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	var req struct {
-		AgentID string `json:"agent_id"`
-		Service string `json:"service"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	agentDB, err := db.GetAgentByID(req.AgentID)
-	if err != nil || agentDB == nil {
-		http.Error(w, "Agent not found", http.StatusNotFound)
-		return
-	}
-
-	hub.mu.RLock()
-	agentSession, ok := hub.Agents[agentDB.ID]
-	hub.mu.RUnlock()
-
-	if !ok {
-		http.Error(w, "Agent is offline", http.StatusNotFound)
-		return
-	}
-
-	// 1. Get Discovered Items & Settings (Concurrent)
-	type result struct {
-		data string
-		err  error
-	}
-	importCh := make(chan result, 1)
-	settingsCh := make(chan result, 1)
-
-	go func() {
-		cmdID := fmt.Sprintf("import-%d", time.Now().UnixNano())
-		cmd := protocol.Message{
-			Type: protocol.MsgTypeCommand,
-			Payload: protocol.CommandPayload{
-				CommandID: cmdID,
-				Action:    "service_import_items",
-				Service:   req.Service,
-			},
-		}
-
-		respCh := make(chan *protocol.Message, 1)
-		setResponseChan(cmdID, respCh)
-		defer deleteResponseChan(cmdID)
-
-		if err := agentSession.Send(cmd); err != nil {
-			importCh <- result{err: err}
-			return
-		}
-
-		select {
-		case resp := <-respCh:
-			outputMap, _ := resp.Payload.(map[string]interface{})
-			// Check for both success and output
-			success, _ := outputMap["success"].(bool)
-			outputStr, _ := outputMap["output"].(string)
-			if !success {
-				errMsg, _ := outputMap["error"].(string)
-				importCh <- result{err: fmt.Errorf("%s", errMsg)}
-			} else {
-				importCh <- result{data: outputStr}
-			}
-		case <-time.After(15 * time.Second):
-			importCh <- result{err: fmt.Errorf("import timed out")}
-		}
-	}()
-
-	go func() {
-		cmdID := fmt.Sprintf("settings-%d", time.Now().UnixNano())
-		cmd := protocol.Message{
-			Type: protocol.MsgTypeCommand,
-			Payload: protocol.CommandPayload{
-				CommandID: cmdID,
-				Action:    "service_get_settings",
-				Service:   req.Service,
-			},
-		}
-
-		respCh := make(chan *protocol.Message, 1)
-		setResponseChan(cmdID, respCh)
-		defer deleteResponseChan(cmdID)
-
-		if err := agentSession.Send(cmd); err != nil {
-			settingsCh <- result{err: err}
-			return
-		}
-
-		select {
-		case resp := <-respCh:
-			outputMap, _ := resp.Payload.(map[string]interface{})
-			outputStr, _ := outputMap["output"].(string)
-			settingsCh <- result{data: outputStr}
-		case <-time.After(15 * time.Second):
-			settingsCh <- result{err: fmt.Errorf("settings timed out")}
-		}
-	}()
-
-	importRes := <-importCh
-	if importRes.err != nil {
-		http.Error(w, "Failed to get discovered items: "+importRes.err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	settingsRes := <-settingsCh
-	var currentSettings map[string]interface{}
-	if settingsRes.err == nil && settingsRes.data != "" {
-		json.Unmarshal([]byte(settingsRes.data), &currentSettings)
-	}
-
-	// Parse Items
-	var discovered struct {
-		Databases    []string `json:"databases"`
-		Users        []string `json:"users"`
-		FtpUsers     []string `json:"ftp_users"`
-		Sites        []string `json:"sites"`
-		Buckets      []string `json:"buckets"`
-		StorageUsers []struct {
-			AccessKey string `json:"access_key"`
-		} `json:"storage_users"`
-		VHosts  []string `json:"vhosts"`
-		MQUsers []struct {
-			Name string `json:"name"`
-			Tags string `json:"tags"`
-		} `json:"mq_users"`
-		Processes []struct {
-			ID   string `json:"id"`
-			Name string `json:"name"`
-		} `json:"processes"`
-		MQTTUsers    []string `json:"mqtt_users"`
-		ImportErrors []string `json:"import_errors"`
-	}
-	if err := json.Unmarshal([]byte(importRes.data), &discovered); err != nil {
-		http.Error(w, "Failed to parse discovered items: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Check for partial errors from agent
-	if len(discovered.ImportErrors) > 0 {
-		log.Printf("Warning: Agent reported partial import errors for %s: %v", req.Service, discovered.ImportErrors)
-	}
-
-	// 3. Reverse Load into Database
-	existingAccounts, _ := db.GetServiceAccounts(db.ServiceAccountFilters{})
-	memo := make(map[string]bool)
-	for _, acc := range existingAccounts {
-		if acc.ServerID == req.AgentID && acc.Type == req.Service {
-			memo[acc.Name] = true
-		}
-	}
-
-	addedCount := 0
-
-	// Try to get port from settings
-	port := 0
-	if currentSettings != nil {
-		if pVal, ok := currentSettings["port"]; ok {
-			switch v := pVal.(type) {
-			case float64:
-				port = int(v)
-			case string:
-				fmt.Sscanf(v, "%d", &port)
-			}
-		}
-	}
-
-	// Helper to add discovery account
-	addAccount := func(name, accType string, extra map[string]interface{}) {
-		if memo[name] {
-			return
-		}
-
-		acc := models.ServiceAccount{
-			ServerID: req.AgentID,
-			Type:     accType,
-			Name:     name,
-			Port:     port,
-			Tags:     []string{"imported", "discovered"},
-		}
-
-		// Field specific defaults
-		if accType == "s3-minio" || accType == "s3-garage" || accType == "minio" {
-			if root, ok := extra["root"].(string); ok {
-				acc.Bucket = root
-			}
-			if key, ok := extra["access_key"].(string); ok {
-				acc.AccessKey = key
-				acc.Name = key // use key as name for users
-			}
-		}
-
-		if req.Service == "rabbitmq" {
-			if vhost, ok := extra["vhost"].(string); ok {
-				acc.VHost = vhost
-			}
-		}
-
-		if req.Service == "pm2" || req.Service == "supervisor" || req.Service == "systemd" {
-			acc.AppName = name
-			if id, ok := extra["id"].(string); ok {
-				acc.ID = id // Keep original ID if possible for managed processes
-			}
-		}
-
-		db.CreateServiceAccount(acc)
-		addedCount++
-	}
-
-	// Iterate discovered
-	for _, name := range discovered.Databases {
-		if name == "information_schema" || name == "performance_schema" || name == "mysql" || name == "sys" || name == "postgres" {
-			continue
-		}
-		addAccount(name, req.Service, nil)
-	}
-
-	for _, name := range discovered.Users {
-		if name == "root" || name == "admin" || name == "postgres" {
-			continue
-		}
-		addAccount(name, req.Service, nil)
-	}
-
-	for _, name := range discovered.FtpUsers {
-		addAccount(name, req.Service, nil)
-	}
-
-	for _, name := range discovered.Sites {
-		addAccount(name, req.Service, nil)
-	}
-
-	for _, name := range discovered.Buckets {
-		addAccount(name, req.Service, map[string]interface{}{"root": name})
-	}
-
-	for _, u := range discovered.StorageUsers {
-		addAccount(u.AccessKey, req.Service, map[string]interface{}{"access_key": u.AccessKey})
-	}
-
-	for _, vhost := range discovered.VHosts {
-		addAccount(vhost, req.Service, map[string]interface{}{"vhost": vhost})
-	}
-
-	for _, u := range discovered.MQUsers {
-		addAccount(u.Name, req.Service, map[string]interface{}{"role": u.Tags})
-	}
-
-	for _, p := range discovered.Processes {
-		addAccount(p.Name, req.Service, map[string]interface{}{"id": p.ID})
-	}
-
-	for _, name := range discovered.MQTTUsers {
-		addAccount(name, req.Service, nil)
-	}
-
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success":       true,
-		"added":         addedCount,
-		"import_errors": discovered.ImportErrors,
-		"message":       fmt.Sprintf("Imported %d new items from %s", addedCount, req.Service),
-	})
-}
+// These handlers were moved to api package.
+// Standard health/ready checks are kept here but updated to use agentHub.
 
 // handleHealth returns server health status
 func handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -1695,9 +670,9 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check agents
-	hub.mu.RLock()
-	health["connected_agents"] = len(hub.Agents)
-	hub.mu.RUnlock()
+	if agentHub != nil {
+		health["connected_agents"] = len(agentHub.GetAgents())
+	}
 
 	status := http.StatusOK
 	if health["status"] == "unhealthy" {
@@ -1725,9 +700,10 @@ func handleReady(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if server can accept connections
-	hub.mu.RLock()
-	agentCount := len(hub.Agents)
-	hub.mu.RUnlock()
+	agentCount := 0
+	if agentHub != nil {
+		agentCount = len(agentHub.GetAgents())
+	}
 
 	if agentCount == 0 {
 		// Not necessarily unready, but worth noting

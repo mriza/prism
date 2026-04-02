@@ -3,7 +3,6 @@ package modules
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"prism-agent/internal/core"
 	"strings"
 )
@@ -34,12 +33,12 @@ func (m *MongoDBModule) GetFacts() (map[string]string, error) {
 	facts, _ := m.SystemdModule.GetFacts()
 
 	// Add Version - mongosh is typically available on modern mongodb installations
-	out, err := exec.Command("mongosh", "--nodb", "--quiet", "--eval", "print(version())").Output()
+	out, err := getExecutor().Command("mongosh", "--nodb", "--quiet", "--eval", "print(version())").Output()
 	if err == nil {
 		facts["version"] = strings.TrimSpace(string(out))
 	} else {
 		// Fallback to mongo shell
-		out, err = exec.Command("mongo", "--nodb", "--quiet", "--eval", "print(version())").Output()
+		out, err = getExecutor().Command("mongo", "--nodb", "--quiet", "--eval", "print(version())").Output()
 		if err == nil {
 			facts["version"] = strings.TrimSpace(string(out))
 		}
@@ -49,7 +48,7 @@ func (m *MongoDBModule) GetFacts() (map[string]string, error) {
 
 // Helper to determine which mongo shell to use
 func getMongoCmd() string {
-	if err := exec.Command("mongosh", "--version").Run(); err == nil {
+	if err := getExecutor().Command("mongosh", "--version").Run(); err == nil {
 		return "mongosh"
 	}
 	return "mongo"
@@ -90,7 +89,7 @@ func (m *MongoDBModule) buildMongoCmdArgs(baseArgs ...string) []string {
 func (m *MongoDBModule) ListDatabases() ([]string, error) {
 	cmd := getMongoCmd()
 	args := m.buildMongoCmdArgs("--quiet", "--eval", "db.adminCommand('listDatabases').databases.forEach(d => print(d.name))")
-	out, err := exec.Command(cmd, args...).Output()
+	out, err := getExecutor().Command(cmd, args...).Output()
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +114,7 @@ func (m *MongoDBModule) ListUsers() ([]string, error) {
 	cmd := getMongoCmd()
 	evalCmd := "db.getSiblingDB('admin').system.users.find({}, {user:1, db:1}).forEach(u => print(u.user + '@' + u.db))"
 	args := m.buildMongoCmdArgs("--quiet", "--eval", evalCmd)
-	out, err := exec.Command(cmd, args...).Output()
+	out, err := getExecutor().Command(cmd, args...).Output()
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +182,7 @@ func (m *MongoDBModule) CreateUser(name, password, role, target string) error {
 	`, database, username, password, roleDoc, database, username, password, roleDoc)
 
 	args := m.buildMongoCmdArgs("--quiet", "--eval", script)
-	err := exec.Command(cmd, args...).Run()
+	err := getExecutor().Command(cmd, args...).Run()
 	if err != nil {
 		return fmt.Errorf("failed to create/update mongodb user: %v", err)
 	}
@@ -192,7 +191,7 @@ func (m *MongoDBModule) CreateUser(name, password, role, target string) error {
 	if database != "admin" {
 		createCollEval := fmt.Sprintf(`db.getSiblingDB('%s').createCollection('_prism_init')`, database)
 		args := m.buildMongoCmdArgs("--quiet", "--eval", createCollEval)
-		exec.Command(cmd, args...).Run()
+		getExecutor().Command(cmd, args...).Run()
 	}
 
 	return nil
@@ -236,7 +235,7 @@ func (m *MongoDBModule) UpdatePrivileges(name, role, target string) error {
 	`, database, username, roleDoc)
 
 	args := m.buildMongoCmdArgs("--quiet", "--eval", updateUserEval)
-	err := exec.Command(cmd, args...).Run()
+	err := getExecutor().Command(cmd, args...).Run()
 	if err != nil {
 		return fmt.Errorf("failed to update user privileges: %v", err)
 	}

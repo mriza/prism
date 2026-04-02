@@ -1,14 +1,91 @@
 # IMPLEMENTED — PRISM Feature Registry
 
-> **Last Updated**: 2026-04-01 (v0.4.3)
-> 
+> **Last Updated**: 2026-04-01 (v0.5.0 — Service Activity Verified)
+>
 > **Purpose**: Complete registry of implemented features with file locations and technical details.
-> 
+>
 > **Related Documents**:
-> - [BUG.md](./BUG.md) - Active bugs (fixed bugs in version history)
+> - [BUG.md](./BUG.md) - Active bugs (single source of truth)
 > - [TODO.md](./TODO.md) - Planned enhancements
 > - [TESTING.md](./TESTING.md) - Testing guide
 > - [TESTING_COVERAGE.md](./TESTING_COVERAGE.md) - Test coverage details
+
+---
+
+## Documentation Consolidation Notice
+
+**v0.4.15**: Audit reports have been consolidated into BUG.md and TODO.md.
+
+**Removed Documents**:
+- ~~FRONTEND_AUDIT.md~~ - Findings integrated
+- ~~INTEGRATION_AUDIT.md~~ - Findings integrated
+- ~~COMPREHENSIVE_AUDIT.md~~ - Findings integrated
+
+---
+
+## Recent Updates (v0.4.16 – v0.5.0)
+
+### 🏆 v0.5.0 — Service Activity & Real-time Logs (Verified)
+
+| Feature | Component | Details | Verified |
+|---------|-----------|---------|----------|
+| Service Activity Logs | Frontend | `ActivityLogList`, `useActivityLogs` | ✅ Real-time dashboard |
+| Event Forwarding | Server | `control.go`, `agents.go` (BUG-037) | ✅ WS Broadcasting |
+| Activity Tab | Frontend | `ProjectDetailPage.tsx` | ✅ Contextual filtering |
+
+### 🏆 v0.4.19 — Post-Audit Bug Fixes (Verified)
+
+| Feature | Component | Details | Verified |
+|---------|-----------|---------|----------|
+| Server Refactor | Server | `hub/`, `api/control.go` | ✅ Decoupled Agent Hub |
+| Integration Suite | Server | `integration_test.go` | ✅ End-to-End verified |
+| GetEvents Nil Fix | Server | `db.go:988,1019` | ✅ Returns `[]` for empty sets |
+| DB Index Fix | Agent | `modules_test.go:52` | ✅ Index > 9 supported |
+| Interface Mismatch Fix | Agent | `modules_test.go:161-165` | ✅ Test alignment |
+| Type Safety Fix | Frontend | `ProjectDetailPage.tsx:57` | ✅ `any[]` removed |
+| Shadowing Err Fix | Server | `webhooks_retention.go:189-210` | ✅ Lint fix |
+
+### 🔍 v0.4.18 — Comprehensive Audit (Code-Verified)
+
+### 🏆 v0.4.17 — Final Production Bug Fixes
+
+| Feature | Component | File(s) | Verified |
+|---------|-----------|---------|----------|
+| Polling Fallback Warning | Frontend | `contexts/AgentsContext.tsx:109` | ✅ `usingPollingFallback` exposed |
+| Pending Agent Badge | Frontend | `layouts/Sidebar.tsx:32-43` | ✅ `pendingCount` with `<Badge>` |
+
+### 🚀 v0.4.16 — 10-Bug Fix Sprint
+
+| Feature | Component | File(s) | Verified |
+|---------|-----------|---------|----------|
+| API Routes Registration | Server | `cmd/server/main.go` | ✅ 8 new routes for /api/servers, /api/certificates |
+| Real-Time Log Forwarding | Server | `cmd/server/main.go:44-45,813-856` | ✅ `logSubscribers` map + broadcast |
+| Logging Utility | Frontend | `utils/log.ts` | ✅ Environment-based log utility |
+| Error Messages in Hooks | Frontend | `hooks/*.ts` | ✅ All hooks use `message.error()` |
+| ProcessDiscovery Error UX | Frontend | `modals/ProcessDiscoveryModal.tsx` | ✅ Alert + Retry button |
+| Password Error Messages | Frontend | `modals/ChangePasswordModal.tsx` | ✅ HTTP status-specific messages |
+| Service Manager Errors | Frontend | `services/managers/*.tsx` | ✅ 6 managers updated |
+| Service Manager Loading | Frontend | `services/managers/*.tsx` | ✅ Loading states added |
+| TypeScript Type Safety | Frontend | Multiple files | ✅ `any[]` → proper interfaces |
+| API URL Prefix | Frontend | `modals/FirewallModal.tsx`, `CrowdSecModal.tsx` | ✅ `VITE_API_URL` prefix |
+
+### v0.4.15 Implementations
+
+| Feature | Component | File(s) | Verified |
+|---------|-----------|---------|----------|
+| Certificate File Persistence | Server | `internal/security/certificates.go:525-543` | ✅ os.ReadFile/WriteFile |
+| Nftables Firewall Management | Agent | `internal/modules/nftables.go:76-158` | ✅ nft CLI commands |
+| RBAC Permissions API Route | Server | `cmd/server/main.go:849` | ✅ Route registered |
+| ServerSettingsModal Null Guard | Frontend | `components/modals/ServerSettingsModal.tsx:50` | ✅ Null check added |
+| ProjectDetailPage Error Handling | Frontend | `pages/ProjectDetailPage.tsx:74-125` | ✅ try/catch/finally |
+
+### 📊 Cumulative Bug Fix Statistics (v0.4.19)
+
+- **Total Bugs Tracked**: 54
+- **Bugs Fixed**: 53 (98.1% resolution rate)
+- **Active Bugs**: 1 (Technical Debt: BUG-044)
+- **Critical/High Bugs**: 0
+- **Code Verification**: ✅ All fixes verified against actual codebase
 
 ---
 
@@ -300,6 +377,12 @@ This allows Valkey subtypes to use the same `ValkeyModule` while maintaining dis
 | v0.4.1 | Bug fixes: exponential backoff, symlink resolution, icon mapping, Ant Design migration | 2026-04 |
 | v0.4.2 | CRITICAL FIX: Valkey provisioning, Primary database field, Add database logic | 2026-04-01 |
 | **v0.4.3** | **LOW PRIORITY FIX: RabbitMQ warning, PM2 error handling, FTP mapping** | **2026-04-01** |
+| v0.4.13 | BUG-012 COMPLETE: All 1,433+ hardcoded style violations fixed | 2026-04-01 |
+| v0.4.14 | Applications merge + BUG-016/017/014/015/018 fixes | 2026-04-01 |
+| v0.4.15 | Certificate persistence, nftables, RBAC route, documentation consolidation | 2026-04-01 |
+| v0.4.16 | 10-bug fix sprint: API routes, log forwarding, error handling, TypeScript types | 2026-04-01 |
+| v0.4.17 | Final production bug fixes: polling fallback warning, pending agent badge | 2026-04-01 |
+| **v0.4.18** | **Comprehensive post-audit: 5 new bugs found, all builds/code verified** | **2026-04-01** |
 
 ### v0.4.3 Changes
 
@@ -330,8 +413,8 @@ This allows Valkey subtypes to use the same `ValkeyModule` while maintaining dis
 
 For known bugs and their status, see [BUG.md](./BUG.md).
 
-**Summary**:
-- ⚠️ Frontend "Add Database" dedicated UI (server-side implemented)
+**Summary (v0.4.19 audit fixes)**:
+- ⚠️ ~1202 hardcoded inline styles (BUG-044)
 - 🔵 Legacy table unification (`agents` vs `servers`)
 
 ---

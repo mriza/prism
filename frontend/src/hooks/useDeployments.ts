@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+import { log } from '../utils/log';
+import { message } from 'antd';
 import { useAuth } from '../contexts/AuthContext';
 
 export interface Deployment {
@@ -53,7 +55,7 @@ export function useDeployments() {
                 setDeployments(data || []);
             }
         } catch (err) {
-            console.error('Failed to fetch deployments', err);
+            log.error('Failed to fetch deployments', err); message.error('Failed to fetch deployments');
         } finally {
             setLoading(false);
         }
@@ -80,7 +82,7 @@ export function useDeployments() {
                 return newDeploy;
             }
         } catch (err) {
-            console.error('Failed to create deployment', err);
+            log.error('Failed to create deployment', err); message.error('Failed to create deployment');
         }
         return null;
     }, [token, apiBase]);
@@ -102,7 +104,7 @@ export function useDeployments() {
                 return true;
             }
         } catch (err) {
-            console.error('Failed to update deployment', err);
+            log.error('Failed to update deployment', err); message.error('Failed to update deployment');
         }
         return false;
     }, [token, apiBase]);
@@ -118,7 +120,7 @@ export function useDeployments() {
                 setDeployments(prev => prev.filter(d => d.id !== id));
             }
         } catch (err) {
-            console.error('Failed to delete deployment', err);
+            log.error('Failed to delete deployment', err); message.error('Failed to delete deployment');
         }
     }, [token, apiBase]);
 
@@ -138,7 +140,7 @@ export function useDeployments() {
                 return true;
             }
         } catch (err) {
-            console.error('Failed to trigger deployment', err);
+            log.error('Failed to trigger deployment', err); message.error('Failed to trigger deployment');
         }
         return false;
     }, [token, apiBase]);

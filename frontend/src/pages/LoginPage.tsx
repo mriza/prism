@@ -90,8 +90,8 @@ export function LoginPage() {
                     }}>
                         <SafetyOutlined style={{ fontSize: token.fontSizeHeading1, color: token.colorPrimary }} />
                     </div>
-                    <Title level={1} style={{ margin: 0, fontWeight: 900, letterSpacing: '-0.05em' }}>PRISM</Title>
-                    <Text type="secondary" style={{ fontSize: token.fontSizeSM, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.3em' }}>Universal Fleet Control</Text>
+                    <Title level={1} style={{ margin: 0, fontWeight: token.fontWeightStrong, letterSpacing: '-0.05em' }}>PRISM</Title>
+                    <Text type="secondary" style={{ fontSize: token.fontSizeSM, fontWeight: token.fontWeightStrong, textTransform: 'uppercase', letterSpacing: '0.3em' }}>Universal Fleet Control</Text>
                 </div>
 
                 <Card
@@ -179,7 +179,7 @@ export function LoginPage() {
                                     style={{
                                         borderRadius: token.borderRadiusLG,
                                         height: '56px',
-                                        fontWeight: 800,
+                                        fontWeight: token.fontWeightStrong,
                                         fontSize: token.fontSizeHeading5,
                                         boxShadow: `0 8px 20px ${token.colorPrimary}30`
                                     }}
@@ -189,7 +189,7 @@ export function LoginPage() {
                             </Form.Item>
 
                             <div style={{ textAlign: 'center' }}>
-                                <Text style={{ fontSize: token.fontSizeSM, fontWeight: 800, color: token.colorTextDisabled, textTransform: 'uppercase', letterSpacing: '0.15em' }}>
+                                <Text style={{ fontSize: token.fontSizeSM, fontWeight: token.fontWeightStrong, color: token.colorTextDisabled, textTransform: 'uppercase', letterSpacing: '0.15em' }}>
                                     Authorized Personnel Only
                                 </Text>
                             </div>
@@ -199,7 +199,7 @@ export function LoginPage() {
 
                 <div style={{ textAlign: 'center', marginTop: token.marginLG, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: token.marginSM, opacity: 0.4 }}>
                     <RocketOutlined />
-                    <Text style={{ fontSize: token.fontSizeSM, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Secured by PRISM Core AI</Text>
+                    <Text style={{ fontSize: token.fontSizeSM, fontWeight: token.fontWeightStrong, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Secured by PRISM Core AI</Text>
                 </div>
             </Content>
         </Layout>

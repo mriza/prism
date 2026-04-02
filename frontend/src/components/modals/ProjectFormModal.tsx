@@ -113,7 +113,7 @@ export function ProjectFormModal({ isOpen, onClose, onSave, initial }: Props) {
                                         boxShadow: token.boxShadowTertiary
                                     }}
                                 >
-                                    {isSelected && <CheckOutlined style={{ color: '#fff', fontSize: token.fontSizeSM }} />}
+                                    {isSelected && <CheckOutlined style={{ color: token.colorWhite, fontSize: token.fontSizeSM }} />}
                                 </button>
                             );
                         })}
@@ -129,7 +129,7 @@ export function ProjectFormModal({ isOpen, onClose, onSave, initial }: Props) {
                     gap: token.marginSM
                 }}>
                     <Button onClick={onClose} style={{ borderRadius: token.borderRadius }}>Cancel</Button>
-                    <Button type="primary" htmlType="submit" style={{ borderRadius: token.borderRadius, fontWeight: 600 }}>
+                    <Button type="primary" htmlType="submit" style={{ borderRadius: token.borderRadius, fontWeight: token.fontWeightStrong }}>
                         {initial ? 'Save Changes' : 'Create Project'}
                     </Button>
                 </div>

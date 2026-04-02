@@ -116,7 +116,7 @@ export function AccountsPage() {
                                         <Col flex="0 0 250px">
                                             <Space direction="vertical" size={2}>
                                                 <Text strong style={{ fontSize: token.fontSize }}>{a.name}</Text>
-                                                <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{SERVICE_TYPE_LABELS[a.type]}</Text>
+                                                <Text type="secondary" style={{ fontSize: token.fontSize, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{SERVICE_TYPE_LABELS[a.type]}</Text>
                                                 <Space style={{ marginTop: token.marginXXS }}>
                                                     <Tag icon={<CloudServerOutlined />} style={{ borderRadius: token.borderRadiusSM }}>{a.agentId || 'External'}</Tag>
                                                 </Space>
@@ -130,7 +130,7 @@ export function AccountsPage() {
                                                         style={{ padding: `${token.paddingXS}px ${token.paddingSM}` }}
                                                         message={
                                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                                <code style={{ fontSize: token.fontSizeSM, color: token.colorSuccess }}>
+                                                                <code style={{ fontSize: token.fontSize, color: token.colorSuccess }}>
                                                                     {type.includes('mongodb')
                                                                         ? `mongodb://${a.username}:${showPasswords[a.id] ? a.password : '••••••••'}@${a.host}:${a.port || 27017}/${a.database}`
                                                                         : `${a.type.split('-')[0]}://${a.username}:${showPasswords[a.id] ? a.password : '••••••••'}@${a.host}:${a.port}/${a.database}`
@@ -163,13 +163,13 @@ export function AccountsPage() {
                                                         message={
                                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                                 <Space split={<Text type="secondary" style={{ opacity: 0.3 }}>|</Text>}>
-                                                                    <Text style={{ fontSize: token.fontSizeSM }}>
-                                                                        <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', marginRight: token.marginXXS }}>Key</Text>
-                                                                        <code style={{ fontWeight: 600 }}>{a.accessKey}</code>
+                                                                    <Text style={{ fontSize: token.fontSize }}>
+                                                                        <Text type="secondary" style={{ fontSize: token.fontSize, textTransform: 'uppercase', marginRight: token.marginXXS }}>Key</Text>
+                                                                        <code style={{ fontWeight: token.fontWeightStrong }}>{a.accessKey}</code>
                                                                     </Text>
-                                                                    <Text style={{ fontSize: token.fontSizeSM }}>
-                                                                        <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', marginRight: token.marginXXS }}>Secret</Text>
-                                                                        <code style={{ fontWeight: 600 }}>{showPasswords[a.id] ? a.secretKey : '••••••••••••••••'}</code>
+                                                                    <Text style={{ fontSize: token.fontSize }}>
+                                                                        <Text type="secondary" style={{ fontSize: token.fontSize, textTransform: 'uppercase', marginRight: token.marginXXS }}>Secret</Text>
+                                                                        <code style={{ fontWeight: token.fontWeightStrong }}>{showPasswords[a.id] ? a.secretKey : '••••••••••••••••'}</code>
                                                                     </Text>
                                                                 </Space>
                                                                 <Space>
@@ -180,7 +180,7 @@ export function AccountsPage() {
                                                     />
                                                 )}
 
-                                                <Space wrap style={{ fontSize: token.fontSizeSM }}>
+                                                <Space wrap style={{ fontSize: token.fontSize }}>
                                                     {a.host && <Text type="secondary"><CloudServerOutlined style={{ marginRight: token.marginXXS }} />{a.host}:{a.port}</Text>}
                                                     {a.database && <Text type="secondary"><KeyOutlined style={{ marginRight: token.marginXXS }} />{a.database}</Text>}
                                                     {a.bucket && <Text type="secondary"><KeyOutlined style={{ marginRight: token.marginXXS }} />{a.bucket}</Text>}

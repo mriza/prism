@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { jwtDecode } from 'jwt-decode';
+import { log } from '../utils/log';
 
 interface User {
     userId: string;
@@ -22,6 +23,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [token, setToken] = useState<string | null>(localStorage.getItem('prism_token'));
     const [user, setUser] = useState<User | null>(null);
 
+    const login = (newToken: string) => {
+        localStorage.setItem('prism_token', newToken);
+        setToken(newToken);
+    };
+
+    const logout = useCallback(() => {
+        localStorage.removeItem('prism_token');
+        setToken(null);
+        setUser(null);
+    }, []);
+
     useEffect(() => {
         if (token) {
             try {
@@ -34,24 +46,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     setUser(decoded);
                 }
             } catch (err) {
-                console.error("Invalid token", err);
+                log.error('Invalid token', err);
                 logout();
             }
         } else {
             setUser(null);
         }
-    }, [token]);
-
-    const login = (newToken: string) => {
-        localStorage.setItem('prism_token', newToken);
-        setToken(newToken);
-    };
-
-    const logout = () => {
-        localStorage.removeItem('prism_token');
-        setToken(null);
-        setUser(null);
-    };
+    }, [token, logout]);
 
     return (
         <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!token }}>

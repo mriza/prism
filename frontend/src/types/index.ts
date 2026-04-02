@@ -168,3 +168,14 @@ export const PROJECT_COLORS = [
     'error',      // Red - Error color
     'neutral',    // Gray - Text secondary color
 ];
+
+export interface Event {
+    id: string;
+    agentId: string;
+    agentName?: string;
+    type: string;
+    service: string;
+    status: string;
+    message: string;
+    createdAt: string;
+}

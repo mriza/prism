@@ -41,11 +41,15 @@ interface Props {
 }
 
 async function controlAgent(agentId: string, action: string, options?: Record<string, unknown>) {
-    const res = await fetch(`/api/control`, {
+    const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/control`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agent_id: agentId, service: 'ufw', action, options }),
     });
+    if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || `HTTP ${res.status}: ${res.statusText}`);
+    }
     return res.json();
 }
 
@@ -85,27 +89,42 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
 
     const handleAdd = async (values: any) => {
         setActionLoading('add');
-        await controlAgent(agentId, 'ufw_add', {
-            port: parseFloat(values.port),
-            protocol: values.protocol,
-            action: values.action,
-        });
-        form.resetFields();
-        await fetchRules();
+        setError('');
+        try {
+            await controlAgent(agentId, 'ufw_add', {
+                port: parseFloat(values.port),
+                protocol: values.protocol,
+                action: values.action,
+            });
+            form.resetFields();
+            await fetchRules();
+        } catch (err: any) {
+            setError(err.message || 'Failed to add firewall rule');
+        }
         setActionLoading('');
     };
 
     const handleDelete = async (ruleId: string) => {
         setActionLoading(`del-${ruleId}`);
-        await controlAgent(agentId, 'ufw_delete', { rule_id: ruleId });
-        await fetchRules();
+        setError('');
+        try {
+            await controlAgent(agentId, 'ufw_delete', { rule_id: ruleId });
+            await fetchRules();
+        } catch (err: any) {
+            setError(err.message || 'Failed to delete firewall rule');
+        }
         setActionLoading('');
     };
 
     const handleDefaultPolicy = async (policy: string) => {
         setActionLoading(`default-${policy}`);
-        await controlAgent(agentId, 'ufw_default', { policy, direction: 'incoming' });
-        await fetchRules();
+        setError('');
+        try {
+            await controlAgent(agentId, 'ufw_default', { policy, direction: 'incoming' });
+            await fetchRules();
+        } catch (err: any) {
+            setError(err.message || 'Failed to set default policy');
+        }
         setActionLoading('');
     };
 
@@ -131,7 +150,7 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
             key: 'to',
             render: (_: any, record: FirewallRule) => {
                 const parsed = parseRule(record.description);
-                return <Text strong style={{ fontFamily: 'monospace' }}>{parsed.to}</Text>;
+                return <Text strong className="text-monospace">{parsed.to}</Text>;
             }
         },
         {
@@ -297,12 +316,12 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
                         <Col span={6}>
                             <Form.Item>
                                 <Button 
-                                    type="primary" 
-                                    htmlType="submit" 
-                                    block 
+                                    type="primary"
+                                    htmlType="submit"
+                                    block
                                     icon={<PlusOutlined />}
                                     loading={actionLoading === 'add'}
-                                    style={{ height: 'auto', borderRadius: token.paddingSM, fontWeight: 600 }}
+                                    style={{ height: 'auto', borderRadius: token.paddingSM, fontWeight: token.fontWeightStrong }}
                                 >
                                     Add Rule
                                 </Button>

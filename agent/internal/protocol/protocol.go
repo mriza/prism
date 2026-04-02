@@ -65,8 +65,10 @@ type ResponsePayload struct {
 }
 
 type EventPayload struct {
-	Type    string `json:"type"` // service_status_change
-	Service string `json:"service"`
-	Status  string `json:"status"`
-	Message string `json:"message"`
+	AgentID   string `json:"agent_id,omitempty"`
+	Type      string `json:"type"` // service_status_change, command_success, etc.
+	Service   string `json:"service"`
+	Status    string `json:"status"`
+	Message   string `json:"message"`
+	ProjectID string `json:"project_id,omitempty"`
 }

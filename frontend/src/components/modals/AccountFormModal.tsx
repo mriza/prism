@@ -6,7 +6,6 @@ import {
     Select, 
     Space, 
     Typography, 
-    theme, 
     Button, 
     Row, 
     Col, 
@@ -20,7 +19,6 @@ import {
 } from '@ant-design/icons';
 import type { ServiceAccount, ServiceType } from '../../types';
 import { SERVICE_TYPE_LABELS, SERVICE_TYPE_CATEGORIES } from '../../types';
-import { ServiceTypeIcons } from '../ServiceTypeIcons';
 import { useAgents } from '../../hooks/useAgents';
 
 const { Text } = Typography;
@@ -114,7 +112,6 @@ const SERVICE_NAME_MAP: Partial<Record<ServiceType, string[]>> = {
 export function AccountFormModal({ isOpen, onClose, onSave, category = 'project', projectId, initial }: Props) {
     const [form] = Form.useForm();
     const { agents } = useAgents();
-    const { token } = theme.useToken();
     const [selectedType, setSelectedType] = useState<ServiceType>(initial?.type ?? 'mysql');
 
     const getMatchingAgents = (type: ServiceType) => {
@@ -177,17 +174,17 @@ export function AccountFormModal({ isOpen, onClose, onSave, category = 'project'
             onCancel={onClose}
             title={
                 <Space direction="vertical" size={0}>
-                    <Text strong style={{ fontSize: token.fontSizeHeading5 }}>
+                    <Text strong className="prism-section-header prism-heading-3 prism-opacity-1">
                         {initial ? (isProxy ? 'Edit Web Proxy' : 'Edit Account') : (isProxy ? 'Provision Web Proxy' : 'Provision Account')}
                     </Text>
-                    <Text type="secondary" style={{ fontSize: token.fontSizeSM, fontWeight: 400 }}>
+                    <Text type="secondary" className="prism-text-sm">
                         {isProxy ? 'Configure reverse proxy domains and routing' : 'Configure service connection and access credentials'}
                     </Text>
                 </Space>
             }
             footer={null}
             width={800}
-            style={{ borderRadius: token.borderRadiusLG, overflow: 'hidden' }}
+            className="prism-card"
             destroyOnClose
         >
             <Form
@@ -195,14 +192,14 @@ export function AccountFormModal({ isOpen, onClose, onSave, category = 'project'
                 layout="vertical"
                 onFinish={handleSave}
                 initialValues={initial ?? defaultDraft(category, projectId)}
-                style={{ marginTop: token.marginLG }}
+                className="prism-margin-lg"
             >
                 <Row gutter={24}>
                     <Col span={24}>
-                        <Form.Item name="type" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Service Type</Text>} rules={[{ required: true }]}>
+                        <Form.Item name="type" label={<Text strong className="prism-text-sm">Service Type</Text>} rules={[{ required: true }]}>
                             <Select
                                 placeholder="Select Service Type"
-                                style={{ width: '100%', borderRadius: token.borderRadius }}
+                                className="prism-full-width prism-rounded"
                                 onChange={handleSelectType}
                                 disabled={!!initial}
                             >
@@ -211,7 +208,6 @@ export function AccountFormModal({ isOpen, onClose, onSave, category = 'project'
                                         {types.map(t => (
                                             <Select.Option key={t} value={t}>
                                                 <Space>
-                                                    <ServiceTypeIcons type={t} />
                                                     {SERVICE_TYPE_LABELS[t]}
                                                 </Space>
                                             </Select.Option>
@@ -225,16 +221,16 @@ export function AccountFormModal({ isOpen, onClose, onSave, category = 'project'
 
                 <Row gutter={24}>
                         <Col span={24}>
-                            <Form.Item name="name" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Display name</Text>} rules={[{ required: true }]}>
-                                <Input placeholder="e.g. main-db" style={{ borderRadius: token.borderRadius }} />
+                            <Form.Item name="name" label={<Text strong className="prism-text-sm">Display name</Text>} rules={[{ required: true }]}>
+                                <Input placeholder="e.g. main-db" className="prism-rounded" />
                             </Form.Item>
                         </Col>
 
                         <Col span={12}>
-                            <Form.Item name="agentId" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Service instance</Text>} rules={[{ required: true }]}>
+                            <Form.Item name="agentId" label={<Text strong className="prism-text-sm">Service instance</Text>} rules={[{ required: true }]}>
                                 <Select
                                     placeholder="Select server instance"
-                                    style={{ borderRadius: token.borderRadius }}
+                                    className="prism-rounded"
                                     options={matchingAgents.map(a => ({
                                         value: a.id,
                                         label: `${SERVICE_TYPE_LABELS[selectedType]} on ${a.name || a.id}`
@@ -246,34 +242,34 @@ export function AccountFormModal({ isOpen, onClose, onSave, category = 'project'
                         {(['mongodb', 'mysql', 'postgresql', 'rabbitmq', 'mqtt-mosquitto', 'web-caddy', 'web-nginx', 'ftp-vsftpd', 'ftp-sftpgo', 'valkey-cache', 'valkey-broker', 'valkey-nosql'].includes(selectedType)) && (
                             <>
                                 <Col span={8}>
-                                    <Form.Item name="host" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Host</Text>}>
-                                        <Input placeholder="localhost" style={{ borderRadius: token.borderRadius }} />
+                                    <Form.Item name="host" label={<Text strong className="prism-text-sm">Host</Text>}>
+                                        <Input placeholder="localhost" className="prism-rounded" />
                                     </Form.Item>
                                 </Col>
                                 <Col span={4}>
-                                    <Form.Item name="port" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Port</Text>}>
-                                        <Input placeholder={String(DEFAULT_PORTS[selectedType])} style={{ borderRadius: token.borderRadius }} />
+                                    <Form.Item name="port" label={<Text strong className="prism-text-sm">Port</Text>}>
+                                        <Input placeholder={String(DEFAULT_PORTS[selectedType])} className="prism-rounded" />
                                     </Form.Item>
                                 </Col>
                             </>
                         )}
                     </Row>
 
-                    <Divider style={{ margin: `${token.marginLG}px 0` }} />
+                    <Divider className="prism-margin-lg" />
 
                     {isProxy && (
                         <>
-                            <Divider titlePlacement="left" style={{ marginTop: 0 }}>
-                                <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Site Configuration</Text>
+                            <Divider titlePlacement="left" className="prism-margin-top-0">
+                                <Text strong className="prism-text-sm prism-uppercase" style={{ letterSpacing: '0.1em' }}>Site Configuration</Text>
                             </Divider>
                             <Row gutter={24}>
                                 <Col span={24}>
-                                    <Form.Item name="vhost" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Domain Name</Text>} rules={[{ required: true }]}>
-                                        <Input placeholder="e.g. example.com or api.example.com" style={{ borderRadius: token.borderRadius }} />
+                                    <Form.Item name="vhost" label={<Text strong className="prism-text-sm">Domain Name</Text>} rules={[{ required: true }]}>
+                                        <Input placeholder="e.g. example.com or api.example.com" className="prism-rounded" />
                                     </Form.Item>
                                 </Col>
                                 <Col span={24}>
-                                    <Form.Item name="proxyTypeConfig" initialValue="proxy" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Website Mode</Text>}>
+                                    <Form.Item name="proxyTypeConfig" initialValue="proxy" label={<Text strong className="prism-text-sm">Website Mode</Text>}>
                                         <Radio.Group optionType="button" buttonStyle="solid">
                                             <Radio.Button value="website">Static / PHP Website</Radio.Button>
                                             <Radio.Button value="proxy">Reverse Proxy</Radio.Button>
@@ -292,8 +288,8 @@ export function AccountFormModal({ isOpen, onClose, onSave, category = 'project'
                                         return (
                                             <Row gutter={24}>
                                                 <Col span={24}>
-                                                    <Form.Item name="endpoint" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Target/Upstream URL</Text>} rules={[{ required: true }]} help="The internal URL where your app is running (e.g., PM2 / Node.js node)">
-                                                        <Input placeholder="http://localhost:3000" style={{ borderRadius: token.borderRadius }} />
+                                                    <Form.Item name="endpoint" label={<Text strong className="prism-text-sm">Target/Upstream URL</Text>} rules={[{ required: true }]} help="The internal URL where your app is running (e.g., PM2 / Node.js node)">
+                                                        <Input placeholder="http://localhost:3000" className="prism-rounded" />
                                                     </Form.Item>
                                                 </Col>
                                             </Row>
@@ -302,13 +298,13 @@ export function AccountFormModal({ isOpen, onClose, onSave, category = 'project'
                                         return (
                                             <Row gutter={24}>
                                                 <Col span={12}>
-                                                    <Form.Item name="rootPath" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Web Root Directory</Text>} rules={[{ required: true }]} help="Absolute path to your static/php files">
-                                                        <Input placeholder="/var/www/html/mysite" style={{ borderRadius: token.borderRadius }} />
+                                                    <Form.Item name="rootPath" label={<Text strong className="prism-text-sm">Web Root Directory</Text>} rules={[{ required: true }]} help="Absolute path to your static/php files">
+                                                        <Input placeholder="/var/www/html/mysite" className="prism-rounded" />
                                                     </Form.Item>
                                                 </Col>
                                                 <Col span={12}>
-                                                    <Form.Item name="targetEntity" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Dynamic Interpreter</Text>} help="Leave empty for static sites. E.g. unix//var/run/php/php8.1-fpm.sock">
-                                                        <Input placeholder="PHP-FPM socket path or URL" style={{ borderRadius: token.borderRadius }} />
+                                                    <Form.Item name="targetEntity" label={<Text strong className="prism-text-sm">Dynamic Interpreter</Text>} help="Leave empty for static sites. E.g. unix//var/run/php/php8.1-fpm.sock">
+                                                        <Input placeholder="PHP-FPM socket path or URL" className="prism-rounded" />
                                                     </Form.Item>
                                                 </Col>
                                             </Row>
@@ -323,21 +319,21 @@ export function AccountFormModal({ isOpen, onClose, onSave, category = 'project'
                     {['mongodb', 'mysql', 'postgresql', 'rabbitmq', 'valkey-nosql', 'valkey-broker', 'valkey-cache'].includes(selectedType) && (
                         <Row gutter={24}>
                             <Col span={12}>
-                                <Form.Item name="username" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Username</Text>}>
-                                    <Input style={{ borderRadius: token.borderRadius }} />
+                                <Form.Item name="username" label={<Text strong className="prism-text-sm">Username</Text>}>
+                                    <Input className="prism-rounded" />
                                 </Form.Item>
                             </Col>
                             <Col span={12}>
-                                <Form.Item name="password" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Password</Text>}>
-                                    <Input.Password style={{ borderRadius: token.borderRadius }} />
+                                <Form.Item name="password" label={<Text strong className="prism-text-sm">Password</Text>}>
+                                    <Input.Password className="prism-rounded" />
                                 </Form.Item>
                             </Col>
 
                             {/* RabbitMQ: No databases field */}
                             {selectedType === 'rabbitmq' && (
                                 <Col span={24}>
-                                    <Form.Item name="vhost" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Default VHost</Text>}>
-                                        <Input placeholder="/" style={{ borderRadius: token.borderRadius }} />
+                                    <Form.Item name="vhost" label={<Text strong className="prism-text-sm">Default VHost</Text>}>
+                                        <Input placeholder="/" className="prism-rounded" />
                                     </Form.Item>
                                 </Col>
                             )}
@@ -345,8 +341,8 @@ export function AccountFormModal({ isOpen, onClose, onSave, category = 'project'
                             {/* Valkey NoSQL: Database index selector (0-15) */}
                             {selectedType === 'valkey-nosql' && (
                                 <Col span={24}>
-                                    <Form.Item name="databaseIndex" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Database Index (0-15)</Text>}>
-                                        <Select placeholder="Select database index" style={{ width: '100%', borderRadius: token.borderRadius }}>
+                                    <Form.Item name="databaseIndex" label={<Text strong className="prism-text-sm">Database Index (0-15)</Text>}>
+                                        <Select placeholder="Select database index" className="prism-full-width prism-rounded">
                                             {Array.from({ length: 16 }, (_, i) => (
                                                 <Select.Option key={i} value={i}>{i}</Select.Option>
                                             ))}
@@ -358,8 +354,8 @@ export function AccountFormModal({ isOpen, onClose, onSave, category = 'project'
                             {/* Valkey Cache: ACL Category selector */}
                             {selectedType === 'valkey-cache' && (
                                 <Col span={24}>
-                                    <Form.Item name="aclCategory" label={<Text strong style={{ fontSize: token.paddingSM }}>ACL Category</Text>}>
-                                        <Select placeholder="Select ACL category" style={{ width: '100%', borderRadius: token.paddingXS }}>
+                                    <Form.Item name="aclCategory" label={<Text strong className="prism-text-sm">ACL Category</Text>}>
+                                        <Select placeholder="Select ACL category" className="prism-full-width prism-rounded">
                                             <Select.Option value="@read">Read Only (+@read)</Select.Option>
                                             <Select.Option value="@write">Write Only (+@write)</Select.Option>
                                             <Select.Option value="@all">All Commands (+@all)</Select.Option>
@@ -371,8 +367,8 @@ export function AccountFormModal({ isOpen, onClose, onSave, category = 'project'
                             {/* Valkey Broker: Pub/Sub channel pattern */}
                             {selectedType === 'valkey-broker' && (
                                 <Col span={24}>
-                                    <Form.Item name="channelPattern" label={<Text strong style={{ fontSize: token.paddingSM }}>Pub/Sub Channel Pattern</Text>}>
-                                        <Input placeholder="e.g. events:* or #" style={{ borderRadius: token.paddingXS }} />
+                                    <Form.Item name="channelPattern" label={<Text strong className="prism-text-sm">Pub/Sub Channel Pattern</Text>}>
+                                        <Input placeholder="e.g. events:* or #" className="prism-rounded" />
                                     </Form.Item>
                                 </Col>
                             )}
@@ -380,8 +376,8 @@ export function AccountFormModal({ isOpen, onClose, onSave, category = 'project'
                             {/* Traditional databases (MySQL, PostgreSQL, MongoDB): Multi-tag databases field */}
                             {['mongodb', 'mysql', 'postgresql'].includes(selectedType) && (
                                 <Col span={24}>
-                                    <Form.Item name="databases" label={<Text strong style={{ fontSize: token.paddingSM }}>Databases (Multi-value available in API)</Text>}>
-                                        <Select mode="tags" placeholder="Press enter to add databases" style={{ width: '100%', borderRadius: token.paddingXS }} />
+                                    <Form.Item name="databases" label={<Text strong className="prism-text-sm">Databases (Multi-value available in API)</Text>}>
+                                        <Select mode="tags" placeholder="Press enter to add databases" className="prism-full-width prism-rounded" />
                                     </Form.Item>
                                 </Col>
                             )}
@@ -389,15 +385,15 @@ export function AccountFormModal({ isOpen, onClose, onSave, category = 'project'
                     )}
 
                     {selectedType === 'rabbitmq' && (
-                        <div style={{ marginTop: token.padding }}>
+                        <div className="prism-margin-top">
                             <Divider titlePlacement="left">
-                                <Text strong style={{ fontSize: token.paddingSM }}>VHosts & MQTT Bindings</Text>
+                                <Text strong className="prism-text-sm">VHosts & MQTT Bindings</Text>
                             </Divider>
                             <Form.List name="bindings">
                                 {(fields, { add, remove }) => (
                                     <>
                                         {fields.map(({ key, name, ...restField }) => (
-                                            <Card key={key} size="small" style={{ marginBottom: token.padding, borderRadius: token.paddingSM }}>
+                                            <Card key={key} size="small" className="prism-card prism-margin-sm">
                                                 <Row gutter={16}>
                                                     <Col span={10}>
                                                         <Form.Item
@@ -438,7 +434,7 @@ export function AccountFormModal({ isOpen, onClose, onSave, category = 'project'
                                                             <Input placeholder="topic/+" />
                                                         </Form.Item>
                                                     </Col>
-                                                    <Col span={2} style={{ display: 'flex', alignItems: 'center', marginTop: `${token.marginSM}px` }}>
+                                                    <Col span={2} className="prism-flex-center prism-margin-top-sm">
                                                         <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
                                                     </Col>
                                                 </Row>
@@ -453,16 +449,9 @@ export function AccountFormModal({ isOpen, onClose, onSave, category = 'project'
                         </div>
                     )}
                     
-                <div style={{ 
-                    marginTop: token.marginLG, 
-                    paddingTop: token.padding, 
-                    borderTop: `1px solid ${token.colorBorderSecondary}`,
-                    display: 'flex',
-                    justifyContent: 'flex-end',
-                    gap: token.paddingSM
-                }}>
-                    <Button onClick={onClose} style={{ borderRadius: token.paddingXS }}>Cancel</Button>
-                    <Button type="primary" htmlType="submit" style={{ borderRadius: token.paddingXS, fontWeight: 600 }}>
+                <div className="prism-flex-between prism-margin-lg prism-padding-top prism-border-top">
+                    <Button onClick={onClose} className="prism-rounded">Cancel</Button>
+                    <Button type="primary" htmlType="submit" className="prism-rounded prism-text-bold">
                         {initial ? 'Save Changes' : (isProxy ? 'Create Proxy' : 'Confirm & Create')}
                     </Button>
                 </div>

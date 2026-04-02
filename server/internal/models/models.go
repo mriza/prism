@@ -214,6 +214,7 @@ type Event struct {
 	ID        string `json:"id"`
 	AgentID   string `json:"agentId"`
 	AgentName string `json:"agentName"`
+	ProjectID string `json:"projectId,omitempty"`
 	Type      string `json:"type"`
 	Service   string `json:"service"`
 	Status    string `json:"status"`
@@ -254,91 +255,6 @@ type Permission struct {
 	ResourceType string    `json:"resourceType"` // server, service, account, project, user
 	Action       string    `json:"action"`       // read, write, delete, control
 	CreatedAt    time.Time `json:"createdAt"`
-}
-
-// ServerGroup represents a group of servers for RBAC
-type ServerGroup struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	CreatedBy   string    `json:"createdBy"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
-}
-
-// UserServerAccess represents direct user access to a specific server
-type UserServerAccess struct {
-	ID          string     `json:"id"`
-	UserID      string     `json:"userId"`
-	ServerID    string     `json:"serverId"`
-	AccessLevel string     `json:"accessLevel"` // view, edit, admin
-	GrantedBy   string     `json:"grantedBy"`
-	GrantedAt   time.Time  `json:"grantedAt"`
-	ExpiresAt   *time.Time `json:"expiresAt,omitempty"`
-}
-
-// WebhookSubscription represents a webhook endpoint subscription
-type WebhookSubscription struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	URL       string    `json:"url"`
-	Events    string    `json:"events"` // JSON array of event types
-	Active    bool      `json:"active"`
-	Secret    string    `json:"-"` // Never serialize
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
-}
-
-// WebhookDelivery represents a webhook delivery attempt
-type WebhookDelivery struct {
-	ID             string     `json:"id"`
-	SubscriptionID string     `json:"subscriptionId"`
-	EventType      string     `json:"eventType"`
-	Payload        string     `json:"payload"`
-	Status         string     `json:"status"` // pending, delivered, failed
-	ResponseCode   int        `json:"responseCode,omitempty"`
-	ResponseBody   string     `json:"responseBody,omitempty"`
-	Attempts       int        `json:"attempts"`
-	CreatedAt      time.Time  `json:"createdAt"`
-	DeliveredAt    *time.Time `json:"deliveredAt,omitempty"`
-}
-
-// RetentionPolicy represents data retention policy
-type RetentionPolicy struct {
-	ID            string    `json:"id"`
-	Name          string    `json:"name"`
-	ResourceType  string    `json:"resourceType"` // telemetry, audit_log, commands
-	RetentionDays int       `json:"retentionDays"`
-	Enabled       bool      `json:"enabled"`
-	CreatedAt     time.Time `json:"createdAt"`
-	UpdatedAt     time.Time `json:"updatedAt"`
-}
-
-// ConfigurationSnapshot represents a point-in-time config snapshot
-type ConfigurationSnapshot struct {
-	ID         string    `json:"id"`
-	ServerID   string    `json:"serverId"`
-	ServiceID  string    `json:"serviceId,omitempty"`
-	ConfigHash string    `json:"configHash"`
-	ConfigData string    `json:"configData"`
-	CreatedAt  time.Time `json:"createdAt"`
-	CreatedBy  string    `json:"createdBy,omitempty"`
-}
-
-// DriftEvent represents a configuration drift detection event
-type DriftEvent struct {
-	ID          string     `json:"id"`
-	ServerID    string     `json:"serverId"`
-	ServiceID   string     `json:"serviceId,omitempty"`
-	SnapshotID  string     `json:"snapshotId,omitempty"`
-	DriftType   string     `json:"driftType"` // changed, added, deleted
-	Severity    string     `json:"severity"`  // info, warning, critical
-	Description string     `json:"description"`
-	OldConfig   string     `json:"oldConfig,omitempty"`
-	NewConfig   string     `json:"newConfig,omitempty"`
-	DetectedAt  time.Time  `json:"detectedAt"`
-	ResolvedAt  *time.Time `json:"resolvedAt,omitempty"`
-	ResolvedBy  string     `json:"resolvedBy,omitempty"`
 }
 
 // Deployment represents an application deployment via Git release artifacts

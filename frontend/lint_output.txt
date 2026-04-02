@@ -1,0 +1,623 @@
+
+> frontend@0.0.0 lint
+> eslint .
+
+
+/home/mriza/Projects/prism/frontend/src/components/ServiceModal.tsx
+   80:55  error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+  115:8   warning  React Hook useEffect has a missing dependency: 'fetchFacts'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  140:23  error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+  290:61  error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/modals/AccountFormModal.tsx
+  143:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/modals/AddDatabaseModal.tsx
+  31:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/modals/ApproveServerModal.tsx
+  32:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  43:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/modals/ChangePasswordModal.tsx
+  27:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  70:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/modals/CrowdSecModal.tsx
+   86:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/mriza/Projects/prism/frontend/src/components/modals/CrowdSecModal.tsx:86:13
+  84 |     useEffect(() => {
+  85 |         if (isOpen) {
+> 86 |             fetchDecisions();
+     |             ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  87 |         }
+  88 |     }, [isOpen, fetchDecisions]);
+  89 |  react-hooks/set-state-in-effect
+   90:38  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   @typescript-eslint/no-explicit-any
+  102:23  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   @typescript-eslint/no-explicit-any
+  114:23  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   @typescript-eslint/no-explicit-any
+  168:25  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/modals/DeploymentFormModal.tsx
+  72:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/modals/FirewallModal.tsx
+   90:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  101:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  113:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  125:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  151:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  159:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  174:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  183:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/modals/ProcessDiscoveryModal.tsx
+   55:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/mriza/Projects/prism/frontend/src/components/modals/ProcessDiscoveryModal.tsx:55:13
+  53 |     useEffect(() => {
+  54 |         if (isOpen && agentId) {
+> 55 |             setLoading(true);
+     |             ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  56 |             setError(null);
+  57 |             listSystemdUnits(agentId)
+  58 |                 .then(raw => {  react-hooks/set-state-in-effect
+  165:25  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/modals/ProfileModal.tsx
+   48:8   warning  React Hook useEffect has a missing dependency: 'fetchProfile'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   65:23  error    Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+   72:39  error    Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+  101:23  error    Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/modals/ProjectFormModal.tsx
+  30:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/modals/ResetPasswordModal.tsx
+  29:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  55:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/modals/ServerSettingsModal.tsx
+   42:50  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   46:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   71:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  138:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/modals/ServiceDetailModal.tsx
+   154:61  error    Unexpected any. Specify a different type                                                                                                                                                      @typescript-eslint/no-explicit-any
+   211:8   warning  React Hook useEffect has missing dependencies: 'loadBuckets', 'loadProcesses', 'loadServiceLogs', 'loadSettings', and 'loadStorageUsers'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+   226:49  error    Unexpected any. Specify a different type                                                                                                                                                      @typescript-eslint/no-explicit-any
+   336:25  error    Unexpected any. Specify a different type                                                                                                                                                      @typescript-eslint/no-explicit-any
+   336:36  error    Unexpected any. Specify a different type                                                                                                                                                      @typescript-eslint/no-explicit-any
+   366:25  error    Unexpected any. Specify a different type                                                                                                                                                      @typescript-eslint/no-explicit-any
+   366:36  error    Unexpected any. Specify a different type                                                                                                                                                      @typescript-eslint/no-explicit-any
+   387:25  error    Unexpected any. Specify a different type                                                                                                                                                      @typescript-eslint/no-explicit-any
+   387:36  error    Unexpected any. Specify a different type                                                                                                                                                      @typescript-eslint/no-explicit-any
+  1146:45  error    Unexpected any. Specify a different type                                                                                                                                                      @typescript-eslint/no-explicit-any
+  1146:55  error    Unexpected any. Specify a different type                                                                                                                                                      @typescript-eslint/no-explicit-any
+  1197:57  error    Unexpected any. Specify a different type                                                                                                                                                      @typescript-eslint/no-explicit-any
+  1197:70  error    Unexpected any. Specify a different type                                                                                                                                                      @typescript-eslint/no-explicit-any
+  1223:57  error    Unexpected any. Specify a different type                                                                                                                                                      @typescript-eslint/no-explicit-any
+  1223:70  error    Unexpected any. Specify a different type                                                                                                                                                      @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/modals/UserFormModal.tsx
+  33:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/security/FirewallRulesModal.tsx
+   60:8   warning  React Hook useEffect has missing dependencies: 'fetchRules' and 'form'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+   93:23  error    Unexpected any. Specify a different type                                                                                    @typescript-eslint/no-explicit-any
+  101:42  error    Unexpected any. Specify a different type                                                                                    @typescript-eslint/no-explicit-any
+  133:23  error    Unexpected any. Specify a different type                                                                                    @typescript-eslint/no-explicit-any
+  170:23  error    Unexpected any. Specify a different type                                                                                    @typescript-eslint/no-explicit-any
+  210:25  error    Unexpected any. Specify a different type                                                                                    @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/services/ApplicationAccountsTab.tsx
+  149:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/services/ConfigurationTab.tsx
+  28:71  error    '_serviceType' is defined but never used                                                                        @typescript-eslint/no-unused-vars
+  66:23  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  80:8   warning  React Hook useEffect has a missing dependency: 'fetchConfig'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  90:23  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/services/LogsTab.tsx
+  46:32  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-explicit-any
+  59:9   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/mriza/Projects/prism/frontend/src/components/services/LogsTab.tsx:59:9
+  57 |             source: log.service
+  58 |         }));
+> 59 |         setDisplayLogs(converted);
+     |         ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  60 |     }, [apiLogs]);
+  61 |
+  62 |     // Auto-scroll to bottom  react-hooks/set-state-in-effect
+
+/home/mriza/Projects/prism/frontend/src/components/services/ManagementCredentialsTab.tsx
+  119:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  147:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  209:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/services/managers/CacheManager.tsx
+   37:81  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+   62:61  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+   75:8   warning  React Hook useEffect has missing dependencies: 'fetchData' and 'loadSettings'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  100:23  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  116:23  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  123:49  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  131:18  error    'err' is defined but never used                                                                                                    @typescript-eslint/no-unused-vars
+  131:23  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  138:45  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  174:44  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  249:25  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  299:25  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/services/managers/DatabaseManager.tsx
+   29:81  error    Unexpected any. Specify a different type                                                                      @typescript-eslint/no-explicit-any
+   47:8   warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   62:23  error    Unexpected any. Specify a different type                                                                      @typescript-eslint/no-explicit-any
+  106:25  error    Unexpected any. Specify a different type                                                                      @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/services/managers/FTPManager.tsx
+   32:81  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+   39:61  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+   49:8   warning  React Hook useEffect has missing dependencies: 'fetchData' and 'loadSettings'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+   60:23  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+   76:23  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+   83:49  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  100:45  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  155:25  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/services/managers/MQTTManager.tsx
+   32:81  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+   39:61  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+   49:8   warning  React Hook useEffect has missing dependencies: 'fetchData' and 'loadSettings'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+   59:23  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+   75:23  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+   82:49  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+   90:18  error    'err' is defined but never used                                                                                                    @typescript-eslint/no-unused-vars
+   90:23  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+   97:45  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  145:25  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/services/managers/RabbitMQManager.tsx
+   37:81  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+   74:61  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+   83:8   warning  React Hook useEffect has missing dependencies: 'fetchData' and 'loadSettings'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  113:23  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  129:23  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  137:49  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  145:18  error    'err' is defined but never used                                                                                                    @typescript-eslint/no-unused-vars
+  145:23  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  169:49  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  181:46  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  192:48  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/services/managers/StorageManager.tsx
+   37:81  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+   51:61  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+   61:8   warning  React Hook useEffect has missing dependencies: 'fetchData' and 'loadSettings'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+   86:23  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  102:23  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  109:49  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  147:45  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  189:25  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  217:25  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+  232:25  error    Unexpected any. Specify a different type                                                                                           @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/components/services/managers/WebServerManager.tsx
+   33:81  error    Unexpected any. Specify a different type                                                                                                        @typescript-eslint/no-explicit-any
+   42:61  error    Unexpected any. Specify a different type                                                                                                        @typescript-eslint/no-explicit-any
+   54:8   warning  React Hook useEffect has missing dependencies: 'fetchSites', 'isNginx', and 'loadSettings'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+   67:23  error    Unexpected any. Specify a different type                                                                                                        @typescript-eslint/no-explicit-any
+   83:23  error    Unexpected any. Specify a different type                                                                                                        @typescript-eslint/no-explicit-any
+   90:49  error    Unexpected any. Specify a different type                                                                                                        @typescript-eslint/no-explicit-any
+  126:23  error    Unexpected any. Specify a different type                                                                                                        @typescript-eslint/no-explicit-any
+  142:23  error    Unexpected any. Specify a different type                                                                                                        @typescript-eslint/no-explicit-any
+  153:25  error    Unexpected any. Specify a different type                                                                                                        @typescript-eslint/no-explicit-any
+  171:25  error    Unexpected any. Specify a different type                                                                                                        @typescript-eslint/no-explicit-any
+  180:25  error    Unexpected any. Specify a different type                                                                                                        @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/contexts/AgentsContext.tsx
+   47:18  error  'err' is defined but never used                                                                                                 @typescript-eslint/no-unused-vars
+   55:77  error  Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+   62:21  error  Unexpected lexical declaration in case block                                                                                    no-case-declarations
+  127:17  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/home/mriza/Projects/prism/frontend/src/contexts/AppConfigContext.tsx
+   74:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/mriza/Projects/prism/frontend/src/contexts/AppConfigContext.tsx:74:13
+  72 |     useEffect(() => {
+  73 |         if (isAuthenticated) {
+> 74 |             refreshConfig();
+     |             ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  75 |         }
+  76 |     }, [isAuthenticated, refreshConfig]);
+  77 |  react-hooks/set-state-in-effect
+  115:17  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      react-refresh/only-export-components
+
+/home/mriza/Projects/prism/frontend/src/contexts/AuthContext.tsx
+  31:41  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   @typescript-eslint/no-explicit-any
+  33:21  error  Error: Cannot access variable before it is declared
+
+`logout` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/home/mriza/Projects/prism/frontend/src/contexts/AuthContext.tsx:33:21
+  31 |                 const exp = (decoded as any).exp;
+  32 |                 if (exp && Date.now() >= exp * 1000) {
+> 33 |                     logout();
+     |                     ^^^^^^ `logout` accessed before it is declared
+  34 |                 } else {
+  35 |                     setUser(decoded);
+  36 |                 }
+
+/home/mriza/Projects/prism/frontend/src/contexts/AuthContext.tsx:51:5
+  49 |     };
+  50 |
+> 51 |     const logout = () => {
+     |     ^^^^^^^^^^^^^^^^^^^^^^
+> 52 |         localStorage.removeItem('prism_token');
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 53 |         setToken(null);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 54 |         setUser(null);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 55 |     };
+     | ^^^^^^^ `logout` is declared here
+  56 |
+  57 |     return (
+  58 |         <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!token }}>  react-hooks/immutability
+  64:17  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             react-refresh/only-export-components
+
+/home/mriza/Projects/prism/frontend/src/hooks/__tests__/useAccounts.test.tsx
+  100:26   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  102:103  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/hooks/__tests__/useAgents.test.tsx
+  27:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/hooks/__tests__/useDeployments.test.tsx
+  76:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  78:91  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/hooks/__tests__/useManagementCredentials.test.tsx
+  55:26   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  81:100  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/hooks/__tests__/usePermissions.test.tsx
+  67:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  69:89  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/hooks/__tests__/useProjects.test.tsx
+   23:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   32:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   49:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   83:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  104:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  125:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  145:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  160:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  179:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/hooks/__tests__/useUsers.test.tsx
+   23:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   33:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   50:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   85:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  118:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  139:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  162:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  178:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  200:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/hooks/useAccounts.ts
+  170:8  warning  React Hook useCallback has unnecessary dependencies: 'apiBase' and 'token'. Either exclude them or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/mriza/Projects/prism/frontend/src/hooks/useActivityLogs.ts
+  76:21  error  Error: Cannot access variable before it is declared
+
+`connect` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/home/mriza/Projects/prism/frontend/src/hooks/useActivityLogs.ts:76:21
+  74 |                 reconnectTimeoutRef.current = window.setTimeout(() => {
+  75 |                     log.info('Attempting to reconnect activity WebSocket...');
+> 76 |                     connect();
+     |                     ^^^^^^^ `connect` accessed before it is declared
+  77 |                 }, 5000);
+  78 |             };
+  79 |
+
+/home/mriza/Projects/prism/frontend/src/hooks/useActivityLogs.ts:24:5
+  22 |     const { token } = useAuth();
+  23 |
+> 24 |     const connect = useCallback(() => {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 25 |         if (!token) {
+     | ^^^^^^^^^^^^^^^^^^^^^
+> 26 |             setError('No authentication token');
+     …
+     | ^^^^^^^^^^^^^^^^^^^^^
+> 88 |         }
+     | ^^^^^^^^^^^^^^^^^^^^^
+> 89 |     }, [token, agentId, service, limit]);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `connect` is declared here
+  90 |
+  91 |     // Initial fetch of historic logs
+  92 |     useEffect(() => {  react-hooks/immutability
+
+/home/mriza/Projects/prism/frontend/src/hooks/useAgents.ts
+  201:42   error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `isAuthenticated`, but the source dependencies were [apiBase]. Inferred different dependency than source.
+
+/home/mriza/Projects/prism/frontend/src/hooks/useAgents.ts:201:42
+  199 |     };
+  200 |
+> 201 |     const listSubProcesses = useCallback(async (agentId: string, service: string) => {
+      |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 202 |         if (!isAuthenticated || !token) return null;
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 203 |         try {
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 223 |         return null;
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 224 |     }, [apiBase]);
+      | ^^^^^^ Could not preserve existing manual memoization
+  225 |
+  226 |     const controlSubProcess = async (agentId: string, service: string, processId: string, processAction: string) => {
+  227 |         if (!isAuthenticated || !token) return false;  react-hooks/preserve-manual-memoization
+  201:42   error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `token`, but the source dependencies were [apiBase]. Inferred different dependency than source.
+
+/home/mriza/Projects/prism/frontend/src/hooks/useAgents.ts:201:42
+  199 |     };
+  200 |
+> 201 |     const listSubProcesses = useCallback(async (agentId: string, service: string) => {
+      |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 202 |         if (!isAuthenticated || !token) return null;
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 203 |         try {
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 223 |         return null;
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 224 |     }, [apiBase]);
+      | ^^^^^^ Could not preserve existing manual memoization
+  225 |
+  226 |     const controlSubProcess = async (agentId: string, service: string, processId: string, processAction: string) => {
+  227 |         if (!isAuthenticated || !token) return false;            react-hooks/preserve-manual-memoization
+  224:8    warning  React Hook useCallback has missing dependencies: 'isAuthenticated' and 'token'. Either include them or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          react-hooks/exhaustive-deps
+  404:101  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/hooks/useWebSocketAgents.ts
+   7:12  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  @typescript-eslint/no-explicit-any
+  89:11  error  Error: Cannot access variable before it is declared
+
+`connect` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/home/mriza/Projects/prism/frontend/src/hooks/useWebSocketAgents.ts:89:11
+  87 |         reconnectTimeoutRef.current = window.setTimeout(() => {
+  88 |           log.info('Attempting to reconnect...');
+> 89 |           connect();
+     |           ^^^^^^^ `connect` accessed before it is declared
+  90 |         }, 5000);
+  91 |       };
+  92 |
+
+/home/mriza/Projects/prism/frontend/src/hooks/useWebSocketAgents.ts:25:3
+   23 |   const { token } = useAuth();
+   24 |
+>  25 |   const connect = useCallback(() => {
+      |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  26 |     if (!token) {
+      | ^^^^^^^^^^^^^^^^^
+>  27 |       setError('No authentication token');
+      …
+      | ^^^^^^^^^^^^^^^^^
+> 101 |     }
+      | ^^^^^^^^^^^^^^^^^
+> 102 |   }, [token, onAgentUpdate]);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `connect` is declared here
+  103 |
+  104 |   useEffect(() => {
+  105 |     if (token) {  react-hooks/immutability
+
+/home/mriza/Projects/prism/frontend/src/hooks/useWebSocketLogs.ts
+  101:21  error  Error: Cannot access variable before it is declared
+
+`connect` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/home/mriza/Projects/prism/frontend/src/hooks/useWebSocketLogs.ts:101:21
+   99 |                 reconnectTimeoutRef.current = window.setTimeout(() => {
+  100 |                     log.info('Attempting to reconnect logs WebSocket...');
+> 101 |                     connect();
+      |                     ^^^^^^^ `connect` accessed before it is declared
+  102 |                 }, 5000);
+  103 |             };
+  104 |
+
+/home/mriza/Projects/prism/frontend/src/hooks/useWebSocketLogs.ts:35:5
+   33 |     const { token } = useAuth();
+   34 |
+>  35 |     const connect = useCallback(() => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  36 |         if (!token) {
+      | ^^^^^^^^^^^^^^^^^^^^^
+>  37 |             setError('No authentication token');
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^
+> 113 |         }
+      | ^^^^^^^^^^^^^^^^^^^^^
+> 114 |     }, [token, agentId, service, limit]);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `connect` is declared here
+  115 |
+  116 |     useEffect(() => {
+  117 |         if (token && agentId && service) {  react-hooks/immutability
+
+/home/mriza/Projects/prism/frontend/src/pages/ApplicationsPage.tsx
+  132:63  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  139:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  298:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  317:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  327:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  344:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  364:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  373:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  434:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/pages/DashboardPage.tsx
+  89:96  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  91:81  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/pages/HealthDashboardPage.tsx
+  72:8  warning  React Hook useEffect has a missing dependency: 'fetchHealth'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/mriza/Projects/prism/frontend/src/pages/LoginPage.tsx
+  44:37  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/pages/LogsPage.tsx
+  148:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  160:58  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/pages/ProcessesPage.tsx
+   81:63  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   89:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  150:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  175:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  185:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  202:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  222:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  231:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  294:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/pages/ProjectDetailPage.tsx
+  120:45   error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  142:8    warning  React Hook useEffect has a missing dependency: 'fetchProjectInfra'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  407:110  error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/pages/RBACPage.tsx
+  201:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/pages/SecurityPage.tsx
+   52:63  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   54:72  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   55:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   56:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   61:87  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   62:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   92:54  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  142:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  171:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  171:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  182:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  182:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  202:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  210:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  216:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  216:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  217:60  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  218:50  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  233:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  233:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  234:57  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  247:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  247:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  248:60  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  249:50  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/pages/ServicesPage.tsx
+  133:25   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  133:35   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  176:25   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  176:35   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  176:40   error  '_index' is defined but never used        @typescript-eslint/no-unused-vars
+  177:41   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  296:114  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  296:127  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  296:163  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/pages/__tests__/AccountsPage.test.tsx
+   32:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   38:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   59:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   87:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  108:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  128:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  129:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  137:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  138:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/pages/__tests__/DashboardPage.test.tsx
+   25:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   42:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   48:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   58:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   99:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  107:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/pages/__tests__/ProjectsPage.test.tsx
+   25:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   51:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   57:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   61:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   75:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  100:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  117:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  121:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/pages/__tests__/ServersPage.test.tsx
+   39:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   45:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   46:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   58:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   64:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   65:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   90:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   96:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   97:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  108:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  109:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  110:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/pages/__tests__/SettingsPage.test.tsx
+  22:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  45:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/test/setup.ts
+  11:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  35:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  44:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/mriza/Projects/prism/frontend/src/utils/log.ts
+  35:30  error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+
+✖ 283 problems (267 errors, 16 warnings)
+

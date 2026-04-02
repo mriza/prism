@@ -12,6 +12,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -524,15 +526,22 @@ func (ca *CertificateAuthority) SaveCACertificates(certPath, keyPath string) err
 
 // Helper functions for file operations
 func loadFile(path string) ([]byte, error) {
-	// In real implementation, use os.ReadFile
-	// This is a placeholder
-	return nil, errors.New("not implemented")
+	return os.ReadFile(path)
 }
 
 func saveFile(path string, data []byte) error {
-	// In real implementation, use os.WriteFile
-	// This is a placeholder
-	return errors.New("not implemented")
+	// Ensure directory exists
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	// Write file with secure permissions (owner read/write only)
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
 }
 
 // GetCAPublicKey returns the CA public key for verification

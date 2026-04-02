@@ -115,7 +115,7 @@ export function ApplicationAccountsTab({
                         {category.toUpperCase()}
                     </Tag>
                     {category === 'project' && record.projectName && (
-                        <Text type="secondary" style={{ fontSize: 12 }}>{record.projectName}</Text>
+                        <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{record.projectName}</Text>
                     )}
                 </Space>
             )
@@ -136,7 +136,7 @@ export function ApplicationAccountsTab({
             width: 150,
             ellipsis: true,
             render: (permissions?: string) => (
-                <Text type="secondary" style={{ fontSize: 12 }}>
+                <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
                     {permissions || 'Read-only'}
                 </Text>
             )

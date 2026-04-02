@@ -25,7 +25,7 @@ interface ConfigurationTabProps {
     serviceType: string;
 }
 
-export function ConfigurationTab({ agentId, serviceName, serviceType: _serviceType }: ConfigurationTabProps) {
+export function ConfigurationTab({ agentId, serviceName }: ConfigurationTabProps) {
     const { token } = theme.useToken();
     const { token: authToken } = useAuth();
     const apiBase = import.meta.env.VITE_API_URL || '';

@@ -142,7 +142,7 @@ export function AddDatabaseModal({ isOpen, account, onClose, onSave }: Props) {
                     gap: token.marginSM
                 }}>
                     <Button onClick={onClose} style={{ borderRadius: token.borderRadius }}>Cancel</Button>
-                    <Button type="primary" htmlType="submit" loading={loading} style={{ borderRadius: token.borderRadius, fontWeight: 600 }}>
+                    <Button type="primary" htmlType="submit" loading={loading} style={{ borderRadius: token.borderRadius, fontWeight: token.fontWeightStrong }}>
                         Add Database
                     </Button>
                 </div>

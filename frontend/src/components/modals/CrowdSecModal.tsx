@@ -43,11 +43,15 @@ interface Props {
 }
 
 async function controlAgent(agentId: string, action: string, options?: Record<string, unknown>) {
-    const res = await fetch(`/api/control`, {
+    const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/control`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agent_id: agentId, service: 'crowdsec', action, options }),
     });
+    if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || `HTTP ${res.status}: ${res.statusText}`);
+    }
     return res.json();
 }
 
@@ -85,21 +89,31 @@ export function CrowdSecModal({ isOpen, onClose, agentId }: Props) {
 
     const handleAdd = async (values: any) => {
         setActionLoading('add');
-        await controlAgent(agentId, 'crowdsec_add', {
-            ip: values.ip,
-            duration: values.duration,
-            reason: values.reason || 'manual via PRISM',
-            type: values.type,
-        });
-        form.resetFields();
-        await fetchDecisions();
+        setError('');
+        try {
+            await controlAgent(agentId, 'crowdsec_add', {
+                ip: values.ip,
+                duration: values.duration,
+                reason: values.reason || 'manual via PRISM',
+                type: values.type,
+            });
+            form.resetFields();
+            await fetchDecisions();
+        } catch (err: any) {
+            setError(err.message || 'Failed to add CrowdSec decision');
+        }
         setActionLoading('');
     };
 
     const handleDelete = async (id: number) => {
         setActionLoading(`del-${id}`);
-        await controlAgent(agentId, 'crowdsec_delete', { id: String(id) });
-        await fetchDecisions();
+        setError('');
+        try {
+            await controlAgent(agentId, 'crowdsec_delete', { id: String(id) });
+            await fetchDecisions();
+        } catch (err: any) {
+            setError(err.message || 'Failed to delete CrowdSec decision');
+        }
         setActionLoading('');
     };
 
@@ -277,12 +291,12 @@ export function CrowdSecModal({ isOpen, onClose, agentId }: Props) {
                         </Col>
                     </Row>
                     <Button 
-                        type="primary" 
-                        htmlType="submit" 
-                        block 
+                        type="primary"
+                        htmlType="submit"
+                        block
                         icon={<PlusOutlined />}
                         loading={actionLoading === 'add'}
-                        style={{ height: 'auto', borderRadius: token.paddingSM, fontWeight: 600, backgroundColor: token.colorWarning, borderColor: 'transparent' }}
+                        style={{ height: 'auto', borderRadius: token.paddingSM, fontWeight: token.fontWeightStrong, backgroundColor: token.colorWarning, borderColor: 'transparent' }}
                     >
                         Apply Decision
                     </Button>

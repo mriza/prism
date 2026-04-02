@@ -11,7 +11,18 @@
       "Bash(strings)",
       "Bash(find *)",
       "Bash(mv *)",
-      "Bash(rm *)"
+      "Bash(rm *)",
+      "Bash(go *)",
+      "Bash(then)",
+      "Bash(fi)",
+      "Bash(npx *)",
+      "Bash(git checkout *)",
+      "Bash(npm test *)",
+      "Bash(cat)",
+      "Bash(s/style={{ *)",
+      "Bash(eof)",
+      "Bash(echo *)",
+      "Bash(git add *)"
     ]
   },
   "$version": 3

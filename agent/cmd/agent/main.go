@@ -35,9 +35,6 @@ func main() {
 
 		services := discovery.ExportConfig(registry)
 		cfg := config.Config{
-			Server: config.ServerConfig{
-				Port: 0,
-			},
 			Hub: config.HubConfig{
 				URL:   "ws://192.168.122.230:65432/agent/connect",
 				Token: "replace_with_actual_token",
@@ -440,14 +437,17 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 					if serviceName == "agent" {
 						var success bool
 						var output string
+						var events []protocol.EventPayload
+
 						if handler, ok := CommandHandlers[action]; ok {
-							out, err := handler(nil, cmdCtx, map[string]interface{}{"options": opts})
+							result, err := handler(nil, cmdCtx, map[string]interface{}{"options": opts})
 							if err != nil {
 								success = false
 								output = err.Error()
 							} else {
 								success = true
-								output = out
+								output = result.Output
+								events = result.Events
 								if output == "" {
 									output = "OK"
 								}
@@ -456,6 +456,8 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 							success = false
 							output = fmt.Sprintf("unknown agent action: %s", action)
 						}
+
+						// Send Response
 						resp := protocol.Message{
 							Type: protocol.MsgTypeResponse,
 							Payload: protocol.ResponsePayload{
@@ -477,6 +479,14 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 							},
 						}
 						safeWrite(resp)
+
+						// Send Events if any
+						for _, ev := range events {
+							safeWrite(protocol.Message{
+								Type:    protocol.MsgTypeEvent,
+								Payload: ev,
+							})
+						}
 						return
 					}
 
@@ -485,19 +495,21 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 					mod, err := registry.Get(normalizedService)
 					var success bool
 					var output string
+					var events []protocol.EventPayload
 
 					if err != nil {
 						success = false
 						output = err.Error()
 					} else {
 						if handler, ok := CommandHandlers[action]; ok {
-							out, err := handler(mod, cmdCtx, map[string]interface{}{"options": opts})
+							result, err := handler(mod, cmdCtx, map[string]interface{}{"options": opts})
 							if err != nil {
 								success = false
 								output = err.Error()
 							} else {
 								success = true
-								output = out
+								output = result.Output
+								events = result.Events
 								if output == "" {
 									output = "OK"
 								}
@@ -526,6 +538,18 @@ func connectAndMonitor(urlStr, token string, registry *core.Registry, interrupt 
 						Payload: respPayload,
 					}
 					safeWrite(resp)
+
+					// Send Events if any
+					for _, ev := range events {
+						// Ensure agent identity is attached to event if not present
+						if ev.AgentID == "" {
+							ev.AgentID = cfg.Hub.ID
+						}
+						safeWrite(protocol.Message{
+							Type:    protocol.MsgTypeEvent,
+							Payload: ev,
+						})
+					}
 				}()
 			}
 		}

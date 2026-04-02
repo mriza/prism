@@ -543,12 +543,12 @@ const handleControl = async (action: string) => {
                                         return (
                                             <Col xs={24} sm={12} md={8} key={key}>
                                                 <Card style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }} styles={{ body: { padding: token.borderRadiusLG } }}>
-                                                    <Statistic 
-                                                        title={<Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', fontWeight: 800 }}>{key.replace(/_/g, ' ')}</Text>}
+                                                    <Statistic
+                                                        title={<Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', fontWeight: token.fontWeightStrong }}>{key.replace(/_/g, ' ')}</Text>}
                                                         value={displayVal}
                                                         suffix={<Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{suffix}</Text>}
                                                         prefix={icon}
-                                                        valueStyle={{ fontWeight: 700, fontSize: token.borderRadiusLG }}
+                                                        valueStyle={{ fontWeight: token.fontWeightStrong, fontSize: token.borderRadiusLG }}
                                                     />
                                                 </Card>
                                             </Col>
@@ -1260,7 +1260,7 @@ const handleControl = async (action: string) => {
                     </div>
                     <div>
                         <Text strong style={{ fontSize: token.fontSizeHeading5 }}>{serviceLabel}</Text>
-                        <Text type="secondary" style={{ display: 'block', fontSize: token.fontSizeSM, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        <Text type="secondary" style={{ display: 'block', fontSize: token.fontSizeSM, fontWeight: token.fontWeightStrong, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             {serviceName} • {agentName}
                         </Text>
                     </div>

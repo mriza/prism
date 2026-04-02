@@ -173,7 +173,7 @@ export function ServicesPage() {
             title: 'Actions',
             key: 'actions',
             align: 'right' as const,
-            render: (_: any, svc: any, _index: number) => {
+            render: (_: any, svc: any) => {
                 const agentId = (svc as any).agentId; // We'll ensure agentId is available in record or passed correctly
                 const isOnline = svc.status === 'online' || svc.status === 'running' || svc.status === 'active';
                 const isOffline = svc.status === 'offline' || svc.status === 'stopped';
@@ -258,7 +258,7 @@ export function ServicesPage() {
                 {loading && agents.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: `${token.paddingXL * 5}px 0` }}>
                         <Spin size="large" />
-                        <Paragraph type="secondary" style={{ marginTop: token.marginLG, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                        <Paragraph type="secondary" style={{ marginTop: token.marginLG, fontWeight: token.fontWeightStrong, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                             Inventorying Infrastructure...
                         </Paragraph>
                     </div>
@@ -267,8 +267,8 @@ export function ServicesPage() {
                         <div key={agent.id} style={{ marginBottom: token.marginLG }}>
                             <Divider titlePlacement="left" style={{ margin: `0 0 ${token.marginLG}px 0` }}>
                                 <Space>
-                                    <div style={{ 
-                                        padding: token.paddingSM, 
+                                    <div style={{
+                                        padding: token.paddingSM,
                                         borderRadius: token.borderRadius,
                                         backgroundColor: agent.status === 'online' ? `${token.colorSuccess}10` : token.colorFillAlter,
                                         color: agent.status === 'online' ? token.colorSuccess : token.colorTextDisabled,
@@ -280,7 +280,7 @@ export function ServicesPage() {
                                     </div>
                                     <div>
                                         <Text strong>{agent.name || agent.hostname}</Text>
-                                        <Text type="secondary" style={{ fontSize: token.fontSizeSM, marginLeft: token.marginXS, fontWeight: 700 }}>
+                                        <Text type="secondary" style={{ fontSize: token.fontSizeSM, marginLeft: token.marginXS, fontWeight: token.fontWeightStrong }}>
                                             {agent.hostname} • {agent.osInfo}
                                         </Text>
                                     </div>

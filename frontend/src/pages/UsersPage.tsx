@@ -94,7 +94,7 @@ export function UsersPage() {
                                                     <Text strong style={{ fontSize: token.fontSizeHeading5 }}>{u.username}</Text>
                                                     {isSelf && <Tag color="blue" style={{ borderRadius: token.borderRadiusSM, fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>Me</Tag>}
                                                 </Space>
-                                                <div style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', color: token.colorTextDisabled, fontWeight: 700 }}>
+                                                <div style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.1em', color: token.colorTextDisabled, fontWeight: token.fontWeightStrong }}>
                                                     {u.role} Authority
                                                 </div>
                                             </div>
@@ -148,7 +148,7 @@ export function UsersPage() {
                                     </Space>
 
                                     <div style={{ borderTop: `1px solid ${token.colorBorderSecondary}`, paddingTop: token.padding, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <Space size={4} style={{ color: token.colorTextDisabled, fontSize: token.fontSizeSM, textTransform: 'uppercase', fontWeight: 600 }}>
+                                        <Space size={4} style={{ color: token.colorTextDisabled, fontSize: token.fontSizeSM, textTransform: 'uppercase', fontWeight: token.fontWeightStrong }}>
                                             <CalendarOutlined />
                                             <span>Enrolled {new Date(u.createdAt).toLocaleDateString()}</span>
                                         </Space>

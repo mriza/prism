@@ -28,11 +28,12 @@ export default defineConfig({
       output: {
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'antd-vendor': ['antd', '@ant-design/icons'],
+          'antd-vendor': ['antd'],
+          'antd-icons': ['@ant-design/icons'],
         },
       },
     },
-    chunkSizeWarningLimit: 500,
+    chunkSizeWarningLimit: 1500, // Ant Design is large, this is acceptable
   },
   test: {
     globals: true,

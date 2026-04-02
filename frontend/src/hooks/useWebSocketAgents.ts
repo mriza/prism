@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { log } from '../utils/log';
 
 interface AgentUpdate {
   type: 'agent_connected' | 'agent_disconnected' | 'agent_updated' | 'agent_approved' | 'agent_deleted';
@@ -20,6 +21,7 @@ export function useWebSocketAgents(
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { token } = useAuth();
+  const connectRef = useRef<() => void>(null!);
 
   const connect = useCallback(() => {
     if (!token) {
@@ -30,16 +32,16 @@ export function useWebSocketAgents(
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}/ws/agents?token=${token}`;
-      
-      console.log('Connecting to WebSocket:', wsUrl);
+
+      log.debug('Connecting to WebSocket:', wsUrl);
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('WebSocket connected');
+        log.debug('WebSocket connected');
         setConnected(true);
         setError(null);
-        
+
         // Subscribe to agents channel
         ws.send(JSON.stringify({
           type: 'subscribe',
@@ -50,13 +52,13 @@ export function useWebSocketAgents(
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-          console.log('WebSocket message received:', message);
-          
+          log.debug('WebSocket message received:', message);
+
           if (message.type === 'subscribed') {
-            console.log('Subscribed to channel:', message.channel);
+            log.debug('Subscribed to channel:', message.channel);
             return;
           }
-          
+
           if (message.type === 'pong') {
             return;
           }
@@ -74,31 +76,35 @@ export function useWebSocketAgents(
             });
           }
         } catch (err) {
-          console.error('Failed to parse WebSocket message:', err);
+          log.error('Failed to parse WebSocket message:', err);
         }
       };
 
       ws.onclose = () => {
-        console.log('WebSocket disconnected');
+        log.info('WebSocket disconnected');
         setConnected(false);
-        
+
         // Attempt to reconnect after 5 seconds
         reconnectTimeoutRef.current = window.setTimeout(() => {
-          console.log('Attempting to reconnect...');
-          connect();
+          log.info('Attempting to reconnect...');
+          connectRef.current?.();
         }, 5000);
       };
 
       ws.onerror = (err) => {
-        console.error('WebSocket error:', err);
+        log.error('WebSocket error:', err);
         setError('WebSocket connection error');
         ws.close();
       };
     } catch (err) {
-      console.error('Failed to create WebSocket:', err);
+      log.error('Failed to create WebSocket:', err);
       setError('Failed to create WebSocket connection');
     }
   }, [token, onAgentUpdate]);
+
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   useEffect(() => {
     if (token) {

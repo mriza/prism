@@ -383,6 +383,10 @@ func UpdateCommandStatus(id string, status string, result map[string]interface{}
 
 // Audit Log operations
 
+// OnAuditLogCreated is a callback function to notify when a new audit log is created
+// This is used for real-time WebSocket log streaming
+var OnAuditLogCreated func(audit models.AuditLog)
+
 func CreateAuditLog(audit models.AuditLog) (models.AuditLog, error) {
 	if audit.Timestamp.IsZero() {
 		audit.Timestamp = time.Now()
@@ -395,12 +399,17 @@ func CreateAuditLog(audit models.AuditLog) (models.AuditLog, error) {
 		}
 	}
 
-	query := `INSERT INTO audit_log (user_id, action, resource_type, resource_id, details, ip_address, timestamp) 
+	query := `INSERT INTO audit_log (user_id, action, resource_type, resource_id, details, ip_address, timestamp)
 	VALUES (?, ?, ?, ?, ?, ?, ?)`
 
 	_, err := DB.Exec(query, audit.UserID, audit.Action, audit.ResourceType, audit.ResourceID, detailsJSON, audit.IPAddress, audit.Timestamp.Format(time.RFC3339))
 	if err != nil {
 		return audit, err
+	}
+
+	// Notify WebSocket subscribers if callback is registered
+	if OnAuditLogCreated != nil {
+		go OnAuditLogCreated(audit)
 	}
 
 	return audit, nil

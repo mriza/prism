@@ -27,7 +27,7 @@ export function ChangePasswordModal({ isOpen, onClose }: Props) {
     const handleSave = async (values: any) => {
         setLoading(true);
         setError('');
-        
+
         try {
             const apiBase = import.meta.env.VITE_API_URL || '';
             const res = await fetch(`${apiBase}/api/users/me/change-password`, {
@@ -44,18 +44,29 @@ export function ChangePasswordModal({ isOpen, onClose }: Props) {
 
             if (!res.ok) {
                 const errorData = await res.text();
-                throw new Error(errorData || 'Failed to change password');
+                // Parse error message for better UX
+                let errorMessage = 'Failed to change password';
+                if (res.status === 401) {
+                    errorMessage = 'Current password is incorrect. Please try again.';
+                } else if (res.status === 400) {
+                    errorMessage = errorData || 'Invalid password. Password must be at least 8 characters.';
+                } else if (res.status === 403) {
+                    errorMessage = 'You do not have permission to change this password.';
+                } else if (errorData) {
+                    errorMessage = errorData;
+                }
+                throw new Error(errorMessage);
             }
 
             form.resetFields();
             onClose();
-            
+
             // Force re-login after password change
             setTimeout(() => {
                 alert('Password changed successfully! Please login again with your new password.');
                 window.location.href = '/login';
             }, 500);
-            
+
         } catch (err: any) {
             setError(err.message || 'Failed to change password');
         } finally {
@@ -181,11 +192,11 @@ export function ChangePasswordModal({ isOpen, onClose }: Props) {
                     >
                         Cancel
                     </Button>
-                    <Button 
-                        type="primary" 
-                        htmlType="submit" 
+                    <Button
+                        type="primary"
+                        htmlType="submit"
                         loading={loading}
-                        style={{ borderRadius: token.borderRadius, fontWeight: 600 }}
+                        style={{ borderRadius: token.borderRadius, fontWeight: token.fontWeightStrong }}
                     >
                         Change Password
                     </Button>

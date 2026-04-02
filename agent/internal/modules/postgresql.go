@@ -3,7 +3,6 @@ package modules
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"prism-agent/internal/core"
 	"strings"
 )
@@ -32,14 +31,14 @@ func (m *PostgresModule) SetManagementCredentials(creds map[string]string) {
 
 func (m *PostgresModule) GetFacts() (map[string]string, error) {
 	facts, _ := m.SystemdModule.GetFacts()
-	out, err := exec.Command("psql", "--version").Output()
+	out, err := getExecutor().Command("psql", "--version").Output()
 	if err == nil {
 		facts["version"] = strings.TrimSpace(string(out))
 	}
 	return facts, nil
 }
 
-func (m *PostgresModule) runPsql(query string, formatArgs ...string) *exec.Cmd {
+func (m *PostgresModule) runPsql(query string, formatArgs ...string) Command {
 	var args []string
 	var env []string
 
@@ -55,9 +54,9 @@ func (m *PostgresModule) runPsql(query string, formatArgs ...string) *exec.Cmd {
 	args = append(args, formatArgs...)
 	args = append(args, "-c", query)
 
-	cmd := exec.Command(args[0], args[1:]...)
+	cmd := getExecutor().Command(args[0], args[1:]...)
 	if len(env) > 0 {
-		cmd.Env = env
+		cmd.SetEnv(env)
 	}
 	return cmd
 }
@@ -163,7 +162,7 @@ func (m *PostgresModule) UpdatePrivileges(name, role, target string) error {
 
 func (m *PostgresModule) GetConfigPath() string {
 	// Try to detect version from installed PostgreSQL
-	if out, err := exec.Command("pg_lsclusters", "--no-header").Output(); err == nil {
+	if out, err := getExecutor().Command("pg_lsclusters", "--no-header").Output(); err == nil {
 		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 			fields := strings.Fields(line)
 			if len(fields) >= 2 {

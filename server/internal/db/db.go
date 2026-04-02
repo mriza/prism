@@ -183,11 +183,13 @@ func createTables() error {
 	CREATE TABLE IF NOT EXISTS events (
 		id TEXT PRIMARY KEY,
 		agent_id TEXT NOT NULL,
+		project_id TEXT,
 		type TEXT NOT NULL,
 		service TEXT,
 		status TEXT,
 		message TEXT,
-		created_at TEXT NOT NULL
+		created_at TEXT NOT NULL,
+		FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE SET NULL
 	);`
 
 	settingsTable := `
@@ -322,125 +324,6 @@ func createTables() error {
 		created_at TEXT NOT NULL
 	);`
 
-	rolePermissionsTable := `
-	CREATE TABLE IF NOT EXISTS role_permissions (
-		id TEXT PRIMARY KEY,
-		role TEXT NOT NULL,
-		permission_id TEXT NOT NULL,
-		server_group_id TEXT,
-		created_at TEXT NOT NULL,
-		FOREIGN KEY(permission_id) REFERENCES permissions(id) ON DELETE CASCADE,
-		FOREIGN KEY(server_group_id) REFERENCES server_groups(id) ON DELETE CASCADE
-	);`
-
-	userServerAccessTable := `
-	CREATE TABLE IF NOT EXISTS user_server_access (
-		id TEXT PRIMARY KEY,
-		user_id TEXT NOT NULL,
-		server_id TEXT NOT NULL,
-		access_level TEXT NOT NULL DEFAULT 'view',
-		granted_by TEXT,
-		granted_at TEXT NOT NULL,
-		expires_at TEXT,
-		FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
-		FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE,
-		UNIQUE(user_id, server_id)
-	);`
-
-	serverGroupsTable := `
-	CREATE TABLE IF NOT EXISTS server_groups (
-		id TEXT PRIMARY KEY,
-		name TEXT NOT NULL,
-		description TEXT,
-		created_by TEXT,
-		created_at TEXT NOT NULL,
-		updated_at TEXT NOT NULL
-	);`
-
-	serverGroupMembersTable := `
-	CREATE TABLE IF NOT EXISTS server_group_members (
-		id TEXT PRIMARY KEY,
-		group_id TEXT NOT NULL,
-		server_id TEXT NOT NULL,
-		created_at TEXT NOT NULL,
-		FOREIGN KEY(group_id) REFERENCES server_groups(id) ON DELETE CASCADE,
-		FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE,
-		UNIQUE(group_id, server_id)
-	);`
-
-	// Webhook and Retention tables for v4.2
-
-	webhookSubscriptionsTable := `
-	CREATE TABLE IF NOT EXISTS webhook_subscriptions (
-		id TEXT PRIMARY KEY,
-		name TEXT NOT NULL,
-		url TEXT NOT NULL,
-		events TEXT NOT NULL,
-		active INTEGER DEFAULT 1,
-		secret TEXT,
-		created_at TEXT NOT NULL,
-		updated_at TEXT NOT NULL
-	);`
-
-	webhookDeliveriesTable := `
-	CREATE TABLE IF NOT EXISTS webhook_deliveries (
-		id TEXT PRIMARY KEY,
-		subscription_id TEXT NOT NULL,
-		event_type TEXT NOT NULL,
-		payload TEXT NOT NULL,
-		status TEXT NOT NULL DEFAULT 'pending',
-		response_code TEXT,
-		response_body TEXT,
-		attempts INTEGER DEFAULT 0,
-		created_at TEXT NOT NULL,
-		delivered_at TEXT,
-		FOREIGN KEY(subscription_id) REFERENCES webhook_subscriptions(id) ON DELETE CASCADE
-	);`
-
-	retentionPoliciesTable := `
-	CREATE TABLE IF NOT EXISTS retention_policies (
-		id TEXT PRIMARY KEY,
-		name TEXT NOT NULL,
-		resource_type TEXT NOT NULL,
-		retention_days INTEGER NOT NULL,
-		enabled INTEGER DEFAULT 1,
-		created_at TEXT NOT NULL,
-		updated_at TEXT NOT NULL
-	);`
-
-	// Configuration Drift Detection tables for v4.2
-
-	configurationSnapshotsTable := `
-	CREATE TABLE IF NOT EXISTS configuration_snapshots (
-		id TEXT PRIMARY KEY,
-		server_id TEXT NOT NULL,
-		service_id TEXT,
-		config_hash TEXT NOT NULL,
-		config_data TEXT NOT NULL,
-		created_at TEXT NOT NULL,
-		created_by TEXT,
-		FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE,
-		FOREIGN KEY(service_id) REFERENCES services(id) ON DELETE CASCADE
-	);`
-
-	driftEventsTable := `
-	CREATE TABLE IF NOT EXISTS drift_events (
-		id TEXT PRIMARY KEY,
-		server_id TEXT NOT NULL,
-		service_id TEXT,
-		snapshot_id TEXT,
-		drift_type TEXT NOT NULL,
-		severity TEXT NOT NULL DEFAULT 'warning',
-		description TEXT,
-		old_config TEXT,
-		new_config TEXT,
-		detected_at TEXT NOT NULL,
-		resolved_at TEXT,
-		resolved_by TEXT,
-		FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE,
-		FOREIGN KEY(service_id) REFERENCES services(id) ON DELETE CASCADE,
-		FOREIGN KEY(snapshot_id) REFERENCES configuration_snapshots(id) ON DELETE CASCADE
-	);`
 
 	deploymentsTable := `
 	CREATE TABLE IF NOT EXISTS deployments (
@@ -502,35 +385,6 @@ func createTables() error {
 	if _, err := DB.Exec(permissionsTable); err != nil {
 		return fmt.Errorf("create permissions table: %w", err)
 	}
-	if _, err := DB.Exec(rolePermissionsTable); err != nil {
-		return fmt.Errorf("create role_permissions table: %w", err)
-	}
-	if _, err := DB.Exec(userServerAccessTable); err != nil {
-		return fmt.Errorf("create user_server_access table: %w", err)
-	}
-	if _, err := DB.Exec(serverGroupsTable); err != nil {
-		return fmt.Errorf("create server_groups table: %w", err)
-	}
-	if _, err := DB.Exec(serverGroupMembersTable); err != nil {
-		return fmt.Errorf("create server_group_members table: %w", err)
-	}
-	// Create Webhook and Retention tables
-	if _, err := DB.Exec(webhookSubscriptionsTable); err != nil {
-		return fmt.Errorf("create webhook_subscriptions table: %w", err)
-	}
-	if _, err := DB.Exec(webhookDeliveriesTable); err != nil {
-		return fmt.Errorf("create webhook_deliveries table: %w", err)
-	}
-	if _, err := DB.Exec(retentionPoliciesTable); err != nil {
-		return fmt.Errorf("create retention_policies table: %w", err)
-	}
-	// Create Drift Detection tables
-	if _, err := DB.Exec(configurationSnapshotsTable); err != nil {
-		return fmt.Errorf("create configuration_snapshots table: %w", err)
-	}
-	if _, err := DB.Exec(driftEventsTable); err != nil {
-		return fmt.Errorf("create drift_events table: %w", err)
-	}
 	if _, err := DB.Exec(agentTable); err != nil {
 		return fmt.Errorf("create agents table: %w", err)
 	}
@@ -565,15 +419,6 @@ func createTables() error {
 		log.Printf("Warning: failed to create commands index: %v", err)
 	}
 	// RBAC indexes
-	if _, err := DB.Exec(`CREATE INDEX IF NOT EXISTS idx_role_permissions_role ON role_permissions(role)`); err != nil {
-		log.Printf("Warning: failed to create role_permissions index: %v", err)
-	}
-	if _, err := DB.Exec(`CREATE INDEX IF NOT EXISTS idx_user_server_access_user ON user_server_access(user_id)`); err != nil {
-		log.Printf("Warning: failed to create user_server_access index: %v", err)
-	}
-	if _, err := DB.Exec(`CREATE INDEX IF NOT EXISTS idx_server_group_members_group ON server_group_members(group_id)`); err != nil {
-		log.Printf("Warning: failed to create server_group_members index: %v", err)
-	}
 
 	// Auto-migrate new columns for existing databases safely
 	DB.Exec("ALTER TABLE projects ADD COLUMN owner TEXT DEFAULT ''")
@@ -957,23 +802,25 @@ func DeleteUser(id string) error {
 }
 
 // Event Operations
-
 func CreateEvent(e models.Event) (models.Event, error) {
 	if e.ID == "" {
 		e.ID = uuid.NewString()
 	}
-	if e.CreatedAt == "" {
-		e.CreatedAt = time.Now().UTC().Format(time.RFC3339)
-	}
+	e.CreatedAt = time.Now().UTC().Format(time.RFC3339)
 
-	query := `INSERT INTO events (id, agent_id, type, service, status, message, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
-	_, err := DB.Exec(query, e.ID, e.AgentID, e.Type, e.Service, e.Status, e.Message, e.CreatedAt)
-	return e, err
+	query := `
+		INSERT INTO events (id, agent_id, project_id, type, service, status, message, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+	_, err := DB.Exec(query, e.ID, e.AgentID, e.ProjectID, e.Type, e.Service, e.Status, e.Message, e.CreatedAt)
+	if err != nil {
+		return e, err
+	}
+	return e, nil
 }
 
 func GetEvents(limit int) ([]models.Event, error) {
 	query := `
-		SELECT e.id, e.agent_id, a.name, e.type, e.service, e.status, e.message, e.created_at 
+		SELECT e.id, e.agent_id, e.project_id, a.name, e.type, e.service, e.status, e.message, e.created_at 
 		FROM events e
 		LEFT JOIN agents a ON e.agent_id = a.id
 		ORDER BY e.created_at DESC 
@@ -985,11 +832,11 @@ func GetEvents(limit int) ([]models.Event, error) {
 	}
 	defer rows.Close()
 
-	var events []models.Event
+	events := []models.Event{}
 	for rows.Next() {
 		var e models.Event
 		var agentName sql.NullString
-		if err := rows.Scan(&e.ID, &e.AgentID, &agentName, &e.Type, &e.Service, &e.Status, &e.Message, &e.CreatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.AgentID, &e.ProjectID, &agentName, &e.Type, &e.Service, &e.Status, &e.Message, &e.CreatedAt); err != nil {
 			return nil, err
 		}
 		if agentName.Valid {
@@ -1003,7 +850,7 @@ func GetEvents(limit int) ([]models.Event, error) {
 func GetEventsFiltered(agentID, service string, limit int) ([]models.Event, error) {
 	// Support matching by either agent UUID or hostname
 	query := `
-		SELECT e.id, e.agent_id, a.name, e.type, e.service, e.status, e.message, e.created_at 
+		SELECT e.id, e.agent_id, e.project_id, a.name, e.type, e.service, e.status, e.message, e.created_at 
 		FROM events e
 		LEFT JOIN agents a ON e.agent_id = a.id
 		WHERE (e.agent_id = ? OR a.hostname = ?) AND e.service = ? COLLATE NOCASE
@@ -1016,11 +863,41 @@ func GetEventsFiltered(agentID, service string, limit int) ([]models.Event, erro
 	}
 	defer rows.Close()
 
-	var events []models.Event
+	events := []models.Event{}
 	for rows.Next() {
 		var e models.Event
 		var agentName sql.NullString
-		if err := rows.Scan(&e.ID, &e.AgentID, &agentName, &e.Type, &e.Service, &e.Status, &e.Message, &e.CreatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.AgentID, &e.ProjectID, &agentName, &e.Type, &e.Service, &e.Status, &e.Message, &e.CreatedAt); err != nil {
+			return nil, err
+		}
+		if agentName.Valid {
+			e.AgentName = agentName.String
+		}
+		events = append(events, e)
+	}
+	return events, nil
+}
+
+func GetEventsByProject(projectID string, limit int) ([]models.Event, error) {
+	query := `
+		SELECT e.id, e.agent_id, e.project_id, a.name, e.type, e.service, e.status, e.message, e.created_at 
+		FROM events e
+		LEFT JOIN agents a ON e.agent_id = a.id
+		WHERE e.project_id = ?
+		ORDER BY e.created_at DESC 
+		LIMIT ?`
+
+	rows, err := DB.Query(query, projectID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	events := []models.Event{}
+	for rows.Next() {
+		var e models.Event
+		var agentName sql.NullString
+		if err := rows.Scan(&e.ID, &e.AgentID, &e.ProjectID, &agentName, &e.Type, &e.Service, &e.Status, &e.Message, &e.CreatedAt); err != nil {
 			return nil, err
 		}
 		if agentName.Valid {

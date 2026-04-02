@@ -28,28 +28,28 @@ export function SettingsPage() {
             title="System Settings"
             description="Configure global application logic, infrastructure polling intervals, and service defaults."
         >
-            <div style={{ maxWidth: '100%' }}>
+            <div className="prism-full-width">
                 <Row gutter={[24, 24]}>
                     <Col xs={24} lg={12}>
-                        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                        <Space direction="vertical" size="large" className="prism-full-width">
                             {/* Infrastructure Core */}
                             <Card
-                                title={<Space><SettingOutlined /> <Text strong style={{ fontSize: token.fontSize, textTransform: 'uppercase', letterSpacing: '1px' }}>Infrastructure Core</Text></Space>}
-                                style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}
+                                title={<Space><SettingOutlined /> <Text strong className="prism-statistic-title">Infrastructure Core</Text></Space>}
+                                className="prism-card"
                             >
-                                <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                                <Space direction="vertical" size="large" className="prism-full-width">
                                     <div>
-                                        <Text strong style={{ fontSize: token.fontSizeSM, display: 'block', marginBottom: token.marginXS }}>Hub Endpoint URL</Text>
+                                        <Text strong className="prism-label" style={{ display: 'block', marginBottom: token.marginXS }}>Hub Endpoint URL</Text>
                                         <Input
                                             defaultValue="http://localhost:65432"
                                             prefix={<GlobalOutlined style={{ color: token.colorTextDisabled }} />}
                                             placeholder="http://api.prism.internal"
                                             size="large"
-                                            style={{ fontFamily: 'monospace', borderRadius: token.borderRadiusLG }}
+                                            className="prism-mono-text prism-card"
                                         />
-                                        <Text type="secondary" style={{ fontSize: token.fontSizeSM, marginTop: token.marginXXS, display: 'block' }}>
+                                        <Paragraph type="secondary" className="prism-font-size-sm" style={{ marginTop: token.marginXXS }}>
                                             The primary API coordinator for all fleet communications.
-                                        </Text>
+                                        </Paragraph>
                                     </div>
                                 </Space>
                             </Card>
@@ -57,18 +57,18 @@ export function SettingsPage() {
                     </Col>
 
                     <Col xs={24} lg={12}>
-                        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                        <Space direction="vertical" size="large" className="prism-full-width">
                             {/* Telemetry & Sync */}
                             <Card
-                                title={<Space><SyncOutlined /> <Text strong style={{ fontSize: token.fontSize, textTransform: 'uppercase', letterSpacing: '1px' }}>Telemetry & Sync</Text></Space>}
-                                style={{ borderRadius: token.borderRadiusLG, border: `1px solid ${token.colorBorderSecondary}` }}
+                                title={<Space><SyncOutlined /> <Text strong className="prism-statistic-title">Telemetry & Sync</Text></Space>}
+                                className="prism-card"
                             >
-                                <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                                <Space direction="vertical" size="large" className="prism-full-width">
                                     {/* Agent Heartbeat */}
-                                    <div style={{ backgroundColor: token.colorFillAlter, padding: token.paddingLG, borderRadius: token.borderRadiusLG }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: token.marginSM }}>
-                                            <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Infrastructure Heartbeat</Text>
-                                            <Tag color="blue" style={{ borderRadius: token.borderRadius, fontFamily: 'monospace', fontWeight: 800 }}>{config.heartbeatInterval / 1000}s</Tag>
+                                    <div className="prism-settings-group" style={{ backgroundColor: token.colorFillAlter }}>
+                                        <div className="prism-flex-between" style={{ marginBottom: token.marginSM }}>
+                                            <Text strong className="prism-label">Infrastructure Heartbeat</Text>
+                                            <Tag color="blue" className="prism-mono-text prism-rounded" style={{ fontWeight: token.fontWeightStrong }}>{config.heartbeatInterval / 1000}s</Tag>
                                         </div>
                                         <Slider
                                             min={5}
@@ -77,16 +77,16 @@ export function SettingsPage() {
                                             value={config.heartbeatInterval / 1000}
                                             onChange={(val) => updateConfig({ heartbeatInterval: val * 1000 })}
                                         />
-                                        <Paragraph type="secondary" style={{ fontSize: token.fontSizeSM, marginTop: token.marginXS, marginBottom: 0, fontStyle: 'italic' }}>
+                                        <Paragraph type="secondary" className="prism-font-size-sm" style={{ marginTop: token.marginXS, marginBottom: 0, fontStyle: 'italic' }}>
                                             Frequency of agent status reporting. Lower values provide fresher data but increase network overhead.
                                         </Paragraph>
                                     </div>
 
                                     {/* UI Refresh Rate */}
-                                    <div style={{ backgroundColor: `${token.colorInfoBg}40`, padding: token.paddingLG, borderRadius: token.borderRadiusLG }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: token.marginSM }}>
-                                            <Text strong style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '0.05em' }}>UI Refresh Interval</Text>
-                                            <Tag color="cyan" style={{ borderRadius: token.borderRadius, fontFamily: 'monospace', fontWeight: 800 }}>{config.uiRefreshRate / 1000}s</Tag>
+                                    <div className="prism-settings-group" style={{ backgroundColor: `${token.colorInfoBg}40` }}>
+                                        <div className="prism-flex-between" style={{ marginBottom: token.marginSM }}>
+                                            <Text strong className="prism-label">UI Refresh Interval</Text>
+                                            <Tag color="cyan" className="prism-mono-text prism-rounded" style={{ fontWeight: token.fontWeightStrong }}>{config.uiRefreshRate / 1000}s</Tag>
                                         </div>
                                         <Slider
                                             min={2}
@@ -95,7 +95,7 @@ export function SettingsPage() {
                                             value={config.uiRefreshRate / 1000}
                                             onChange={(val) => updateConfig({ uiRefreshRate: val * 1000 })}
                                         />
-                                        <Paragraph type="secondary" style={{ fontSize: token.fontSizeSM, marginTop: token.marginXS, marginBottom: 0, fontStyle: 'italic' }}>
+                                        <Paragraph type="secondary" className="prism-font-size-sm" style={{ marginTop: token.marginXS, marginBottom: 0, fontStyle: 'italic' }}>
                                             Frequency of dashboard updates. Controls the visual "freshness" of the current interface.
                                         </Paragraph>
                                     </div>

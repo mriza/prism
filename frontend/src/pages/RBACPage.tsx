@@ -34,10 +34,11 @@ interface Permission {
 }
 
 export function RBACPage() {
-    const { permissions, loading, fetchPermissions, createPermission, deletePermission } = usePermissions();
+    const { permissions, loading, fetchPermissions, createPermission, updatePermission, deletePermission } = usePermissions();
     const [searchText, setSearchText] = useState('');
     const [resourceTypeFilter, setResourceTypeFilter] = useState<string>('all');
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingPermission, setEditingPermission] = useState<Permission | null>(null);
     const [form] = Form.useForm();
     const { token } = theme.useToken();
 
@@ -80,16 +81,20 @@ export function RBACPage() {
             key: 'actions',
             render: (_, record) => (
                 <Space size="small">
-                    <Button 
-                        type="text" 
-                        size="small" 
+                    <Button
+                        type="text"
+                        size="small"
                         icon={<EditOutlined />}
-                        onClick={() => message.info('Edit permission - TODO')}
+                        onClick={() => {
+                            setEditingPermission(record);
+                            form.setFieldsValue(record);
+                            setIsModalOpen(true);
+                        }}
                     />
-                    <Button 
-                        type="text" 
-                        size="small" 
-                        danger 
+                    <Button
+                        type="text"
+                        size="small"
+                        danger
                         icon={<DeleteOutlined />}
                         onClick={async () => {
                             if (confirm(`Delete permission "${record.name}"?`)) {
@@ -157,12 +162,13 @@ export function RBACPage() {
                 />
             </Card>
 
-            {/* Create Permission Modal */}
+            {/* Create/Edit Permission Modal */}
             <Modal
-                title="Create Permission"
+                title={editingPermission ? 'Edit Permission' : 'Create Permission'}
                 open={isModalOpen}
                 onCancel={() => {
                     setIsModalOpen(false);
+                    setEditingPermission(null);
                     form.resetFields();
                 }}
                 footer={null}
@@ -171,18 +177,29 @@ export function RBACPage() {
                     form={form}
                     onFinish={async (values) => {
                         try {
-                            await createPermission({
-                                name: values.name,
-                                resourceType: values.resourceType,
-                                action: values.action,
-                                description: values.description || ''
-                            });
-                            message.success('Permission created successfully');
+                            if (editingPermission) {
+                                await updatePermission(editingPermission.id, {
+                                    name: values.name,
+                                    resourceType: values.resourceType,
+                                    action: values.action,
+                                    description: values.description || ''
+                                });
+                                message.success('Permission updated successfully');
+                            } else {
+                                await createPermission({
+                                    name: values.name,
+                                    resourceType: values.resourceType,
+                                    action: values.action,
+                                    description: values.description || ''
+                                });
+                                message.success('Permission created successfully');
+                            }
                             setIsModalOpen(false);
+                            setEditingPermission(null);
                             form.resetFields();
                             fetchPermissions(resourceTypeFilter === 'all' ? undefined : resourceTypeFilter);
                         } catch (err: any) {
-                            message.error(`Failed to create permission: ${err.message}`);
+                            message.error(`Failed to ${editingPermission ? 'update' : 'create'} permission: ${err.message}`);
                         }
                     }}
                     layout="vertical"

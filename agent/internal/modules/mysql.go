@@ -3,7 +3,6 @@ package modules
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"prism-agent/internal/core"
 	"strings"
 )
@@ -31,7 +30,7 @@ func (m *MySQLModule) GetFacts() (map[string]string, error) {
 	facts, _ := m.SystemdModule.GetFacts()
 
 	// Add Version
-	out, err := exec.Command("mysql", "--version").Output()
+	out, err := getExecutor().Command("mysql", "--version").Output()
 	if err == nil {
 		facts["version"] = strings.TrimSpace(string(out))
 	}
@@ -40,7 +39,7 @@ func (m *MySQLModule) GetFacts() (map[string]string, error) {
 
 // Database Management Methods
 
-func (m *MySQLModule) buildMysqlCmd(baseArgs ...string) *exec.Cmd {
+func (m *MySQLModule) buildMysqlCmd(baseArgs ...string) Command {
 	var args []string
 	var env []string
 
@@ -58,9 +57,9 @@ func (m *MySQLModule) buildMysqlCmd(baseArgs ...string) *exec.Cmd {
 	}
 
 	args = append(args, baseArgs...)
-	cmd := exec.Command(args[0], args[1:]...)
+	cmd := getExecutor().Command(args[0], args[1:]...)
 	if len(env) > 0 {
-		cmd.Env = env
+		cmd.SetEnv(env)
 	}
 	return cmd
 }
@@ -155,7 +154,7 @@ func (m *MySQLModule) CreateUser(name, password, role, target string) error {
 	// Use CREATE USER IF NOT EXISTS for idempotency
 	query := fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%s' IDENTIFIED BY '%s'; GRANT %s ON %s TO '%s'@'%s' WITH GRANT OPTION; FLUSH PRIVILEGES;", name, host, password, privileges, targetDB, name, host)
 	cmd := m.buildMysqlCmd()
-	cmd.Stdin = strings.NewReader(query)
+	cmd.SetStdin(strings.NewReader(query))
 	return cmd.Run()
 }
 
@@ -192,7 +191,7 @@ func (m *MySQLModule) UpdatePrivileges(name, role, target string) error {
 
 	query := fmt.Sprintf("REVOKE ALL PRIVILEGES, GRANT OPTION FROM '%s'@'%s'; GRANT %s ON %s TO '%s'@'%s'; FLUSH PRIVILEGES;", name, host, privileges, targetDB, name, host)
 	cmd := m.buildMysqlCmd()
-	cmd.Stdin = strings.NewReader(query)
+	cmd.SetStdin(strings.NewReader(query))
 	return cmd.Run()
 }
 

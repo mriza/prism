@@ -221,7 +221,7 @@ export function DeploymentFormModal({ isOpen, onClose, onSave, initial, projectI
                                 placeholder="KEY"
                                 value={field.key}
                                 onChange={e => updateEnvVar(idx, 'key', e.target.value)}
-                                style={{ fontFamily: 'monospace' }}
+                                className="text-monospace"
                             />
                         </Col>
                         <Col span={12}>
@@ -229,7 +229,7 @@ export function DeploymentFormModal({ isOpen, onClose, onSave, initial, projectI
                                 placeholder="value"
                                 value={field.value}
                                 onChange={e => updateEnvVar(idx, 'value', e.target.value)}
-                                style={{ fontFamily: 'monospace' }}
+                                className="text-monospace"
                             />
                         </Col>
                         <Col span={2}>
@@ -250,7 +250,7 @@ export function DeploymentFormModal({ isOpen, onClose, onSave, initial, projectI
                     gap: token.borderRadiusSM
                 }}>
                     <Button onClick={onClose}>Cancel</Button>
-                    <Button type="primary" htmlType="submit" icon={<RocketOutlined />} style={{ fontWeight: 600 }}>
+                    <Button type="primary" htmlType="submit" icon={<RocketOutlined />} style={{ fontWeight: token.fontWeightStrong }}>
                         {initial ? 'Save Changes' : 'Create Deployment'}
                     </Button>
                 </div>

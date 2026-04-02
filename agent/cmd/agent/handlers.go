@@ -9,6 +9,7 @@ import (
 	"prism-agent/internal/config"
 	"prism-agent/internal/core"
 	"prism-agent/internal/modules"
+	"prism-agent/internal/protocol"
 )
 
 // CommandContext provides access to agent level resources
@@ -18,8 +19,14 @@ type CommandContext struct {
 	ConfigPath string
 }
 
+// CommandResult holds the result of a command and any events to emit
+type CommandResult struct {
+	Output string
+	Events []protocol.EventPayload
+}
+
 // CommandHandlerFunc defines the signature for a command handler
-type CommandHandlerFunc func(mod core.ServiceModule, ctx *CommandContext, payload map[string]interface{}) (string, error)
+type CommandHandlerFunc func(mod core.ServiceModule, ctx *CommandContext, payload map[string]interface{}) (CommandResult, error)
 
 // CommandHandlers maps command actions to their handler functions
 
@@ -153,104 +160,139 @@ func injectCredentials(mod core.ServiceModule, p map[string]interface{}) {
 
 var CommandHandlers = map[string]CommandHandlerFunc{
 	// --- Generic Service Control ---
-	"start": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
-		return "", mod.Start()
+	"start": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
+		err := mod.Start()
+		return CommandResult{Output: ""}, err
 	},
-	"stop": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
-		return "", mod.Stop()
+	"stop": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
+		err := mod.Stop()
+		return CommandResult{Output: ""}, err
 	},
-	"restart": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
-		return "", mod.Restart()
+	"restart": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
+		err := mod.Restart()
+		return CommandResult{Output: ""}, err
 	},
-	"status": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"status": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		st, err := mod.Status()
-		return string(st), err
+		return CommandResult{Output: string(st)}, err
 	},
-	"get_facts": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"sys_get_os_info": func(_ core.ServiceModule, _ *CommandContext, _ map[string]interface{}) (CommandResult, error) {
+		return CommandResult{Output: getOSInfo()}, nil
+	},
+	"get_facts": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		facts, err := mod.GetFacts()
 		if err != nil {
-			return "", err
+			return CommandResult{}, err
 		}
 		b, _ := json.Marshal(facts)
-		return string(b), nil
+		return CommandResult{Output: string(b)}, nil
 	},
-	"verify_credential": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"verify_credential": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		injectCredentials(mod, p)
 		if db, ok := mod.(core.DatabaseModule); ok {
 			_, err := db.ListDatabases()
 			if err != nil {
-				return "", fmt.Errorf("credential verification failed: %w", err)
+				return CommandResult{}, fmt.Errorf("credential verification failed: %w", err)
 			}
-			return "Verification successful", nil
+			return CommandResult{Output: "Verification successful"}, nil
 		}
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
 			_, err := rmq.ListUsers()
 			if err != nil {
-				return "", fmt.Errorf("credential verification failed: %w", err)
+				return CommandResult{}, fmt.Errorf("credential verification failed: %w", err)
 			}
-			return "Verification successful", nil
+			return CommandResult{Output: "Verification successful"}, nil
 		}
 		if web, ok := mod.(core.WebServerModule); ok {
 			_, err := web.ListSites()
 			if err != nil {
-				return "", fmt.Errorf("credential verification failed: %w", err)
+				return CommandResult{}, fmt.Errorf("credential verification failed: %w", err)
 			}
-			return "Verification successful", nil
+			return CommandResult{Output: "Verification successful"}, nil
 		}
 		if st, ok := mod.(core.StorageModule); ok {
 			_, err := st.ListBuckets()
 			if err != nil {
-				return "", fmt.Errorf("credential verification failed: %w", err)
+				return CommandResult{}, fmt.Errorf("credential verification failed: %w", err)
 			}
-			return "Verification successful", nil
+			return CommandResult{Output: "Verification successful"}, nil
 		}
 
 		// Fallback for simple services
 		_, err := mod.GetFacts()
 		if err != nil {
-			return "", fmt.Errorf("credential verification failed: %w", err)
+			return CommandResult{}, fmt.Errorf("credential verification failed: %w", err)
 		}
-		return "Verification successful (basic check)", nil
+		return CommandResult{Output: "Verification successful (basic check)"}, nil
 	},
 
 	// --- Database ---
-	"db_list_dbs": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"db_list_dbs": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		injectCredentials(mod, p)
 		if db, ok := mod.(core.DatabaseModule); ok {
 			dbs, err := db.ListDatabases()
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
 			b, _ := json.Marshal(dbs)
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("module does not support database operations")
+		return CommandResult{}, fmt.Errorf("module does not support database operations")
 	},
-	"db_create_db": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"db_create_db": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		injectCredentials(mod, p)
 		name := getStringOpt(p, "name")
+		projectID := getStringOpt(p, "project_id")
 		if db, ok := mod.(core.DatabaseModule); ok {
-			return "", db.CreateDatabase(name)
+			err := db.CreateDatabase(name)
+			if err == nil {
+				return CommandResult{
+					Output: "Database created",
+					Events: []protocol.EventPayload{
+						{
+							Type:      "db_created",
+							Service:   mod.Name(),
+							Message:   fmt.Sprintf("Database %s created successfully", name),
+							ProjectID: projectID,
+						},
+					},
+				}, nil
+			}
+			return CommandResult{}, err
 		}
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
-			return "", rmq.CreateVHost(name)
+			err := rmq.CreateVHost(name)
+			if err == nil {
+				return CommandResult{
+					Output: "VHost created",
+					Events: []protocol.EventPayload{
+						{
+							Type:      "vhost_created",
+							Service:   mod.Name(),
+							Message:   fmt.Sprintf("VHost %s created successfully", name),
+							ProjectID: projectID,
+						},
+					},
+				}, nil
+			}
+			return CommandResult{}, err
 		}
-		return "", fmt.Errorf("module does not support database/vhost creation")
+		return CommandResult{}, fmt.Errorf("module does not support database/vhost creation")
 	},
-	"db_list_users": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"db_list_users": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		injectCredentials(mod, p)
 		if db, ok := mod.(core.DatabaseModule); ok {
 			users, err := db.ListUsers()
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
 			b, _ := json.Marshal(users)
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
 			users, err := rmq.ListUsers()
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
 			// Convert to simple string list for parity with Generic DB
 			var names []string
@@ -258,136 +300,203 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 				names = append(names, u.Name)
 			}
 			b, _ := json.Marshal(names)
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("module does not support user listing")
+		return CommandResult{}, fmt.Errorf("module does not support user listing")
 	},
-	"db_create_user": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"db_create_user": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		injectCredentials(mod, p)
 		user := getStringOpt(p, "username")
 		pass := getStringOpt(p, "password")
 		role := getStringOpt(p, "role")
 		target := getStringOpt(p, "target")
+		projectID := getStringOpt(p, "project_id")
 		
 		if db, ok := mod.(core.DatabaseModule); ok {
-			return "", db.CreateUser(user, pass, role, target)
+			err := db.CreateUser(user, pass, role, target)
+			if err == nil {
+				return CommandResult{
+					Output: "User created",
+					Events: []protocol.EventPayload{
+						{
+							Type:      "account_created",
+							Service:   mod.Name(),
+							Message:   fmt.Sprintf("Service account %s created on %s (target: %s)", user, mod.Name(), target),
+							ProjectID: projectID,
+						},
+					},
+				}, nil
+			}
+			return CommandResult{}, err
 		}
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
 			if target == "" {
 				target = "/" // Default vhost
 			}
-			return "", rmq.CreateUser(user, pass, role, target)
+			err := rmq.CreateUser(user, pass, role, target)
+			if err == nil {
+				return CommandResult{
+					Output: "User created",
+					Events: []protocol.EventPayload{
+						{
+							Type:      "account_created",
+							Service:   mod.Name(),
+							Message:   fmt.Sprintf("Service account %s created on RabbitMQ (vhost: %s)", user, target),
+							ProjectID: projectID,
+						},
+					},
+				}, nil
+			}
+			return CommandResult{}, err
 		}
-		return "", fmt.Errorf("module does not support user creation")
+		return CommandResult{}, fmt.Errorf("module does not support user creation")
 	},
-	"db_update_privileges": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"db_update_privileges": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		injectCredentials(mod, p)
 		user := getStringOpt(p, "username")
 		role := getStringOpt(p, "role")
 		target := getStringOpt(p, "target")
 
 		if db, ok := mod.(core.DatabaseModule); ok {
-			return "", db.UpdatePrivileges(user, role, target)
+			err := db.UpdatePrivileges(user, role, target)
+			return CommandResult{Output: "Privileges updated"}, err
 		}
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
 			if target == "" {
 				target = "/"
 			}
-			return "", rmq.SetPermissions(target, user, ".*", ".*", ".*")
+			err := rmq.SetPermissions(target, user, ".*", ".*", ".*")
+			return CommandResult{Output: "Permissions set"}, err
 		}
-		return "", fmt.Errorf("module does not support privilege updates")
+		return CommandResult{}, fmt.Errorf("module does not support privilege updates")
 	},
-	"db_create_binding": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"db_create_binding": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
 			vhost := getStringOpt(p, "vhost")
-			queue := getStringOpt(p, "destinationQueue") // Changed to match server names
+			queue := getStringOpt(p, "destinationQueue")
 			exchange := getStringOpt(p, "sourceExchange")
 			routingKey := getStringOpt(p, "routingKey")
-			return "", rmq.CreateBinding(vhost, exchange, queue, routingKey)
+			err := rmq.CreateBinding(vhost, exchange, queue, routingKey)
+			return CommandResult{Output: "Binding created"}, err
 		}
-		return "", fmt.Errorf("module does not support binding operations")
+		return CommandResult{}, fmt.Errorf("module does not support binding operations")
 	},
-	"db_sync": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"db_sync": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
 			bindings := getInterfaceSliceOpt(p, "bindings")
-			return "", rmq.SyncBindings(bindings)
+			err := rmq.SyncBindings(bindings)
+			return CommandResult{Output: "Bindings synced"}, err
 		}
-		return "", fmt.Errorf("module does not support sync operations")
+		return CommandResult{}, fmt.Errorf("module does not support sync operations")
 	},
 
 	// --- RabbitMQ ---
-	"rmq_list_vhosts": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"rmq_list_vhosts": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
 			vhosts, err := rmq.ListVHosts()
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
 			b, _ := json.Marshal(vhosts)
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("not a rabbitmq module")
+		return CommandResult{}, fmt.Errorf("not a rabbitmq module")
 	},
-	"rmq_create_vhost": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"rmq_create_vhost": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
 			name := getStringOpt(p, "name")
-			return "", rmq.CreateVHost(name)
+			projectID := getStringOpt(p, "project_id")
+			err := rmq.CreateVHost(name)
+			if err == nil {
+				return CommandResult{
+					Output: "VHost created",
+					Events: []protocol.EventPayload{
+						{
+							Type:      "vhost_created",
+							Service:   mod.Name(),
+							Message:   fmt.Sprintf("VHost %s created successfully on RabbitMQ", name),
+							ProjectID: projectID,
+						},
+					},
+				}, nil
+			}
+			return CommandResult{}, err
 		}
-		return "", fmt.Errorf("not a rabbitmq module")
+		return CommandResult{}, fmt.Errorf("not a rabbitmq module")
 	},
-	"rmq_delete_vhost": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"rmq_delete_vhost": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
 			name := getStringOpt(p, "name")
-			return "", rmq.DeleteVHost(name)
+			err := rmq.DeleteVHost(name)
+			return CommandResult{Output: "VHost deleted"}, err
 		}
-		return "", fmt.Errorf("not a rabbitmq module")
+		return CommandResult{}, fmt.Errorf("not a rabbitmq module")
 	},
-	"rmq_list_users": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"rmq_list_users": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
 			users, err := rmq.ListUsers()
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
 			b, _ := json.Marshal(users)
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("not a rabbitmq module")
+		return CommandResult{}, fmt.Errorf("not a rabbitmq module")
 	},
-	"rmq_create_user": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"rmq_create_user": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
 			user := getStringOpt(p, "username")
 			pass := getStringOpt(p, "password")
 			role := getStringOpt(p, "role")
 			target := getStringOpt(p, "vhost")
-			return "", rmq.CreateUser(user, pass, role, target)
+			projectID := getStringOpt(p, "project_id")
+			err := rmq.CreateUser(user, pass, role, target)
+			if err == nil {
+				return CommandResult{
+					Output: "User created",
+					Events: []protocol.EventPayload{
+						{
+							Type:      "account_created",
+							Service:   mod.Name(),
+							Message:   fmt.Sprintf("Service account %s created on RabbitMQ (vhost: %s)", user, target),
+							ProjectID: projectID,
+						},
+					},
+				}, nil
+			}
+			return CommandResult{}, err
 		}
-		return "", fmt.Errorf("not a rabbitmq module")
+		return CommandResult{}, fmt.Errorf("not a rabbitmq module")
 	},
-	"rmq_set_permissions": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"rmq_set_permissions": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
 			vhost := getStringOpt(p, "vhost")
 			user := getStringOpt(p, "username")
-			return "", rmq.SetPermissions(vhost, user, ".*", ".*", ".*")
+			err := rmq.SetPermissions(vhost, user, ".*", ".*", ".*")
+			return CommandResult{Output: "Permissions set"}, err
 		}
-		return "", fmt.Errorf("not a rabbitmq module")
+		return CommandResult{}, fmt.Errorf("not a rabbitmq module")
 	},
-	"rmq_create_binding": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"rmq_create_binding": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
 			vhost := getStringOpt(p, "vhost")
 			queue := getStringOpt(p, "queue")
 			exchange := getStringOpt(p, "exchange")
 			routingKey := getStringOpt(p, "routing_key")
-			return "", rmq.CreateBinding(vhost, exchange, queue, routingKey)
+			err := rmq.CreateBinding(vhost, exchange, queue, routingKey)
+			return CommandResult{Output: "Binding created"}, err
 		}
-		return "", fmt.Errorf("not a rabbitmq module")
+		return CommandResult{}, fmt.Errorf("not a rabbitmq module")
 	},
-	"rabbitmq_sync": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"rabbitmq_sync": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
 			bindings := getInterfaceSliceOpt(p, "bindings")
-			return "", rmq.SyncBindings(bindings)
+			err := rmq.SyncBindings(bindings)
+			return CommandResult{Output: "Bindings synced"}, err
 		}
-		return "", fmt.Errorf("not a rabbitmq module")
+		return CommandResult{}, fmt.Errorf("not a rabbitmq module")
 	},
-	"rabbitmq_create_exchange": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"rabbitmq_create_exchange": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
 			vhost := getStringOpt(p, "vhost")
 			name := getStringOpt(p, "name")
@@ -395,26 +504,29 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 			if kind == "" {
 				kind = "topic"
 			}
-			return "", rmq.DeclareExchange(vhost, name, kind)
+			err := rmq.DeclareExchange(vhost, name, kind)
+			return CommandResult{Output: "Exchange declared"}, err
 		}
-		return "", fmt.Errorf("not a rabbitmq module")
+		return CommandResult{}, fmt.Errorf("not a rabbitmq module")
 	},
-	"rabbitmq_create_queue": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"rabbitmq_create_queue": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
 			vhost := getStringOpt(p, "vhost")
 			name := getStringOpt(p, "name")
-			return "", rmq.DeclareQueue(vhost, name)
+			err := rmq.DeclareQueue(vhost, name)
+			return CommandResult{Output: "Queue declared"}, err
 		}
-		return "", fmt.Errorf("not a rabbitmq module")
+		return CommandResult{}, fmt.Errorf("not a rabbitmq module")
 	},
-	"rmq_delete_user": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"rmq_delete_user": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
 			user := getStringOpt(p, "username")
-			return "", rmq.DeleteUser(user)
+			err := rmq.DeleteUser(user)
+			return CommandResult{Output: "User deleted"}, err
 		}
-		return "", fmt.Errorf("not a rabbitmq module")
+		return CommandResult{}, fmt.Errorf("not a rabbitmq module")
 	},
-	"rmq_list_exchanges": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"rmq_list_exchanges": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
 			vhost := getStringOpt(p, "vhost")
 			if vhost == "" {
@@ -422,14 +534,14 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 			}
 			exchanges, err := rmq.ListExchanges(vhost)
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
 			b, _ := json.Marshal(exchanges)
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("not a rabbitmq module")
+		return CommandResult{}, fmt.Errorf("not a rabbitmq module")
 	},
-	"rmq_list_queues": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"rmq_list_queues": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if rmq, ok := mod.(core.RabbitMQModule); ok {
 			vhost := getStringOpt(p, "vhost")
 			if vhost == "" {
@@ -437,280 +549,360 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 			}
 			queues, err := rmq.ListQueues(vhost)
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
 			b, _ := json.Marshal(queues)
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("not a rabbitmq module")
+		return CommandResult{}, fmt.Errorf("not a rabbitmq module")
 	},
 
 	// --- Web Server ---
-	"web_list_sites": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"web_list_sites": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		if web, ok := mod.(core.WebServerModule); ok {
 			sites, err := web.ListSites()
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
 			b, _ := json.Marshal(sites)
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("not a web server module")
+		return CommandResult{}, fmt.Errorf("not a web server module")
 	},
-	"web_create_site": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"web_create_site": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if web, ok := mod.(core.WebServerModule); ok {
 			name := getStringOpt(p, "name")
 			content := getStringOpt(p, "content")
-			return "", web.CreateSite(name, content)
+			projectID := getStringOpt(p, "project_id")
+			err := web.CreateSite(name, content)
+			if err == nil {
+				return CommandResult{
+					Output: "Site created",
+					Events: []protocol.EventPayload{
+						{
+							Type:      "site_created",
+							Service:   mod.Name(),
+							Message:   fmt.Sprintf("Web site %s created successfully on %s", name, mod.Name()),
+							ProjectID: projectID,
+						},
+					},
+				}, nil
+			}
+			return CommandResult{}, err
 		}
-		return "", fmt.Errorf("not a web server module")
+		return CommandResult{}, fmt.Errorf("not a web server module")
 	},
-	"web_delete_site": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"web_delete_site": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if web, ok := mod.(core.WebServerModule); ok {
 			name := getStringOpt(p, "name")
-			return "", web.DeleteSite(name)
+			err := web.DeleteSite(name)
+			return CommandResult{Output: "Site deleted"}, err
 		}
-		return "", fmt.Errorf("not a web server module")
+		return CommandResult{}, fmt.Errorf("not a web server module")
 	},
-	"web_enable_site": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"web_enable_site": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if web, ok := mod.(core.WebServerModule); ok {
 			name := getStringOpt(p, "name")
-			return "", web.EnableSite(name)
+			err := web.EnableSite(name)
+			return CommandResult{Output: "Site enabled"}, err
 		}
-		return "", fmt.Errorf("not a web server module")
+		return CommandResult{}, fmt.Errorf("not a web server module")
 	},
-	"web_disable_site": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"web_disable_site": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if web, ok := mod.(core.WebServerModule); ok {
 			name := getStringOpt(p, "name")
-			return "", web.DisableSite(name)
+			err := web.DisableSite(name)
+			return CommandResult{Output: "Site disabled"}, err
 		}
-		return "", fmt.Errorf("not a web server module")
+		return CommandResult{}, fmt.Errorf("not a web server module")
 	},
 
 	// --- Storage ---
-	"storage_list_buckets": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"storage_list_buckets": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		if store, ok := mod.(core.StorageModule); ok {
 			buckets, err := store.ListBuckets()
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
 			b, _ := json.Marshal(buckets)
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("not a storage module")
+		return CommandResult{}, fmt.Errorf("not a storage module")
 	},
-	"storage_create_bucket": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"storage_create_bucket": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if store, ok := mod.(core.StorageModule); ok {
 			name := getStringOpt(p, "name")
-			return "", store.CreateBucket(name)
+			projectID := getStringOpt(p, "project_id")
+			err := store.CreateBucket(name)
+			if err == nil {
+				return CommandResult{
+					Output: "Bucket created",
+					Events: []protocol.EventPayload{
+						{
+							Type:      "bucket_created",
+							Service:   mod.Name(),
+							Message:   fmt.Sprintf("Storage bucket %s created successfully on %s", name, mod.Name()),
+							ProjectID: projectID,
+						},
+					},
+				}, nil
+			}
+			return CommandResult{}, err
 		}
-		return "", fmt.Errorf("not a storage module")
+		return CommandResult{}, fmt.Errorf("not a storage module")
 	},
-	"storage_delete_bucket": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"storage_delete_bucket": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if store, ok := mod.(core.StorageModule); ok {
 			name := getStringOpt(p, "name")
-			return "", store.DeleteBucket(name)
+			err := store.DeleteBucket(name)
+			return CommandResult{Output: "Bucket deleted"}, err
 		}
-		return "", fmt.Errorf("not a storage module")
+		return CommandResult{}, fmt.Errorf("not a storage module")
 	},
-	"storage_list_users": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"storage_list_users": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		if store, ok := mod.(core.StorageModule); ok {
 			users, err := store.ListUsers()
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
 			b, _ := json.Marshal(users)
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("not a storage module")
+		return CommandResult{}, fmt.Errorf("not a storage module")
 	},
-	"storage_create_user": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"storage_create_user": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if store, ok := mod.(core.StorageModule); ok {
 			accessKey := getStringOpt(p, "access_key")
 			secretKey := getStringOpt(p, "secret_key")
+			projectID := getStringOpt(p, "project_id")
 			user, err := store.CreateUser(accessKey, secretKey)
-			if err != nil {
-				return "", err
+			if err == nil {
+				b, _ := json.Marshal(user)
+				return CommandResult{
+					Output: string(b),
+					Events: []protocol.EventPayload{
+						{
+							Type:      "account_created",
+							Service:   mod.Name(),
+							Message:   fmt.Sprintf("Storage account %s created successfully on %s", accessKey, mod.Name()),
+							ProjectID: projectID,
+						},
+					},
+				}, nil
 			}
-			b, _ := json.Marshal(user)
-			return string(b), nil
+			return CommandResult{}, err
 		}
-		return "", fmt.Errorf("not a storage module")
+		return CommandResult{}, fmt.Errorf("not a storage module")
 	},
-	"storage_delete_user": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"storage_delete_user": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if store, ok := mod.(core.StorageModule); ok {
 			accessKey := getStringOpt(p, "access_key")
 			if accessKey == "" {
 				accessKey = getStringOpt(p, "username")
 			}
-			return "", store.DeleteUser(accessKey)
+			err := store.DeleteUser(accessKey)
+			return CommandResult{Output: "User deleted"}, err
 		}
-		return "", fmt.Errorf("not a storage module")
+		return CommandResult{}, fmt.Errorf("not a storage module")
 	},
 	// --- Ansible ---
-	"ansible_run_playbook": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
-		if ansible, ok := mod.(core.AnsibleModule); ok {
+	"ansible_run": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
+		if ans, ok := mod.(core.AnsibleModule); ok {
 			playbook := getStringOpt(p, "playbook")
 			inventory := getStringOpt(p, "inventory")
-			vars := getStringOpt(p, "extra_vars")
-			return ansible.RunPlaybook(playbook, inventory, vars)
+			extra := getStringOpt(p, "extra_vars")
+			out, err := ans.RunPlaybook(playbook, inventory, extra)
+			return CommandResult{Output: out}, err
 		}
-		return "", fmt.Errorf("not an ansible module")
+		return CommandResult{}, fmt.Errorf("not an ansible module")
 	},
 
 	// --- PM2 ---
-	"pm2_list_apps": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"pm2_get_apps": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		if pm2, ok := mod.(core.PM2Module); ok {
 			apps, err := pm2.GetApps()
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
 			b, _ := json.Marshal(apps)
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("not a pm2 module")
+		return CommandResult{}, fmt.Errorf("not a pm2 module")
 	},
-	"pm2_get_listen_port": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"pm2_get_port": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if pm2, ok := mod.(core.PM2Module); ok {
-			pidFloat := getFloatOpt(p, "pid")
-			port, err := pm2.GetListenPort(int(pidFloat))
+			pid := getIntOpt(p, "pid")
+			port, err := pm2.GetListenPort(pid)
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
-			return fmt.Sprintf("%d", port), nil
+			return CommandResult{Output: fmt.Sprintf("%d", port)}, nil
 		}
-		return "", fmt.Errorf("not a pm2 module")
+		return CommandResult{}, fmt.Errorf("not a pm2 module")
 	},
 
 	// --- Proxy ---
-	"proxy_list": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"proxy_list": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		if proxy, ok := mod.(core.ProxyModule); ok {
 			proxies, err := proxy.ListReverseProxies()
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
 			b, _ := json.Marshal(proxies)
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("not a proxy module")
+		return CommandResult{}, fmt.Errorf("not a proxy module")
 	},
-	"proxy_create": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"proxy_create": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if proxy, ok := mod.(core.ProxyModule); ok {
 			domain := getStringOpt(p, "domain")
 			portFloat := getFloatOpt(p, "port")
-			return "", proxy.CreateReverseProxy(domain, int(portFloat))
+			err := proxy.CreateReverseProxy(domain, int(portFloat))
+			return CommandResult{Output: "Proxy created"}, err
 		}
-		return "", fmt.Errorf("not a proxy module")
+		return CommandResult{}, fmt.Errorf("not a proxy module")
 	},
-	"proxy_delete": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"proxy_delete": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if proxy, ok := mod.(core.ProxyModule); ok {
 			domain := getStringOpt(p, "domain")
-			return "", proxy.DeleteReverseProxy(domain)
+			err := proxy.DeleteReverseProxy(domain)
+			return CommandResult{Output: "Proxy deleted"}, err
 		}
-		return "", fmt.Errorf("not a proxy module")
+		return CommandResult{}, fmt.Errorf("not a proxy module")
 	},
 
 	// --- MQTT ---
-	"mq_create_user": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
-		if mq, ok := mod.(core.MQTTModule); ok {
+	"mqtt_create_user": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
+		if mqtt, ok := mod.(core.MQTTModule); ok {
 			user := getStringOpt(p, "username")
 			pass := getStringOpt(p, "password")
-			return "", mq.CreateUser(user, pass)
+			projectID := getStringOpt(p, "project_id")
+			err := mqtt.CreateUser(user, pass)
+			if err == nil {
+				return CommandResult{
+					Output: "User created",
+					Events: []protocol.EventPayload{
+						{
+							Type:      "account_created",
+							Service:   mod.Name(),
+							Message:   fmt.Sprintf("MQTT user %s created successfully", user),
+							ProjectID: projectID,
+						},
+					},
+				}, nil
+			}
+			return CommandResult{}, err
 		}
-		return "", fmt.Errorf("not a mqtt module")
+		return CommandResult{}, fmt.Errorf("not an mqtt module")
 	},
-	"mq_delete_user": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
-		if mq, ok := mod.(core.MQTTModule); ok {
+	"mqtt_delete_user": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
+		if mqtt, ok := mod.(core.MQTTModule); ok {
 			user := getStringOpt(p, "username")
-			return "", mq.DeleteUser(user)
+			err := mqtt.DeleteUser(user)
+			return CommandResult{Output: "User deleted"}, err
 		}
-		return "", fmt.Errorf("not a mqtt module")
+		return CommandResult{}, fmt.Errorf("not an mqtt module")
 	},
 
 	// --- FTP ---
-	"ftp_create_user": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"ftp_create_user": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if ftp, ok := mod.(core.FTPModule); ok {
 			user := getStringOpt(p, "username")
 			pass := getStringOpt(p, "password")
 			path := getStringOpt(p, "root_path")
 			quota := int(getFloatOpt(p, "quota"))
 			enabled := getBoolOpt(p, "quota_enabled")
-			return "", ftp.CreateUser(user, pass, path, quota, enabled)
+			err := ftp.CreateUser(user, pass, path, quota, enabled)
+			return CommandResult{Output: "User created"}, err
 		}
-		return "", fmt.Errorf("not a ftp module")
+		return CommandResult{}, fmt.Errorf("not a ftp module")
 	},
-	"ftp_delete_user": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"ftp_delete_user": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if ftp, ok := mod.(core.FTPModule); ok {
 			user := getStringOpt(p, "username")
-			return "", ftp.DeleteUser(user)
+			err := ftp.DeleteUser(user)
+			return CommandResult{Output: "User deleted"}, err
 		}
-		return "", fmt.Errorf("not a ftp module")
+		return CommandResult{}, fmt.Errorf("not a ftp module")
 	},
-	"ftp_list_users": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"ftp_list_users": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		if ftp, ok := mod.(core.FTPModule); ok {
 			users, err := ftp.ListUsers()
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
 			b, _ := json.Marshal(users)
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("not a ftp module")
+		return CommandResult{}, fmt.Errorf("not a ftp module")
 	},
-	"proxy_detect": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
-		if proxy, ok := mod.(core.ProxyModule); ok {
-			return proxy.GetProxyType(), nil
+	"mqtt_list_users": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
+		if mqtt, ok := mod.(core.MQTTModule); ok {
+			users, err := mqtt.ListUsers()
+			if err != nil {
+				return CommandResult{}, err
+			}
+			b, _ := json.Marshal(users)
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("not a proxy module")
+		return CommandResult{}, fmt.Errorf("not an mqtt module")
+	},
+	"proxy_detect": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
+		if proxy, ok := mod.(core.ProxyModule); ok {
+			return CommandResult{Output: proxy.GetProxyType()}, nil
+		}
+		return CommandResult{}, fmt.Errorf("not a proxy module")
 	},
 
 	// --- Firewall (Generic) ---
-	"firewall_allow": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"firewall_allow": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if fw, ok := mod.(core.FirewallModule); ok {
 			if !fw.IsActive() {
-				return "", fmt.Errorf("firewall module %s is not the active engine", fw.TargetName())
+				return CommandResult{}, fmt.Errorf("firewall module %s is not the active engine", fw.TargetName())
 			}
 			portFloat := getFloatOpt(p, "port")
 			protocol := getStringOpt(p, "protocol")
 			if protocol == "" {
 				protocol = "tcp"
 			}
-			return "", fw.AllowPort(int(portFloat), protocol)
+			err := fw.AllowPort(int(portFloat), protocol)
+			return CommandResult{Output: "Port allowed"}, err
 		}
-		return "", fmt.Errorf("not a firewall module")
+		return CommandResult{}, fmt.Errorf("not a firewall module")
 	},
-	"firewall_deny": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"firewall_deny": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if fw, ok := mod.(core.FirewallModule); ok {
 			if !fw.IsActive() {
-				return "", fmt.Errorf("firewall module %s is not the active engine", fw.TargetName())
+				return CommandResult{}, fmt.Errorf("firewall module %s is not the active engine", fw.TargetName())
 			}
 			portFloat := getFloatOpt(p, "port")
 			protocol := getStringOpt(p, "protocol")
 			if protocol == "" {
 				protocol = "tcp"
 			}
-			return "", fw.DenyPort(int(portFloat), protocol)
+			err := fw.DenyPort(int(portFloat), protocol)
+			return CommandResult{Output: "Port denied"}, err
 		}
-		return "", fmt.Errorf("not a firewall module")
+		return CommandResult{}, fmt.Errorf("not a firewall module")
 	},
-	"firewall_list": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"firewall_list": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		if fw, ok := mod.(core.FirewallModule); ok {
 			if !fw.IsActive() {
-				return "", fmt.Errorf("firewall module %s is not the active engine", fw.TargetName())
+				return CommandResult{}, fmt.Errorf("firewall module %s is not the active engine", fw.TargetName())
 			}
 			rules, err := fw.ListRules()
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
 			b, _ := json.Marshal(rules)
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("not a firewall module")
+		return CommandResult{}, fmt.Errorf("not a firewall module")
 	},
-	"firewall_add": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"firewall_add": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if fw, ok := mod.(core.FirewallModule); ok {
 			if !fw.IsActive() {
-				return "", fmt.Errorf("firewall module %s is not the active engine", fw.TargetName())
+				return CommandResult{}, fmt.Errorf("firewall module %s is not the active engine", fw.TargetName())
 			}
 			portFloat := getFloatOpt(p, "port")
 			protocol := getStringOpt(p, "protocol")
@@ -718,180 +910,129 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 			if protocol == "" {
 				protocol = "tcp"
 			}
+			var err error
 			if action == "deny" {
-				return "", fw.DenyPort(int(portFloat), protocol)
+				err = fw.DenyPort(int(portFloat), protocol)
+			} else {
+				err = fw.AllowPort(int(portFloat), protocol)
 			}
-			return "", fw.AllowPort(int(portFloat), protocol)
+			return CommandResult{Output: "Rule added"}, err
 		}
-		return "", fmt.Errorf("not a firewall module")
+		return CommandResult{}, fmt.Errorf("not a firewall module")
 	},
-	"firewall_delete": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"firewall_delete": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if fw, ok := mod.(core.FirewallModule); ok {
 			if !fw.IsActive() {
-				return "", fmt.Errorf("firewall module %s is not the active engine", fw.TargetName())
+				return CommandResult{}, fmt.Errorf("firewall module %s is not the active engine", fw.TargetName())
 			}
 			ruleID := getStringOpt(p, "rule_id")
-			return "", fw.DeleteRule(ruleID)
+			err := fw.DeleteRule(ruleID)
+			return CommandResult{Output: "Rule deleted"}, err
 		}
-		return "", fmt.Errorf("not a firewall module")
+		return CommandResult{}, fmt.Errorf("not a firewall module")
 	},
-	"firewall_default": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"firewall_default": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if fw, ok := mod.(core.FirewallModule); ok {
 			if !fw.IsActive() {
-				return "", fmt.Errorf("firewall module %s is not the active engine", fw.TargetName())
+				return CommandResult{}, fmt.Errorf("firewall module %s is not the active engine", fw.TargetName())
 			}
 			policy := getStringOpt(p, "policy")
 			direction := getStringOpt(p, "direction")
 			if direction == "" {
 				direction = "incoming"
 			}
-			return "", fw.SetDefaultPolicy(policy, direction)
+			err := fw.SetDefaultPolicy(policy, direction)
+			return CommandResult{Output: "Policy set"}, err
 		}
-		return "", fmt.Errorf("not a firewall module")
+		return CommandResult{}, fmt.Errorf("not a firewall module")
 	},
 
-	// UFW Aliases (Backward Compatibility)
-	"ufw_allow": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
-		if fw, ok := mod.(core.FirewallModule); ok {
-			portFloat := getFloatOpt(p, "port")
-			protocol := getStringOpt(p, "protocol")
-			if protocol == "" {
-				protocol = "tcp"
-			}
-			return "", fw.AllowPort(int(portFloat), protocol)
-		}
-		return "", fmt.Errorf("not a firewall module")
-	},
-	"ufw_deny": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
-		if fw, ok := mod.(core.FirewallModule); ok {
-			portFloat := getFloatOpt(p, "port")
-			protocol := getStringOpt(p, "protocol")
-			if protocol == "" {
-				protocol = "tcp"
-			}
-			return "", fw.DenyPort(int(portFloat), protocol)
-		}
-		return "", fmt.Errorf("not a firewall module")
-	},
-	"ufw_list": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
-		if fw, ok := mod.(core.FirewallModule); ok {
-			rules, err := fw.ListRules()
-			if err != nil {
-				return "", err
-			}
-			b, _ := json.Marshal(rules)
-			return string(b), nil
-		}
-		return "", fmt.Errorf("not a firewall module")
-	},
-	"ufw_add": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
-		if fw, ok := mod.(core.FirewallModule); ok {
-			portFloat := getFloatOpt(p, "port")
-			protocol := getStringOpt(p, "protocol")
-			action := getStringOpt(p, "action")
-			if protocol == "" {
-				protocol = "tcp"
-			}
-			if action == "deny" {
-				return "", fw.DenyPort(int(portFloat), protocol)
-			}
-			return "", fw.AllowPort(int(portFloat), protocol)
-		}
-		return "", fmt.Errorf("not a firewall module")
-	},
-	"ufw_delete": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
-		if fw, ok := mod.(core.FirewallModule); ok {
-			ruleID := getStringOpt(p, "rule_id")
-			return "", fw.DeleteRule(ruleID)
-		}
-		return "", fmt.Errorf("not a firewall module")
-	},
-	"ufw_default": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"fw_set_default": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if fw, ok := mod.(core.FirewallModule); ok {
 			policy := getStringOpt(p, "policy")
-			direction := getStringOpt(p, "direction")
-			if direction == "" {
-				direction = "incoming"
-			}
-			return "", fw.SetDefaultPolicy(policy, direction)
+			dir := getStringOpt(p, "direction")
+			err := fw.SetDefaultPolicy(policy, dir)
+			return CommandResult{Output: "Default policy set"}, err
 		}
-		return "", fmt.Errorf("not a firewall module")
+		return CommandResult{}, fmt.Errorf("not a firewall module")
 	},
 
 	// --- CrowdSec ---
-	"crowdsec_list": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
-		if cs, ok := mod.(core.CrowdSecModule); ok {
-			return cs.ListDecisions()
+	"crowdsec_list": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
+		if sec, ok := mod.(core.CrowdSecModule); ok {
+			out, err := sec.ListDecisions()
+			return CommandResult{Output: out}, err
 		}
-		return "", fmt.Errorf("not a crowdsec module")
+		return CommandResult{}, fmt.Errorf("not a security module")
 	},
-	"crowdsec_add": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
-		if cs, ok := mod.(core.CrowdSecModule); ok {
+	"crowdsec_add": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
+		if sec, ok := mod.(core.CrowdSecModule); ok {
 			ip := getStringOpt(p, "ip")
-			duration := getStringOpt(p, "duration")
+			dur := getStringOpt(p, "duration")
 			reason := getStringOpt(p, "reason")
 			decType := getStringOpt(p, "type")
-			return "", cs.AddDecision(ip, duration, reason, decType)
+			err := sec.AddDecision(ip, dur, reason, decType)
+			return CommandResult{Output: "Decision added"}, err
 		}
-		return "", fmt.Errorf("not a crowdsec module")
+		return CommandResult{}, fmt.Errorf("not a security module")
 	},
-	"crowdsec_delete": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
-		if cs, ok := mod.(core.CrowdSecModule); ok {
+	"crowdsec_delete": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
+		if sec, ok := mod.(core.CrowdSecModule); ok {
 			id := getStringOpt(p, "id")
-			return "", cs.DeleteDecision(id)
+			err := sec.DeleteDecision(id)
+			return CommandResult{Output: "Decision deleted"}, err
 		}
-		return "", fmt.Errorf("not a crowdsec module")
+		return CommandResult{}, fmt.Errorf("not a security module")
 	},
-	"crowdsec_delete_by_ip": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
-		if cs, ok := mod.(core.CrowdSecModule); ok {
+	"crowdsec_delete_by_ip": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
+		if sec, ok := mod.(core.CrowdSecModule); ok {
 			ip := getStringOpt(p, "ip")
-			return "", cs.DeleteDecisionByIP(ip)
+			err := sec.DeleteDecisionByIP(ip)
+			return CommandResult{Output: "Decision deleted by IP"}, err
 		}
-		return "", fmt.Errorf("not a crowdsec module")
+		return CommandResult{}, fmt.Errorf("not a security module")
 	},
+
 	// --- Configuration Management ---
-	"service_get_config": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"service_get_config": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		if cfgMod, ok := mod.(core.ConfigurableModule); ok {
 			content, err := cfgMod.ReadConfig()
 			if err != nil {
-				return "", fmt.Errorf("failed to read config: %w", err)
+				return CommandResult{}, fmt.Errorf("failed to read config: %w", err)
 			}
-			return content, nil
+			return CommandResult{Output: content}, nil
 		}
-		return "", fmt.Errorf("service %s does not support configuration", mod.Name())
+		return CommandResult{}, fmt.Errorf("service %s does not support configuration", mod.Name())
 	},
-	"service_update_config": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"service_update_config": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if cfgMod, ok := mod.(core.ConfigurableModule); ok {
 			content := getStringOpt(p, "content")
 			if content == "" {
-				return "", fmt.Errorf("content is required")
+				return CommandResult{}, fmt.Errorf("content is required")
 			}
 
 			if err := cfgMod.WriteConfig(content); err != nil {
-				return "", fmt.Errorf("failed to write config: %w", err)
+				return CommandResult{}, fmt.Errorf("failed to write config: %w", err)
 			}
-			return "Configuration updated successfully", nil
+			return CommandResult{Output: "Configuration updated successfully"}, nil
 		}
-		return "", fmt.Errorf("service %s does not support configuration", mod.Name())
+		return CommandResult{}, fmt.Errorf("service %s does not support configuration", mod.Name())
 	},
-	"systemd_list_all": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
-		// This is a global system action, but we use the module as a gateway if needed
-		// Actually, any module can run this, but it's better if we have a way to call it.
-		// For now, let's just implement the logic here.
+	"systemd_list_all": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		out, err := exec.Command("systemctl", "list-units", "--type=service", "--all", "--no-pager", "--no-legend").Output()
 		if err != nil {
-			return "", err
+			return CommandResult{}, err
 		}
-		return string(out), nil
+		return CommandResult{Output: string(out)}, nil
 	},
-	"service_register": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"service_register": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		name := getStringOpt(p, "name")
 		svcType := getStringOpt(p, "type")
 		svcName := getStringOpt(p, "service_name")
 		userScope := getBoolOpt(p, "user_scope")
 
 		if name == "" || svcType == "" || svcName == "" {
-			return "", fmt.Errorf("name, type and service_name are required")
+			return CommandResult{}, fmt.Errorf("name, type and service_name are required")
 		}
 
 		// Ensure conf.d exists
@@ -906,7 +1047,7 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 		}
 		subPath := filepath.Join(confD, "service-"+name+".toml")
 		if err := config.Save(&subCfg, subPath); err != nil {
-			return "", err
+			return CommandResult{}, err
 		}
 
 		// Register module immediately
@@ -914,15 +1055,15 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 		case "systemd":
 			ctx.Registry.Register(modules.NewSystemdModule(name, svcName, userScope))
 		default:
-			return "", fmt.Errorf("unsupported service type for registration: %s", svcType)
+			return CommandResult{}, fmt.Errorf("unsupported service type for registration: %s", svcType)
 		}
 
-		return "OK", nil
+		return CommandResult{Output: "OK"}, nil
 	},
-	"service_unregister": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"service_unregister": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		name := getStringOpt(p, "name")
 		if name == "" {
-			return "", fmt.Errorf("name is required")
+			return CommandResult{}, fmt.Errorf("name is required")
 		}
 
 		confD := filepath.Join(filepath.Dir(ctx.ConfigPath), "conf.d")
@@ -934,25 +1075,25 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 		// Unregister
 		ctx.Registry.Unregister(name)
 
-		return "OK", nil
+		return CommandResult{Output: "OK"}, nil
 	},
-	"service_list_processes": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"service_list_processes": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		if pm, ok := mod.(core.ProcessManager); ok {
 			procs, err := pm.ListProcesses()
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
 			b, _ := json.Marshal(procs)
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("module %s does not support process management", mod.Name())
+		return CommandResult{}, fmt.Errorf("module %s does not support process management", mod.Name())
 	},
-	"service_control_process": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"service_control_process": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if pm, ok := mod.(core.ProcessManager); ok {
 			id := getStringOpt(p, "process_id")
 			action := getStringOpt(p, "process_action")
 			if id == "" || action == "" {
-				return "", fmt.Errorf("process_id and process_action are required")
+				return CommandResult{}, fmt.Errorf("process_id and process_action are required")
 			}
 			var err error
 			switch action {
@@ -965,36 +1106,37 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 			default:
 				err = fmt.Errorf("unknown process action: %s", action)
 			}
-			return "OK", err
+			return CommandResult{Output: "OK"}, err
 		}
-		return "", fmt.Errorf("module %s does not support process management", mod.Name())
+		return CommandResult{}, fmt.Errorf("module %s does not support process management", mod.Name())
 	},
-	"service_get_settings": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"service_get_settings": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		if settings, ok := mod.(core.ServiceSettings); ok {
 			data, err := settings.GetSettings()
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
 			b, _ := json.Marshal(data)
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("module %s does not support structured settings", mod.Name())
+		return CommandResult{}, fmt.Errorf("module %s does not support structured settings", mod.Name())
 	},
-	"service_update_settings": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"service_update_settings": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if settings, ok := mod.(core.ServiceSettings); ok {
 			optsRaw, ok := p["options"]
 			if !ok || optsRaw == nil {
-				return "", fmt.Errorf("missing settings options")
+				return CommandResult{}, fmt.Errorf("missing settings options")
 			}
 			opts, ok := optsRaw.(map[string]interface{})
 			if !ok || opts == nil {
-				return "", fmt.Errorf("invalid settings format")
+				return CommandResult{}, fmt.Errorf("invalid settings format")
 			}
-			return "", settings.UpdateSettings(opts)
+			err := settings.UpdateSettings(opts)
+			return CommandResult{Output: "Settings updated"}, err
 		}
-		return "", fmt.Errorf("module %s does not support structured settings", mod.Name())
+		return CommandResult{}, fmt.Errorf("module %s does not support structured settings", mod.Name())
 	},
-	"service_import_items": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"service_import_items": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		items := make(map[string]interface{})
 		var importErrors []string
 
@@ -1175,172 +1317,176 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 
 		b, err := json.Marshal(items)
 		if err != nil {
-			return "", fmt.Errorf("failed to marshal import items: %w", err)
+			return CommandResult{}, fmt.Errorf("failed to marshal import items: %w", err)
 		}
-		return string(b), nil
+		return CommandResult{Output: string(b)}, nil
 	},
 
 	// service_get_config_path returns the configuration file path for a service
-	"service_get_config_path": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"service_get_config_path": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		if cfgMod, ok := mod.(core.ConfigurableModule); ok {
-			return cfgMod.GetConfigPath(), nil
+			return CommandResult{Output: cfgMod.GetConfigPath()}, nil
 		}
-		return "", fmt.Errorf("service %s does not support configuration", mod.Name())
+		return CommandResult{}, fmt.Errorf("service %s does not support configuration", mod.Name())
 	},
 
 	// === Valkey-specific commands ===
-	"valkey_get_info": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"valkey_get_info": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		if valkey, ok := mod.(*modules.ValkeyModule); ok {
 			info, err := valkey.GetInfo()
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
 			b, _ := json.Marshal(info)
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("not a valkey module")
+		return CommandResult{}, fmt.Errorf("not a valkey module")
 	},
-	"valkey_list_keys": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"valkey_list_keys": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if valkey, ok := mod.(*modules.ValkeyModule); ok {
 			pattern := getStringOpt(p, "pattern")
 			keys, err := valkey.ListKeys(pattern)
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
 			b, _ := json.Marshal(keys)
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("not a valkey module")
+		return CommandResult{}, fmt.Errorf("not a valkey module")
 	},
-	"valkey_get_key": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"valkey_get_key": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if valkey, ok := mod.(*modules.ValkeyModule); ok {
 			key := getStringOpt(p, "key")
 			if key == "" {
-				return "", fmt.Errorf("key is required")
+				return CommandResult{}, fmt.Errorf("key is required")
 			}
 			valkeyKey, err := valkey.GetKey(key)
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
 			b, _ := json.Marshal(valkeyKey)
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("not a valkey module")
+		return CommandResult{}, fmt.Errorf("not a valkey module")
 	},
-	"valkey_set_key": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"valkey_set_key": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if valkey, ok := mod.(*modules.ValkeyModule); ok {
 			key := getStringOpt(p, "key")
 			value := getStringOpt(p, "value")
 			ttl := getIntOpt(p, "ttl")
 
 			if key == "" || value == "" {
-				return "", fmt.Errorf("key and value are required")
+				return CommandResult{}, fmt.Errorf("key and value are required")
 			}
 
 			if err := valkey.SetKey(key, value, ttl); err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
-			return "Key set successfully", nil
+			return CommandResult{Output: "Key set successfully"}, nil
 		}
-		return "", fmt.Errorf("not a valkey module")
+		return CommandResult{}, fmt.Errorf("not a valkey module")
 	},
-	"valkey_delete_key": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"valkey_delete_key": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if valkey, ok := mod.(*modules.ValkeyModule); ok {
 			key := getStringOpt(p, "key")
 			if key == "" {
-				return "", fmt.Errorf("key is required")
+				return CommandResult{}, fmt.Errorf("key is required")
 			}
 			if err := valkey.DeleteKey(key); err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
-			return "Key deleted successfully", nil
+			return CommandResult{Output: "Key deleted successfully"}, nil
 		}
-		return "", fmt.Errorf("not a valkey module")
+		return CommandResult{}, fmt.Errorf("not a valkey module")
 	},
-	"valkey_list_clients": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"valkey_list_clients": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		if valkey, ok := mod.(*modules.ValkeyModule); ok {
 			clients, err := valkey.ListClients()
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
 			b, _ := json.Marshal(clients)
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("not a valkey module")
+		return CommandResult{}, fmt.Errorf("not a valkey module")
 	},
-	"valkey_kill_client": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"valkey_kill_client": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if valkey, ok := mod.(*modules.ValkeyModule); ok {
 			addr := getStringOpt(p, "addr")
 			if addr == "" {
-				return "", fmt.Errorf("client address is required")
+				return CommandResult{}, fmt.Errorf("client address is required")
 			}
 			if err := valkey.KillClient(addr); err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
-			return "Client killed successfully", nil
+			return CommandResult{Output: "Client killed successfully"}, nil
 		}
-		return "", fmt.Errorf("not a valkey module")
+		return CommandResult{}, fmt.Errorf("not a valkey module")
 	},
-	"valkey_get_config": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"valkey_get_config": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		if valkey, ok := mod.(*modules.ValkeyModule); ok {
 			config, err := valkey.GetConfig()
 			if err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
 			b, _ := json.Marshal(config)
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("not a valkey module")
+		return CommandResult{}, fmt.Errorf("not a valkey module")
 	},
-	"valkey_update_config": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"valkey_update_config": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if valkey, ok := mod.(*modules.ValkeyModule); ok {
-			key := getStringOpt(p, "key")
-			value := getStringOpt(p, "value")
-
-			if key == "" || value == "" {
-				return "", fmt.Errorf("key and value are required")
+			updatesRaw := getInterfaceSliceOpt(p, "updates")
+			updates := make(map[string]string)
+			for _, u := range updatesRaw {
+				key, _ := u["key"].(string)
+				val, _ := u["value"].(string)
+				if key != "" {
+					updates[key] = val
+				}
 			}
-
-			if err := valkey.UpdateConfig(key, value); err != nil {
-				return "", err
+			for k, v := range updates {
+				if err := valkey.UpdateConfig(k, v); err != nil {
+					return CommandResult{}, err
+				}
 			}
-			return "Config updated successfully", nil
+			return CommandResult{Output: "Valkey config updated successfully"}, nil
 		}
-		return "", fmt.Errorf("not a valkey module")
+		return CommandResult{}, fmt.Errorf("not a valkey module")
 	},
-	"valkey_flush_db": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"valkey_flush_db": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		if valkey, ok := mod.(*modules.ValkeyModule); ok {
 			if err := valkey.FlushDB(); err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
-			return "Database flushed successfully", nil
+			return CommandResult{Output: "Database flushed successfully"}, nil
 		}
-		return "", fmt.Errorf("not a valkey module")
+		return CommandResult{}, fmt.Errorf("not a valkey module")
 	},
-	"valkey_save": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"valkey_save": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		if valkey, ok := mod.(*modules.ValkeyModule); ok {
 			if err := valkey.Save(); err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
-			return "Save completed successfully", nil
+			return CommandResult{Output: "Save completed successfully"}, nil
 		}
-		return "", fmt.Errorf("not a valkey module")
+		return CommandResult{}, fmt.Errorf("not a valkey module")
 	},
-	"valkey_bgsave": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (string, error) {
+	"valkey_bgsave": func(mod core.ServiceModule, ctx *CommandContext, _ map[string]interface{}) (CommandResult, error) {
 		if valkey, ok := mod.(*modules.ValkeyModule); ok {
 			if err := valkey.BGSave(); err != nil {
-				return "", err
+				return CommandResult{}, err
 			}
-			return "Background save started", nil
+			return CommandResult{Output: "Background save started"}, nil
 		}
-		return "", fmt.Errorf("not a valkey module")
+		return CommandResult{}, fmt.Errorf("not a valkey module")
 	},
 
 	// --- Agent Configuration ---
-	"agent_set_hub_token": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"agent_set_hub_token": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		token := getStringOpt(p, "token")
 		if token == "" {
-			return "", fmt.Errorf("token is required")
+			return CommandResult{}, fmt.Errorf("token is required")
 		}
 
 		// Update the hub token in config
@@ -1348,14 +1494,14 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 
 		// Save the config
 		if err := config.Save(ctx.Config, ctx.ConfigPath); err != nil {
-			return "", fmt.Errorf("failed to save config: %w", err)
+			return CommandResult{}, fmt.Errorf("failed to save config: %w", err)
 		}
 
-		return "Hub token saved successfully", nil
+		return CommandResult{Output: "Hub token saved successfully"}, nil
 	},
 
 	// --- Application Deployment ---
-	"deploy_app": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (string, error) {
+	"deploy_app": func(mod core.ServiceModule, ctx *CommandContext, p map[string]interface{}) (CommandResult, error) {
 		if deploy, ok := mod.(*modules.DeploymentModule); ok {
 			cfg := modules.DeployConfig{
 				Name:           getStringOpt(p, "name"),
@@ -1402,10 +1548,10 @@ var CommandHandlers = map[string]CommandHandlerFunc{
 
 			b, _ := json.Marshal(result)
 			if !result.Success {
-				return string(b), fmt.Errorf("deployment failed: %s", result.Error)
+				return CommandResult{Output: string(b)}, fmt.Errorf("deployment failed: %s", result.Error)
 			}
-			return string(b), nil
+			return CommandResult{Output: string(b)}, nil
 		}
-		return "", fmt.Errorf("not a deployment module")
+		return CommandResult{}, fmt.Errorf("not a deployment module")
 	},
 }

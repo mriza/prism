@@ -18,6 +18,7 @@ import {
     Statistic,
     Select
 } from 'antd';
+import { log } from '../../../utils/log';
 import {
     DatabaseOutlined,
     PlusOutlined,
@@ -113,7 +114,7 @@ export function CacheManager({ sendCommand }: CacheManagerProps) {
                 form.setFieldsValue(settingsData);
             }
         } catch (err: any) {
-            console.error('Failed to load settings:', err);
+            log.error('Failed to load settings', err); message.error('Failed to load settings');
         } finally {
             setLoadingSettings(false);
         }
@@ -127,8 +128,8 @@ export function CacheManager({ sendCommand }: CacheManagerProps) {
                 message.success('Settings updated successfully');
                 loadSettings();
             }
-        } catch (err: any) {
-            message.error('Failed to update settings');
+        } catch {
+            setError('Cannot connect to Hub (port 65432)');
         } finally {
             setUpdatingSettings(false);
         }

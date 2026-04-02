@@ -1,0 +1,87 @@
+/* PRISM Design System - Utility Classes */
+/* Use these instead of inline styles for common patterns */
+
+/* Typography */
+.uppercase-text {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.text-monospace {
+  font-family: monospace;
+}
+
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Layout */
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.full-height {
+  height: 100%;
+}
+
+/* Cards & Containers */
+.card-hover {
+  transition: all 0.2s ease;
+}
+
+.card-hover:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Status Indicators */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Buttons & Actions */
+.action-button {
+  min-width: 32px;
+}
+
+/* Forms */
+.form-label {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+}
+
+/* Tables */
+.table-monospace {
+  font-family: monospace;
+  font-size: 13px;
+}
+
+/* Utilities */
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.no-select {
+  user-select: none;
+}
+
+.break-word {
+  word-break: break-all;
+}

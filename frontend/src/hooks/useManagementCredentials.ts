@@ -1,4 +1,6 @@
 import { useState, useCallback } from 'react';
+import { log } from '../utils/log';
+import { message } from 'antd';
 import { useAuth } from '../contexts/AuthContext';
 
 export interface ManagementCredential {
@@ -36,7 +38,7 @@ export function useManagementCredentials() {
                 setCredentials(data || []);
             }
         } catch (err) {
-            console.error('Failed to fetch management credentials', err);
+            log.error('Failed to fetch management credentials', err); message.error('Failed to fetch management credentials');
         } finally {
             setLoading(false);
         }
@@ -62,7 +64,7 @@ export function useManagementCredentials() {
                 throw new Error(error);
             }
         } catch (err) {
-            console.error('Failed to create management credential', err);
+            log.error('Failed to create management credential', err); message.error('Failed to create management credential');
             throw err;
         }
     }, [token, apiBase]);
@@ -87,7 +89,7 @@ export function useManagementCredentials() {
                 throw new Error(error);
             }
         } catch (err) {
-            console.error('Failed to update management credential', err);
+            log.error('Failed to update management credential', err); message.error('Failed to update management credential');
             throw err;
         }
     }, [token, apiBase]);
@@ -106,7 +108,7 @@ export function useManagementCredentials() {
                 return true;
             }
         } catch (err) {
-            console.error('Failed to delete management credential', err);
+            log.error('Failed to delete management credential', err); message.error('Failed to delete management credential');
         }
         return false;
     }, [token, apiBase]);
@@ -149,7 +151,7 @@ export function useManagementCredentials() {
                 return true;
             }
         } catch (err) {
-            console.error('Failed to verify management credential', err);
+            log.error('Failed to verify management credential', err); message.error('Failed to verify management credential');
         }
         return false;
     }, [token, apiBase]);

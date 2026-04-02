@@ -1,9 +1,9 @@
 package modules
 
 import (
-	"prism-agent/internal/core"
 	"fmt"
 	"os/exec"
+	"prism-agent/internal/core"
 )
 
 type NftablesModule struct {
@@ -74,21 +74,86 @@ func (m *NftablesModule) Configure(config map[string]interface{}) error {
 }
 
 func (m *NftablesModule) AllowPort(port int, protocol string) error {
-	return fmt.Errorf("nftables automated port opening is not implemented")
+	// Validate protocol
+	if protocol != "tcp" && protocol != "udp" {
+		return fmt.Errorf("unsupported protocol: %s (must be tcp or udp)", protocol)
+	}
+
+	// Add rule to allow incoming connections on specified port
+	cmd := exec.Command("nft", "add", "rule", "inet", "filter", "input",
+		fmt.Sprintf("%s", protocol), "dport", fmt.Sprintf("%d", port), "accept")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to add nftables rule for port %d/%s: %w - %s", port, protocol, err, string(output))
+	}
+	return nil
 }
 
 func (m *NftablesModule) DenyPort(port int, protocol string) error {
-	return fmt.Errorf("nftables automated port closing is not implemented")
+	// Validate protocol
+	if protocol != "tcp" && protocol != "udp" {
+		return fmt.Errorf("unsupported protocol: %s (must be tcp or udp)", protocol)
+	}
+
+	// Add rule to deny incoming connections on specified port
+	cmd := exec.Command("nft", "add", "rule", "inet", "filter", "input",
+		fmt.Sprintf("%s", protocol), "dport", fmt.Sprintf("%d", port), "drop")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to add nftables deny rule for port %d/%s: %w - %s", port, protocol, err, string(output))
+	}
+	return nil
 }
 
 func (m *NftablesModule) ListRules() ([]map[string]string, error) {
-	return []map[string]string{}, nil
+	// List all rules in the inet filter input chain
+	cmd := exec.Command("nft", "list", "chain", "inet", "filter", "input")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list nftables rules: %w", err)
+	}
+
+	// Parse output into rules (simplified - just return raw output)
+	rules := []map[string]string{
+		{"raw": string(output)},
+	}
+	return rules, nil
 }
 
 func (m *NftablesModule) DeleteRule(ruleID string) error {
-	return fmt.Errorf("deleting nftables rules by ID is not natively supported yet")
+	// Delete rule by handle ID
+	// Rule ID format should be: inet/filter/input@handle
+	cmd := exec.Command("nft", "delete", "rule", ruleID)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to delete nftables rule %s: %w - %s", ruleID, err, string(output))
+	}
+	return nil
 }
 
 func (m *NftablesModule) SetDefaultPolicy(policy, direction string) error {
-	return fmt.Errorf("setting default policy on nftables is not implemented")
+	// Validate policy
+	if policy != "accept" && policy != "drop" {
+		return fmt.Errorf("unsupported policy: %s (must be accept or drop)", policy)
+	}
+
+	// Validate direction
+	if direction != "input" && direction != "forward" && direction != "output" {
+		return fmt.Errorf("unsupported direction: %s (must be input, forward, or output)", direction)
+	}
+
+	// Set the default policy for the chain
+	cmd := exec.Command("nft", "flush", "chain", "inet", "filter", direction)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to flush nftables chain %s: %w - %s", direction, err, string(output))
+	}
+
+	// Add default policy rule
+	cmd = exec.Command("nft", "add", "rule", "inet", "filter", direction, policy)
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to set default policy %s for chain %s: %w - %s", policy, direction, err, string(output))
+	}
+	return nil
 }

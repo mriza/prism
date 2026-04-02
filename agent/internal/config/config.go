@@ -10,9 +10,7 @@ import (
 )
 
 type Config struct {
-	Server         ServerConfig    `toml:"server"`
 	Hub            HubConfig       `toml:"hub"`
-	Database       DatabaseConfig  `toml:"database"`
 	Services       []ServiceConfig `toml:"services"`
 	ActiveFirewall string          `toml:"active_firewall"`
 }
@@ -27,18 +25,6 @@ type HubConfig struct {
 	ServerConfigPath string `toml:"server_config_path"`
 }
 
-type ServerConfig struct {
-	Host       string `toml:"host"`
-	Port       int    `toml:"port"`
-	Domain     string `toml:"domain"`
-	TLSEnabled bool   `toml:"tls_enabled"`
-	TLSCert    string `toml:"tls_cert"`
-	TLSKey     string `toml:"tls_key"`
-}
-
-type DatabaseConfig struct {
-	Path string `toml:"path"`
-}
 
 type ServiceConfig struct {
 	Name        string `toml:"name"`

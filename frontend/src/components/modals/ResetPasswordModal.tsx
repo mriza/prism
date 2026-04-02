@@ -171,12 +171,12 @@ export function ResetPasswordModal({ isOpen, user, onClose, onSuccess }: Props) 
                     >
                         Cancel
                     </Button>
-                    <Button 
-                        type="primary" 
+                    <Button
+                        type="primary"
                         danger
-                        htmlType="submit" 
+                        htmlType="submit"
                         loading={loading}
-                        style={{ borderRadius: token.borderRadius, fontWeight: 600 }}
+                        style={{ borderRadius: token.borderRadius, fontWeight: token.fontWeightStrong }}
                     >
                         Reset Password
                     </Button>

@@ -17,6 +17,7 @@ import {
     Form,
     message
 } from 'antd';
+import { log } from '../../../utils/log';
 import {
     PlusOutlined,
     DeleteOutlined,
@@ -56,12 +57,18 @@ interface Binding {
     vhost: string;
 }
 
+interface RabbitMQUser {
+    name: string;
+    tags?: string;
+    [key: string]: unknown;
+}
+
 export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
     const [vhosts, setVhosts] = useState<string[]>([]);
     const [queues, setQueues] = useState<Queue[]>([]);
     const [exchanges, setExchanges] = useState<Exchange[]>([]);
     const [bindings, setBindings] = useState<Binding[]>([]);
-    const [users, setUsers] = useState<any[]>([]);
+    const [users, setUsers] = useState<RabbitMQUser[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [settings, setSettings] = useState<Record<string, any>>({});
@@ -120,7 +127,8 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                 form.setFieldsValue(settingsData);
             }
         } catch (err: any) {
-            console.error('Failed to load settings:', err);
+            log.error('Failed to load settings', err);
+            message.error('Failed to load settings');
         } finally {
             setLoadingSettings(false);
         }
@@ -134,7 +142,7 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                 message.success('Settings updated successfully');
                 loadSettings();
             }
-        } catch (err: any) {
+        } catch {
             message.error('Failed to update settings');
         } finally {
             setUpdatingSettings(false);

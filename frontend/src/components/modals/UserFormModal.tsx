@@ -155,7 +155,7 @@ export function UserFormModal({ isOpen, onClose, onSave, initial }: UserFormModa
                     gap: token.paddingSM
                 }}>
                     <Button onClick={onClose} style={{ borderRadius: token.paddingXS }} disabled={saving}>Cancel</Button>
-                    <Button type="primary" htmlType="submit" loading={saving} style={{ borderRadius: token.paddingXS, fontWeight: 600 }}>
+                    <Button type="primary" htmlType="submit" loading={saving} style={{ borderRadius: token.paddingXS, fontWeight: token.fontWeightStrong }}>
                         {initial ? 'Save Changes' : 'Create User'}
                     </Button>
                 </div>

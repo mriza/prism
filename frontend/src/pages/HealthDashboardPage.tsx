@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { log } from '../utils/log';
+import { theme } from 'antd';
 import {
     Card,
     Row,
@@ -45,6 +47,8 @@ export function HealthDashboardPage() {
     const [loading, setLoading] = useState(false);
     const [lastChecked, setLastChecked] = useState<Date | null>(null);
 
+    const { token } = theme.useToken();
+
     const apiBase = import.meta.env.VITE_API_URL || '';
 
     const fetchHealth = async () => {
@@ -57,7 +61,7 @@ export function HealthDashboardPage() {
                 setLastChecked(new Date());
             }
         } catch (err) {
-            console.error('Failed to fetch health:', err);
+            log.error('Failed to fetch health status', err);
         } finally {
             setLoading(false);
         }
@@ -127,7 +131,7 @@ export function HealthDashboardPage() {
                         message={
                             <Space>
                                 {getStatusIcon(health?.status || 'unknown')}
-                                <Text strong style={{ fontSize: 16 }}>
+                                <Text strong style={{ fontSize: token.fontSizeHeading5 }}>
                                     Overall Status: {health?.status?.toUpperCase()}
                                 </Text>
                             </Space>
@@ -141,7 +145,7 @@ export function HealthDashboardPage() {
                         }
                         type={health?.status === 'healthy' ? 'success' : health?.status === 'unhealthy' ? 'error' : 'warning'}
                         showIcon
-                        style={{ borderRadius: 8 }}
+                        style={{ borderRadius: token.borderRadiusLG }}
                     />
 
                     {/* Health Checks Grid */}
@@ -201,7 +205,7 @@ export function HealthDashboardPage() {
                                 <Statistic
                                     title="Servers"
                                     value={health?.checks?.servers?.message ? parseInt(health.checks.servers.message.split('/')[0]) : 0}
-                                    valueStyle={{ color: '#1890ff' }}
+                                    valueStyle={{ color: token.colorPrimary }}
                                     prefix={<CloudServerOutlined />}
                                 />
                                 <Divider />
@@ -246,7 +250,7 @@ export function HealthDashboardPage() {
                                 <Statistic
                                     title="System Uptime"
                                     value={getUptime()}
-                                    valueStyle={{ color: '#722ed1' }}
+                                    valueStyle={{ color: token.colorPrimaryText }}
                                 />
                                 <Divider />
                                 <Text type="secondary">

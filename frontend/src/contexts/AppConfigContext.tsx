@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { log } from '../utils/log';
 import { useAuth } from './AuthContext';
 
 interface AppConfig {
@@ -64,7 +65,7 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
                 }
             }
         } catch (err) {
-            console.error("Failed to fetch settings from Hub", err);
+            log.error('Failed to fetch settings from Hub', err);
         }
     }, [apiBase, token, isAuthenticated, config]);
 
@@ -99,7 +100,7 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
                     body: JSON.stringify(payload)
                 });
             } catch (err) {
-                console.error("Failed to sync settings to Hub", err);
+                log.error('Failed to sync settings to Hub', err);
             }
         }
     };

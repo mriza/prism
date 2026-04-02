@@ -1,26 +1,9 @@
 package db
 
 import (
-	"os"
 	"prism-server/internal/models"
 	"testing"
 )
-
-func TestMain(m *testing.M) {
-	// Setup temporary database
-	dbPath := "/tmp/prism_test.db"
-	os.Remove(dbPath)
-	err := InitDB(dbPath)
-	if err != nil {
-		panic(err)
-	}
-	
-	code := m.Run()
-	
-	// Cleanup
-	os.Remove(dbPath)
-	os.Exit(code)
-}
 
 func TestServiceAccountOperations(t *testing.T) {
 	acc := models.ServiceAccount{

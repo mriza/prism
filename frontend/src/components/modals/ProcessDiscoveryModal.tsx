@@ -1,20 +1,22 @@
 import { useState, useEffect, useMemo } from 'react';
-import { 
+import {
     Modal,
-    Badge, 
+    Badge,
     Tag,
     Table,
     Input,
     Button,
     Space,
     Typography,
-    theme
+    theme,
+    Alert
 } from 'antd';
-import { 
-    SearchOutlined, 
-    PlusOutlined, 
+import {
+    SearchOutlined,
+    PlusOutlined,
     CheckOutlined,
-    SearchOutlined as SearchIcon
+    SearchOutlined as SearchIcon,
+    ReloadOutlined
 } from '@ant-design/icons';
 import { useAgents } from '../../hooks/useAgents';
 
@@ -39,6 +41,7 @@ export function ProcessDiscoveryModal({ isOpen, onClose, agentId, agentName }: P
     const { listSystemdUnits, registerService, agents } = useAgents();
     const [units, setUnits] = useState<SystemdUnit[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [registering, setRegistering] = useState<string | null>(null);
     const { token } = theme.useToken();
@@ -50,7 +53,38 @@ export function ProcessDiscoveryModal({ isOpen, onClose, agentId, agentName }: P
     useEffect(() => {
         if (isOpen && agentId) {
             setLoading(true);
-            listSystemdUnits(agentId).then(raw => {
+            setError(null);
+            listSystemdUnits(agentId)
+                .then(raw => {
+                    if (raw) {
+                        const lines = raw.split('\n').filter(Boolean);
+                        const parsed = lines.map((line: string) => {
+                            const parts = line.split(/\s+/);
+                            return {
+                                name: parts[0],
+                                load: parts[1],
+                                active: parts[2],
+                                sub: parts[3],
+                                description: parts.slice(4).join(' ')
+                            };
+                        });
+                        setUnits(parsed);
+                    }
+                })
+                .catch(() => {
+                    setError('Failed to discover processes. The agent may be offline or unreachable.');
+                })
+                .finally(() => {
+                    setLoading(false);
+                });
+        }
+    }, [isOpen, agentId, listSystemdUnits]);
+
+    const handleRetry = () => {
+        setLoading(true);
+        setError(null);
+        listSystemdUnits(agentId)
+            .then(raw => {
                 if (raw) {
                     const lines = raw.split('\n').filter(Boolean);
                     const parsed = lines.map((line: string) => {
@@ -65,10 +99,14 @@ export function ProcessDiscoveryModal({ isOpen, onClose, agentId, agentName }: P
                     });
                     setUnits(parsed);
                 }
+            })
+            .catch(() => {
+                setError('Failed to discover processes. Please try again.');
+            })
+            .finally(() => {
                 setLoading(false);
             });
-        }
-    }, [isOpen, agentId, listSystemdUnits]);
+    };
 
     const filteredUnits = useMemo(() => {
         return units.filter(u => 
@@ -98,7 +136,7 @@ export function ProcessDiscoveryModal({ isOpen, onClose, agentId, agentName }: P
                     <Space direction="vertical" size={0}>
                         <Space>
                             <Text strong style={{ fontSize: token.fontSize }}>{name}</Text>
-                            {isManaged && <Tag color="success" style={{ fontSize: token.fontSizeSM, fontWeight: 800 }}>MANAGED</Tag>}
+                            {isManaged && <Tag color="success" style={{ fontSize: token.fontSizeSM, fontWeight: token.fontWeightStrong }}>MANAGED</Tag>}
                         </Space>
                         <Text type="secondary" style={{ fontSize: token.fontSizeSM, fontStyle: 'italic' }}>
                             {units.find(u => u.name === name)?.description || 'No description'}
@@ -150,15 +188,15 @@ export function ProcessDiscoveryModal({ isOpen, onClose, agentId, agentName }: P
     ];
 
     return (
-        <Modal 
-            open={isOpen} 
-            onCancel={onClose} 
+        <Modal
+            open={isOpen}
+            onCancel={onClose}
             title={
                 <Space size="middle">
-                    <div style={{ 
-                        padding: token.paddingXS, 
-                        borderRadius: '10px', 
-                        backgroundColor: `${token.colorPrimary}15`, 
+                    <div style={{
+                        padding: token.paddingXS,
+                        borderRadius: '10px',
+                        backgroundColor: `${token.colorPrimary}15`,
                         color: token.colorPrimary,
                         display: 'flex'
                     }}>
@@ -179,6 +217,27 @@ export function ProcessDiscoveryModal({ isOpen, onClose, agentId, agentName }: P
             style={{ borderRadius: token.borderRadiusLG, overflow: 'hidden' }}
         >
             <div style={{ marginTop: token.paddingLG }}>
+                {error && (
+                    <Alert
+                        message="Discovery Failed"
+                        description={error}
+                        type="error"
+                        showIcon
+                        action={
+                            <Button
+                                size="small"
+                                type="primary"
+                                icon={<ReloadOutlined />}
+                                onClick={handleRetry}
+                                loading={loading}
+                            >
+                                Retry
+                            </Button>
+                        }
+                        style={{ marginBottom: token.marginLG }}
+                    />
+                )}
+
                 <div style={{ marginBottom: token.marginLG }}>
                     <Input 
                         prefix={<SearchIcon style={{ opacity: 0.3 }} />} 

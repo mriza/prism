@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAgents } from '../hooks/useAgents';
+import { log } from '../utils/log';
 import { useAccounts } from '../hooks/useAccounts';
 import { useProjects } from '../hooks/useProjects';
 import { Link } from 'react-router-dom';
@@ -101,7 +102,7 @@ export function ProcessesPage() {
                         });
                     }
                 } catch (err) {
-                    console.error(`Failed to fetch processes for ${pm.name} on ${agent.id}`, err);
+                    log.error(`Failed to fetch processes for ${pm.name} on ${agent.id}`, err);
                 }
             }
         }
@@ -163,7 +164,7 @@ export function ProcessesPage() {
                     </div>
                     <div>
                         <Text strong style={{ display: 'block' }}>{p.name}</Text>
-                        <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>{p.id}</Text>
+                        <Text type="secondary" style={{ fontSize: token.fontSize, textTransform: 'uppercase' }}>{p.id}</Text>
                     </div>
                 </Space>
             )
@@ -173,8 +174,8 @@ export function ProcessesPage() {
             key: 'environment',
             render: (_: any, p: ProcessItem) => (
                 <Space direction="vertical" size={0}>
-                    <Text style={{ fontSize: token.fontSizeSM }}><CloudServerOutlined style={{ marginRight: token.marginXXS, opacity: 0.5 }} />{p.agentName}</Text>
-                    <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>Managed by {p.manager}</Text>
+                    <Text style={{ fontSize: token.fontSize }}><CloudServerOutlined style={{ marginRight: token.marginXXS, opacity: 0.5 }} />{p.agentName}</Text>
+                    <Text type="secondary" style={{ fontSize: token.fontSize, textTransform: 'uppercase' }}>Managed by {p.manager}</Text>
                 </Space>
             )
         },
@@ -192,7 +193,7 @@ export function ProcessesPage() {
                     </Tag>
                 </Link>
             ) : (
-                <Text type="secondary" italic style={{ fontSize: token.fontSizeSM }}>Independent</Text>
+                <Text type="secondary" italic style={{ fontSize: token.fontSize }}>Independent</Text>
             )
         },
         {
@@ -202,14 +203,14 @@ export function ProcessesPage() {
                 <Space size="large">
                     {p.cpu && (
                         <Space direction="vertical" size={0}>
-                            <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>CPU</Text>
-                            <Text strong style={{ fontSize: token.fontSizeSM, fontFamily: 'monospace' }}>{p.cpu}</Text>
+                            <Text type="secondary" style={{ fontSize: token.fontSize, textTransform: 'uppercase' }}>CPU</Text>
+                            <Text strong style={{ fontSize: token.fontSize, fontFamily: 'monospace' }}>{p.cpu}</Text>
                         </Space>
                     )}
                     {p.memory && (
                         <Space direction="vertical" size={0}>
-                            <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>MEM</Text>
-                            <Text strong style={{ fontSize: token.fontSizeSM, fontFamily: 'monospace' }}>{p.memory}</Text>
+                            <Text type="secondary" style={{ fontSize: token.fontSize, textTransform: 'uppercase' }}>MEM</Text>
+                            <Text strong style={{ fontSize: token.fontSize, fontFamily: 'monospace' }}>{p.memory}</Text>
                         </Space>
                     )}
                 </Space>

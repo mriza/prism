@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ConfigProvider, theme } from 'antd';
 import { useAuth } from './contexts/AuthContext';
@@ -28,6 +29,30 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function ThemeSync() {
+  const { token } = theme.useToken();
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--prism-primary-color', token.colorPrimary);
+    root.style.setProperty('--prism-border-radius', `${token.borderRadius}px`);
+    root.style.setProperty('--prism-border-radius-lg', `${token.borderRadiusLG}px`);
+    root.style.setProperty('--prism-border-radius-sm', `${token.borderRadiusSM}px`);
+    root.style.setProperty('--prism-color-border', token.colorBorder);
+    root.style.setProperty('--prism-color-border-secondary', token.colorBorderSecondary);
+    root.style.setProperty('--prism-color-fill-alter', token.colorFillAlter);
+    root.style.setProperty('--prism-color-bg-layout', token.colorBgLayout);
+    root.style.setProperty('--prism-font-size-sm', `${token.fontSizeSM}px`);
+    root.style.setProperty('--prism-font-size', `${token.fontSize}px`);
+    root.style.setProperty('--prism-color-success', token.colorSuccess);
+    root.style.setProperty('--prism-color-error', token.colorError);
+    root.style.setProperty('--prism-color-warning', token.colorWarning);
+    root.style.setProperty('--prism-color-info', token.colorInfo);
+    root.style.setProperty('--prism-margin-lg', `${token.marginLG}px`);
+    root.style.setProperty('--prism-padding-lg', `${token.paddingLG}px`);
+  }, [token]);
+  return null;
+}
+
 function AppContent() {
   return (
     <ConfigProvider
@@ -49,6 +74,7 @@ function AppContent() {
         }
       }}
     >
+      <ThemeSync />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route element={

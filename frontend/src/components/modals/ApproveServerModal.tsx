@@ -130,11 +130,11 @@ export function ApproveServerModal({ isOpen, onClose, agentId, hostname }: Appro
                         gap: token.paddingSM
                     }}>
                         <Button onClick={onClose} disabled={isSubmitting} style={{ borderRadius: token.borderRadius }}>Cancel</Button>
-                        <Button 
-                            type="primary" 
-                            htmlType="submit" 
-                            loading={isSubmitting} 
-                            style={{ borderRadius: token.borderRadius, fontWeight: 600, backgroundColor: token.colorSuccess, borderColor: 'transparent' }}
+                        <Button
+                            type="primary"
+                            htmlType="submit"
+                            loading={isSubmitting}
+                            style={{ borderRadius: token.borderRadius, fontWeight: token.fontWeightStrong, backgroundColor: token.colorSuccess, borderColor: 'transparent' }}
                         >
                             Approve Server
                         </Button>

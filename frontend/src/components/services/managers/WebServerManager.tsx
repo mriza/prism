@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { log } from '../../../utils/log';
 import {
     Button,
     Space,
@@ -80,7 +81,7 @@ export function WebServerManager({ sendCommand, serviceName }: WebServerManagerP
                 form.setFieldsValue(data);
             }
         } catch (err: any) {
-            console.error('Failed to load settings:', err);
+            log.error('Failed to load settings', err); message.error('Failed to load settings');
         } finally {
             setLoadingSettings(false);
         }
@@ -268,7 +269,7 @@ export function WebServerManager({ sendCommand, serviceName }: WebServerManagerP
                                             label={<Text strong style={{ fontSize: token.fontSizeSM }}>Document Root</Text>}
                                             help="Path to website files directory"
                                         >
-                                            <Input placeholder="/var/www/html" style={{ borderRadius: token.borderRadius, fontFamily: 'monospace' }} />
+                                            <Input placeholder="/var/www/html" style={{ borderRadius: token.borderRadius, fontFamily: token.fontFamilyCode }} />
                                         </Form.Item>
                                     </Col>
                                     <Col span={12}>
@@ -277,7 +278,7 @@ export function WebServerManager({ sendCommand, serviceName }: WebServerManagerP
                                             label={<Space><SafetyCertificateOutlined /><Text strong style={{ fontSize: token.fontSizeSM }}>SSL Certificate Path</Text></Space>}
                                             help="Path to TLS/SSL certificate file (.crt or .pem)"
                                         >
-                                            <Input placeholder="/etc/ssl/certs/server.crt" style={{ borderRadius: token.borderRadius, fontFamily: 'monospace' }} />
+                                            <Input placeholder="/etc/ssl/certs/server.crt" style={{ borderRadius: token.borderRadius, fontFamily: token.fontFamilyCode }} />
                                         </Form.Item>
                                     </Col>
                                     <Col span={12}>
@@ -286,7 +287,7 @@ export function WebServerManager({ sendCommand, serviceName }: WebServerManagerP
                                             label={<Space><SafetyCertificateOutlined /><Text strong style={{ fontSize: token.fontSizeSM }}>SSL Key Path</Text></Space>}
                                             help="Path to TLS/SSL private key file"
                                         >
-                                            <Input placeholder="/etc/ssl/private/server.key" style={{ borderRadius: token.borderRadius, fontFamily: 'monospace' }} />
+                                            <Input placeholder="/etc/ssl/private/server.key" style={{ borderRadius: token.borderRadius, fontFamily: token.fontFamilyCode }} />
                                         </Form.Item>
                                     </Col>
                                 </Row>
@@ -351,7 +352,7 @@ export function WebServerManager({ sendCommand, serviceName }: WebServerManagerP
                                     const input = document.getElementById('new-site-domain') as HTMLInputElement;
                                     handleCreateProxy(input.value, proxyPort);
                                 }}
-                                style={{ borderRadius: token.borderRadius, height: token.paddingLG, fontWeight: 600, padding: '0 24px' }}
+                                style={{ borderRadius: token.borderRadius, height: token.paddingLG, fontWeight: token.fontWeightStrong, padding: '0 24px' }}
                             >
                                 Provision Route
                             </Button>

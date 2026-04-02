@@ -9,7 +9,6 @@ import {
     Popconfirm,
     message,
     Empty,
-    theme,
     Tabs,
     Card,
     Badge,
@@ -77,8 +76,6 @@ interface ProcessItem {
 }
 
 export function ApplicationsPage() {
-    const { token } = theme.useToken();
-
     // ── HOOKS ──────────────────────────────────────────────────────────────
     const { deployments, loading: deploymentsLoading, createDeployment, updateDeployment, deleteDeployment, triggerDeploy } = useDeployments();
     const { agents, listSubProcesses, controlSubProcess, loading: agentsLoading, unregisterService, refreshAgents } = useAgents();
@@ -192,7 +189,7 @@ export function ApplicationsPage() {
             render: (_: unknown, record: Deployment) => (
                 <Space direction="vertical" size={0}>
                     <Text strong>{record.name}</Text>
-                    {record.description && <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{record.description}</Text>}
+                    {record.description && <Text type="secondary">{record.description}</Text>}
                 </Space>
             ),
         },
@@ -210,7 +207,7 @@ export function ApplicationsPage() {
             render: (_: unknown, record: Deployment) => (
                 <Space>
                     <Tag color="blue">{RUNTIME_LABELS[record.runtime] || record.runtime}</Tag>
-                    {record.runtimeVersion && <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{record.runtimeVersion}</Text>}
+                    {record.runtimeVersion && <Text type="secondary">{record.runtimeVersion}</Text>}
                 </Space>
             ),
         },
@@ -226,7 +223,7 @@ export function ApplicationsPage() {
             render: (_: unknown, record: Deployment) => record.domainName ? (
                 <Space>
                     <GlobalOutlined />
-                    <Text copyable style={{ fontSize: token.fontSizeSM }}>{record.domainName}</Text>
+                    <Text copyable>{record.domainName}</Text>
                 </Space>
             ) : <Text type="secondary">—</Text>,
         },
@@ -241,7 +238,7 @@ export function ApplicationsPage() {
             title: 'Version',
             key: 'revision',
             render: (_: unknown, record: Deployment) => record.lastDeployedRevision ? (
-                <Text code style={{ fontSize: token.fontSizeSM }}>{record.lastDeployedRevision}</Text>
+                <Text code>{record.lastDeployedRevision}</Text>
             ) : <Text type="secondary">—</Text>,
         },
         {
@@ -297,22 +294,16 @@ export function ApplicationsPage() {
             key: 'name',
             render: (_: any, p: ProcessItem) => (
                 <Space size="middle">
-                    <div style={{
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: token.borderRadius,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: p.manager === 'pm2' ? token.colorSuccessBg : p.manager === 'supervisor' ? token.colorWarningBg : token.colorInfoBg,
-                        color: p.manager === 'pm2' ? token.colorSuccess : p.manager === 'supervisor' ? token.colorWarning : token.colorInfo,
-                        border: `1px solid ${p.manager === 'pm2' ? token.colorSuccessBorder : p.manager === 'supervisor' ? token.colorWarningBorder : token.colorInfoBorder}`,
-                    }}>
-                        <DashboardOutlined style={{ fontSize: token.fontSizeLG }} />
+                    <div className={`prism-avatar-icon ${
+                        p.manager === 'pm2' ? 'prism-bg-success-bg prism-text-success prism-border-success' : 
+                        p.manager === 'supervisor' ? 'prism-bg-warning prism-text-warning prism-border-warning' : 
+                        'prism-bg-info prism-text-info prism-border-info'
+                    }`}>
+                        <DashboardOutlined className="prism-text-lg" />
                     </div>
                     <div>
-                        <Text strong style={{ display: 'block' }}>{p.name}</Text>
-                        <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>{p.id}</Text>
+                        <Text strong>{p.name}</Text>
+                        <Text type="secondary" className="prism-uppercase">{p.id}</Text>
                     </div>
                 </Space>
             ),
@@ -322,8 +313,8 @@ export function ApplicationsPage() {
             key: 'environment',
             render: (_: any, p: ProcessItem) => (
                 <Space direction="vertical" size={0}>
-                    <Text style={{ fontSize: token.fontSizeSM }}><CloudServerOutlined style={{ marginRight: token.marginXXS, opacity: 0.5 }} />{p.agentName}</Text>
-                    <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>Managed by {p.manager}</Text>
+                    <Text><CloudServerOutlined />{p.agentName}</Text>
+                    <Text type="secondary" className="prism-uppercase">Managed by {p.manager}</Text>
                 </Space>
             ),
         },
@@ -334,14 +325,14 @@ export function ApplicationsPage() {
                 <Link to={`/projects/${p.projectId}`}>
                     <Tag
                         color={p.projectColor === 'primary' ? 'blue' : p.projectColor === 'success' ? 'green' : p.projectColor}
-                        style={{ cursor: 'pointer', borderRadius: token.borderRadiusSM }}
+                        className="prism-rounded"
                         icon={<ExportOutlined />}
                     >
                         {p.projectName}
                     </Tag>
                 </Link>
             ) : (
-                <Text type="secondary" italic style={{ fontSize: token.fontSizeSM }}>Independent</Text>
+                <Text type="secondary" italic>Independent</Text>
             ),
         },
         {
@@ -351,14 +342,14 @@ export function ApplicationsPage() {
                 <Space size="large">
                     {p.cpu && (
                         <Space direction="vertical" size={0}>
-                            <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>CPU</Text>
-                            <Text strong style={{ fontSize: token.fontSizeSM, fontFamily: 'monospace' }}>{p.cpu}</Text>
+                            <Text type="secondary" className="prism-uppercase">CPU</Text>
+                            <Text strong className="prism-monospace">{p.cpu}</Text>
                         </Space>
                     )}
                     {p.memory && (
                         <Space direction="vertical" size={0}>
-                            <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>MEM</Text>
-                            <Text strong style={{ fontSize: token.fontSizeSM, fontFamily: 'monospace' }}>{p.memory}</Text>
+                            <Text type="secondary" className="prism-uppercase">MEM</Text>
+                            <Text strong className="prism-monospace">{p.memory}</Text>
                         </Space>
                     )}
                 </Space>
@@ -369,7 +360,7 @@ export function ApplicationsPage() {
             key: 'status',
             render: (_: any, p: ProcessItem) => {
                 const isRunning = ['online', 'running', 'active', 'UP'].includes(p.status);
-                return <Badge status={isRunning ? 'success' : 'default'} text={<Text strong style={{ textTransform: 'capitalize' }}>{p.status}</Text>} />;
+                return <Badge status={isRunning ? 'success' : 'default'} text={<Text strong className="prism-status-text">{p.status}</Text>} />;
             },
         },
         {
@@ -461,13 +452,13 @@ export function ApplicationsPage() {
                         label: <Space><RocketOutlined />Git Deployments</Space>,
                         children: (
                             <div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: token.marginLG }}>
+                                <div className="prism-search-container">
                                     <Input
                                         placeholder="Search deployments..."
                                         prefix={<SearchOutlined />}
                                         value={deplSearch}
                                         onChange={e => setDeplSearch(e.target.value)}
-                                        style={{ width: 280 }}
+                                        className="prism-width-280"
                                         allowClear
                                     />
                                     <Button
@@ -494,11 +485,11 @@ export function ApplicationsPage() {
                         label: <Space><DashboardOutlined />Managed Processes</Space>,
                         children: (
                             <div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: token.marginLG }}>
+                                <div className="prism-search-container">
                                     <Input
                                         placeholder="Search processes, agents, or projects..."
-                                        prefix={<SearchOutlined style={{ color: token.colorTextPlaceholder }} />}
-                                        style={{ width: 340 }}
+                                        prefix={<SearchOutlined className="prism-text-placeholder" />}
+                                        className="prism-width-340"
                                         value={procsSearch}
                                         onChange={e => setProcsSearch(e.target.value)}
                                     />
@@ -517,7 +508,7 @@ export function ApplicationsPage() {
                                 </div>
                                 <Card
                                     styles={{ body: { padding: 0 } }}
-                                    style={{ borderRadius: token.borderRadiusLG, overflow: 'hidden', border: `1px solid ${token.colorBorderSecondary}` }}
+                                    className="prism-card prism-overflow-hidden"
                                 >
                                     <Table
                                         columns={processColumns}

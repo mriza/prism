@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
+import { log } from '../utils/log';
+import { message } from 'antd';
 import { useAuth } from '../contexts/AuthContext';
 import type { User } from '../types';
 
@@ -21,7 +23,8 @@ export function useUsers() {
                 setUsers(data || []);
             }
         } catch (err) {
-            console.error('Failed to fetch users:', err);
+            log.error('Failed to fetch users', err);
+            message.error('Failed to fetch users');
         } finally {
             setLoading(false);
         }
@@ -46,7 +49,8 @@ export function useUsers() {
             await fetchUsers();
             return true;
         } catch (err) {
-            console.error(err);
+            log.error('Failed to create user', err);
+            message.error('Failed to create user');
             return false;
         }
     };
@@ -66,7 +70,8 @@ export function useUsers() {
             await fetchUsers();
             return true;
         } catch (err) {
-            console.error(err);
+            log.error('Failed to update user', err);
+            message.error('Failed to update user');
             return false;
         }
     };
@@ -84,7 +89,8 @@ export function useUsers() {
             setUsers(prev => prev.filter(u => u.id !== id));
             return true;
         } catch (err) {
-            console.error(err);
+            log.error('Failed to delete user', err);
+            message.error('Failed to delete user');
             return false;
         }
     };

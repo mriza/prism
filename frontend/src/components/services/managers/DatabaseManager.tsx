@@ -29,9 +29,14 @@ interface DatabaseManagerProps {
     sendCommand: (action: string, options?: Record<string, unknown>) => Promise<any>;
 }
 
+interface DatabaseUser {
+    name: string;
+    [key: string]: unknown;
+}
+
 export function DatabaseManager({ sendCommand }: DatabaseManagerProps) {
     const [databases, setDatabases] = useState<string[]>([]);
-    const [users, setUsers] = useState<any[]>([]);
+    const [users, setUsers] = useState<DatabaseUser[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -172,14 +177,17 @@ export function DatabaseManager({ sendCommand }: DatabaseManagerProps) {
                     {users.length === 0 ? (
                         <Text type="secondary" italic>No specific user grants discovered.</Text>
                     ) : (
-                        users.map((u, i) => (
-                            <Tag key={i} color="processing" style={{ borderRadius: token.paddingXXS, padding: `${token.paddingXXS}px ${token.paddingSM}px` }}>
-                                <Space>
-                                    <SafetyCertificateOutlined />
-                                    <Text strong style={{ fontSize: token.fontSizeSM }}>{typeof u === 'string' ? u : u.user}</Text>
-                                </Space>
-                            </Tag>
-                        ))
+                        users.map((u, i) => {
+                            const userName = typeof u === 'string' ? u : (u.user as string) || u.name;
+                            return (
+                                <Tag key={i} color="processing" style={{ borderRadius: token.paddingXXS, padding: `${token.paddingXXS}px ${token.paddingSM}px` }}>
+                                    <Space>
+                                        <SafetyCertificateOutlined />
+                                        <Text strong style={{ fontSize: token.fontSizeSM }}>{userName}</Text>
+                                    </Space>
+                                </Tag>
+                            );
+                        })
                     )}
                 </div>
 
@@ -202,7 +210,7 @@ export function DatabaseManager({ sendCommand }: DatabaseManagerProps) {
                                     const input = document.getElementById('new-db-name') as HTMLInputElement;
                                     handleCreateDB(input.value);
                                 }}
-                                style={{ borderRadius: token.borderRadius, height: token.paddingLG, fontWeight: 600, padding: '0 24px' }}
+                                style={{ borderRadius: token.borderRadius, height: token.paddingLG, fontWeight: token.fontWeightStrong, padding: '0 24px' }}
                             >
                                 Provision DB
                             </Button>

@@ -3,7 +3,6 @@ package modules
 import (
 	"prism-agent/internal/core"
 	"fmt"
-	"os/exec"
 	"strings"
 )
 
@@ -21,13 +20,13 @@ func NewSystemdModule(name, serviceName string, userScope bool) *SystemdModule {
 	}
 }
 
-func (m *SystemdModule) systemctlCmd(args ...string) *exec.Cmd {
+func (m *SystemdModule) systemctlCmd(args ...string) Command {
 	if m.userScope {
 		// Insert --user after "systemctl"
 		newArgs := append([]string{"--user"}, args...)
-		return exec.Command("systemctl", newArgs...)
+		return getExecutor().Command("systemctl", newArgs...)
 	}
-	return exec.Command("systemctl", args...)
+	return getExecutor().Command("systemctl", args...)
 }
 
 func (m *SystemdModule) Name() string {

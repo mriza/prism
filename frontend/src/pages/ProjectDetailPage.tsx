@@ -18,7 +18,6 @@ import {
     Tabs, 
     Tooltip, 
     Empty, 
-    theme, 
     Descriptions,
     Alert
 } from 'antd';
@@ -41,9 +40,24 @@ import {
 } from '@ant-design/icons';
 import type { ServiceAccount } from '../types';
 import { PageContainer } from '../components/PageContainer';
+import { ActivityLogList } from '../components/ActivityLogList';
+import { useActivityLogs } from '../hooks/useActivityLogs';
 import { SERVICE_TYPE_LABELS } from '../types';
+import { HistoryOutlined } from '@ant-design/icons';
 
 const { Text } = Typography;
+
+interface ProjectProcess {
+    id: string;
+    name: string;
+    status: string;
+    agentId: string;
+    agentName: string;
+    type: 'service' | 'process';
+    serviceName: string;
+    cpu?: number;
+    memory?: number;
+}
 
 export function ProjectDetailPage() {
     const { id } = useParams<{ id: string }>();
@@ -52,9 +66,8 @@ export function ProjectDetailPage() {
     const navigate = useNavigate();
     const { user } = useAuth();
     const { agents, controlService, controlSubProcess, listSubProcesses } = useAgents();
-    const { token } = theme.useToken();
 
-    const [projectProcesses, setProjectProcesses] = useState<any[]>([]);
+    const [projectProcesses, setProjectProcesses] = useState<ProjectProcess[]>([]);
     const [loadingInfra, setLoadingInfra] = useState(false);
     const [infraActionLoading, setInfraActionLoading] = useState<string | null>(null);
 
@@ -66,6 +79,14 @@ export function ProjectDetailPage() {
     const [provisioningId, setProvisioningId] = useState<string | null>(null);
     const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
 
+    const { events: allEvents, connected: activityConnected } = useActivityLogs();
+    
+    // Filter events for this project
+    const projectAccounts = accountsByProject(id || '');
+    const projectEvents = allEvents.filter(ev => 
+        projectAccounts.some(acc => acc.agentId === ev.agentId && acc.name === ev.service)
+    );
+
     const togglePassword = (id: string) => {
         setShowPasswords(prev => ({ ...prev, [id]: !prev[id] }));
     };
@@ -73,7 +94,7 @@ export function ProjectDetailPage() {
     const fetchProjectInfra = async () => {
         if (!project) return;
         setLoadingInfra(true);
-        const allProcs: any[] = [];
+        const allProcs: ProjectProcess[] = [];
         const accounts = accountsByProject(project.id);
         
         for (const agent of agents) {
@@ -120,7 +141,7 @@ export function ProjectDetailPage() {
 
     if (!project) {
         return (
-            <div style={{ padding: `${token.paddingXL * 2}px 0`, textAlign: 'center' }}>
+            <div className="prism-full-width prism-padding-xl-2 prism-text-center">
                 <Empty description="Project not found" />
                 <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/projects')}>Back to Projects</Button>
             </div>
@@ -167,31 +188,30 @@ export function ProjectDetailPage() {
                 )
             }
         >
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <Space direction="vertical" size="large" className="prism-full-width">
                 {/* Stats Header */}
                 <Card
-                    bodyStyle={{ padding: token.paddingLG }}
-                    style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusLG, background: `linear-gradient(135deg, ${token.colorBgContainer} 0%, ${token.colorBgLayout} 100%)` }}
+                    className="prism-card prism-bg-gradient"
                 >
                     <Row gutter={48}>
                         <Col span={6}>
                             <Descriptions column={1}>
-                                <Descriptions.Item label={<Text strong style={{ color: token.colorTextDisabled, textTransform: 'uppercase', fontSize: token.fontSizeSM }}>Total Assets</Text>}>
-                                    <Text strong style={{ fontSize: token.fontSizeHeading3 }}>{accounts.length}</Text>
+                                <Descriptions.Item label={<Text strong className="prism-text-disabled prism-uppercase prism-text-sm">Total Assets</Text>}>
+                                    <Text strong className="prism-heading-3">{accounts.length}</Text>
                                 </Descriptions.Item>
                             </Descriptions>
                         </Col>
                         <Col span={6}>
                             <Descriptions column={1}>
-                                <Descriptions.Item label={<Text strong style={{ color: token.colorTextDisabled, textTransform: 'uppercase', fontSize: token.fontSizeSM }}>Active Nodes</Text>}>
-                                    <Text strong style={{ fontSize: token.fontSizeHeading3 }}>{[...new Set(accounts.map(a => a.agentId))].length}</Text>
+                                <Descriptions.Item label={<Text strong className="prism-text-disabled prism-uppercase prism-text-sm">Active Nodes</Text>}>
+                                    <Text strong className="prism-heading-3">{[...new Set(accounts.map(a => a.agentId))].length}</Text>
                                 </Descriptions.Item>
                             </Descriptions>
                         </Col>
                         <Col span={12}>
                     <Descriptions column={1}>
-                        <Descriptions.Item label={<Text strong style={{ color: token.colorTextDisabled, textTransform: 'uppercase', fontSize: token.fontSizeSM }}>Created At</Text>}>
-                            <Text style={{ fontSize: token.fontSize }}>{new Date(project.createdAt).toLocaleDateString(undefined, { dateStyle: 'long' })}</Text>
+                        <Descriptions.Item label={<Text strong className="prism-text-disabled prism-uppercase prism-text-sm">Created At</Text>}>
+                            <Text className="prism-text-sm">{new Date(project.createdAt).toLocaleDateString(undefined, { dateStyle: 'long' })}</Text>
                         </Descriptions.Item>
                     </Descriptions>
                         </Col>
@@ -199,21 +219,21 @@ export function ProjectDetailPage() {
                 </Card>
 
                 <Tabs
-                    defaultActiveKey="infrastructure"
+                    defaultActiveKey="accounts"
                     items={[
                         {
-                            key: 'infrastructure',
+                            key: 'processes',
                             label: (
                                 <Space>
                                     <BranchesOutlined />
-                                    <span>Infrastructure</span>
-                                    {loadingInfra && <ReloadOutlined spin style={{ fontSize: token.fontSizeSM, opacity: 0.5 }} />}
+                                    <span>Processes</span>
+                                    {loadingInfra && <ReloadOutlined spin className="prism-text-sm" style={{ opacity: 0.5 }} />}
                                 </Space>
                             ),
                             children: (
-                                <div style={{ padding: `${token.paddingXS}px 0` }}>
+                                <div className="prism-tab-content">
                                     {projectProcesses.length === 0 && !loadingInfra ? (
-                                        <Empty description="No active services detected for this project group" />
+                                        <Empty description="No active processes detected for this project" />
                                     ) : (
                                         <Row gutter={[16, 16]}>
                                             {projectProcesses.map(proc => {
@@ -222,17 +242,17 @@ export function ProjectDetailPage() {
 
                                                 return (
                                                     <Col xs={24} md={12} lg={8} key={`${proc.agentId}-${proc.id}-${proc.type}`}>
-                                                        <Card hoverable size="small" style={{ borderRadius: token.borderRadiusLG }}>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                                                        <Card hoverable size="small" className="prism-card">
+                                                            <div className="prism-flex-between prism-align-start">
                                                                 <Space direction="vertical" size={0}>
                                                                     <Space>
                                                                         <Badge status={isRunning ? 'success' : 'default'} />
-                                                                        <Text strong style={{ fontSize: token.fontSize }}>{proc.name}</Text>
+                                                                        <Text strong className="prism-text-sm">{proc.name}</Text>
                                                                     </Space>
-                                                                    <Text type="secondary" style={{ fontSize: token.fontSizeSM, display: 'flex', alignItems: 'center', gap: token.marginXXS, marginTop: token.marginXXS }}>
-                                                                        <CloudServerOutlined style={{ fontSize: token.fontSizeSM }} /> {proc.agentName}
+                                                                    <Text type="secondary" className="prism-text-sm prism-flex-center prism-gap-sm prism-margin-top-sm">
+                                                                        <CloudServerOutlined className="prism-text-sm" /> {proc.agentName}
                                                                     </Text>
-                                                                    <Tag style={{ marginTop: token.marginSM, fontSize: token.fontSizeSM, textTransform: 'uppercase' }} color={proc.type === 'process' ? 'blue' : 'purple'}>
+                                                                    <Tag className="prism-margin-top prism-text-sm prism-uppercase" color={proc.type === 'process' ? 'blue' : 'purple'}>
                                                                         {proc.type === 'process' ? `${proc.serviceName} app` : proc.serviceName}
                                                                     </Tag>
                                                                 </Space>
@@ -281,8 +301,8 @@ export function ProjectDetailPage() {
                                 </Space>
                             ),
                             children: (
-                                <div style={{ padding: `${token.paddingXS}px 0` }}>
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: token.marginSM }}>
+                                <div className="prism-tab-content">
+                                    <div className="prism-flex-end prism-margin-sm">
                                         {user?.role !== 'user' && (
                                             <Button type="primary" icon={<PlusOutlined />} onClick={() => setShowAddAccount(true)}>Add Account</Button>
                                         )}
@@ -291,7 +311,7 @@ export function ProjectDetailPage() {
                                     {accounts.length === 0 ? (
                                         <Empty description="No service accounts linked to this project" />
                                     ) : (
-                                        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                                        <Space direction="vertical" size="middle" className="prism-full-width">
                                             {accounts.map(a => {
                                                 const type = a.type.toLowerCase();
                                                 const isDb = type.includes('mongodb') || type.includes('mysql') || type.includes('postgresql');
@@ -302,17 +322,16 @@ export function ProjectDetailPage() {
                                                 return (
                                                     <Card
                                                         key={a.id}
-                                                        style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadiusLG }}
-                                                        bodyStyle={{ padding: token.paddingLG }}
+                                                        className="prism-card"
                                                     >
                                                         <Row gutter={24} align="middle">
                                                             <Col flex="0 0 300px">
                                                                 <Space direction="vertical" size={2}>
-                                                                    <Text strong style={{ fontSize: token.fontSizeHeading5 }}>{a.name}</Text>
-                                                                    <Text type="secondary" style={{ fontSize: token.fontSizeSM, textTransform: 'uppercase', letterSpacing: '1px' }}>{SERVICE_TYPE_LABELS[a.type]}</Text>
-                                                                    <Space style={{ marginTop: token.marginSM }}>
-                                                                        <Tag icon={<CloudServerOutlined />} style={{ borderRadius: token.borderRadiusSM }}>{a.agentId || 'External'}</Tag>
-                                                                        {a.host && <Tag style={{ borderRadius: token.borderRadiusSM }}>{a.host}:{a.port}</Tag>}
+                                                                    <Text strong className="prism-text-heading-5">{a.name}</Text>
+                                                                    <Text type="secondary" className="prism-text-sm prism-uppercase" style={{ letterSpacing: '1px' }}>{SERVICE_TYPE_LABELS[a.type]}</Text>
+                                                                    <Space className="prism-margin-top">
+                                                                        <Tag icon={<CloudServerOutlined />} className="prism-rounded-sm">{a.agentId || 'External'}</Tag>
+                                                                        {a.host && <Tag className="prism-rounded-sm">{a.host}:{a.port}</Tag>}
                                                                     </Space>
                                                                 </Space>
                                                             </Col>
@@ -322,10 +341,10 @@ export function ProjectDetailPage() {
                                                                 <Space direction="vertical" style={{ width: '100%' }}>
                                                                     {isDb && a.username && a.password && a.host && (
                                                                         <Alert
-                                                                            style={{ padding: `${token.paddingXS}px ${token.paddingSM}` }}
+                                                                            className="prism-padding-sm"
                                                                             message={
-                                                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                                                    <code style={{ fontSize: token.fontSizeSM, color: token.colorSuccess }}>
+                                                                                <div className="prism-flex-between">
+                                                                                    <code className="prism-text-sm prism-code-success">
                                                                                         {type.includes('mongodb') 
                                                                                             ? `mongodb://${a.username}:${showPasswords[a.id] ? a.password : '••••••••'}@${a.host}:${a.port || 27017}/${a.database}`
                                                                                             : `${a.type.split('-')[0]}://${a.username}:${showPasswords[a.id] ? a.password : '••••••••'}@${a.host}:${a.port}/${a.database}`
@@ -336,7 +355,7 @@ export function ProjectDetailPage() {
                                                                                         <Button 
                                                                                             type="text" 
                                                                                             size="small" 
-                                                                                            icon={copiedId === a.id ? <CheckOutlined style={{ color: token.colorSuccess }} /> : <CopyOutlined />} 
+                                                                                            icon={copiedId === a.id ? <CheckOutlined className="prism-code-success" /> : <CopyOutlined />} 
                                                                                             onClick={async () => {
                                                                                                 const prefix = type.includes('mongodb') ? 'mongodb' : a.type.split('-')[0];
                                                                                                 const uri = `${prefix}://${encodeURIComponent(a.username!)}:${encodeURIComponent(a.password!)}@${a.host}:${a.port || (prefix === 'mongodb' ? 27017 : 3306)}/${encodeURIComponent(a.database!)}`;
@@ -352,13 +371,13 @@ export function ProjectDetailPage() {
                                                                     )}
 
                                                                     {isStorage && (
-                                                                        <Descriptions size="small" column={2} bordered style={{ background: token.colorBgContainer }}>
-                                                                            <Descriptions.Item label="Access Key" labelStyle={{ fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>
-                                                                                <code style={{ fontSize: token.fontSizeSM, fontWeight: 600 }}>{a.accessKey}</code>
+                                                                        <Descriptions size="small" column={2} bordered className="prism-bg-container">
+                                                                            <Descriptions.Item label="Access Key" labelStyle={{ textTransform: 'uppercase' }} className="prism-text-sm">
+                                                                                <code className="prism-text-sm prism-text-bold">{a.accessKey}</code>
                                                                             </Descriptions.Item>
-                                                                            <Descriptions.Item label="Secret Key" labelStyle={{ fontSize: token.fontSizeSM, textTransform: 'uppercase' }}>
+                                                                            <Descriptions.Item label="Secret Key" labelStyle={{ textTransform: 'uppercase' }} className="prism-text-sm">
                                                                                 <Space>
-                                                                                    <code style={{ fontSize: token.fontSizeSM, fontWeight: 600 }}>{showPasswords[a.id] ? a.secretKey : '••••••••••••••••'}</code>
+                                                                                    <code className="prism-text-sm prism-text-bold">{showPasswords[a.id] ? a.secretKey : '••••••••••••••••'}</code>
                                                                                     <Button type="text" size="small" icon={showPasswords[a.id] ? <EyeInvisibleOutlined /> : <EyeOutlined />} onClick={() => togglePassword(a.id)} />
                                                                                 </Space>
                                                                             </Descriptions.Item>
@@ -368,7 +387,7 @@ export function ProjectDetailPage() {
                                                             </Col>
 
                                                             <Col flex="0 0 120px">
-                                                                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                                                <div className="prism-flex-end">
                                                                     {user?.role !== 'user' && (
                                                                         <Space>
                                                                             {(isDb || isStorage || isMQTT || isFTP) && (
@@ -419,6 +438,23 @@ export function ProjectDetailPage() {
                                             })}
                                         </Space>
                                     )}
+                                </div>
+                            )
+                        },
+                        {
+                            key: 'activity',
+                            label: (
+                                <Space>
+                                    <HistoryOutlined />
+                                    <span>Activity</span>
+                                    {activityConnected && <Badge status="processing" size="small" />}
+                                </Space>
+                            ),
+                            children: (
+                                <div className="prism-padding-top">
+                                    <Card size="small" className="prism-card">
+                                        <ActivityLogList events={projectEvents} />
+                                    </Card>
                                 </div>
                             )
                         }

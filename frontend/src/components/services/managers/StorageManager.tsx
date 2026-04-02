@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { log } from '../../../utils/log';
 import {
     Button,
     Space,
@@ -99,7 +100,7 @@ export function StorageManager({ sendCommand }: StorageManagerProps) {
                 form.setFieldsValue(data);
             }
         } catch (err: any) {
-            console.error('Failed to load settings:', err);
+            log.error('Failed to load settings', err); message.error('Failed to load settings');
         } finally {
             setLoadingSettings(false);
         }
@@ -341,7 +342,7 @@ export function StorageManager({ sendCommand }: StorageManagerProps) {
                                     label={<Text strong style={{ fontSize: token.fontSizeSM }}>API Endpoint</Text>}
                                     help="S3 API endpoint URL (e.g. http://localhost:9000)"
                                 >
-                                    <Input placeholder="http://localhost:9000" style={{ borderRadius: token.borderRadius, fontFamily: 'monospace' }} />
+                                    <Input placeholder="http://localhost:9000" style={{ borderRadius: token.borderRadius, fontFamily: token.fontFamilyCode }} />
                                 </Form.Item>
                             </Col>
                             <Col span={8}>
@@ -411,7 +412,7 @@ export function StorageManager({ sendCommand }: StorageManagerProps) {
                                     const input = document.getElementById('new-bucket-name') as HTMLInputElement;
                                     handleCreateBucket(input.value);
                                 }}
-                                style={{ borderRadius: token.borderRadius, height: token.paddingLG, fontWeight: 600, padding: '0 24px' }}
+                                style={{ borderRadius: token.borderRadius, height: token.paddingLG, fontWeight: token.fontWeightStrong, padding: '0 24px' }}
                             >
                                 Provision Bucket
                             </Button>

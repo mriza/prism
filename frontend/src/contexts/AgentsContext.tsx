@@ -3,6 +3,7 @@ import type { Agent } from '../types';
 import { useAppConfig } from './AppConfigContext';
 import { useAuth } from './AuthContext';
 import { useWebSocketAgents } from '../hooks/useWebSocketAgents';
+import { log } from '../utils/log';
 
 interface AgentsContextType {
     agents: Agent[];
@@ -10,6 +11,7 @@ interface AgentsContextType {
     error: string | null;
     refreshAgents: () => Promise<void>;
     wsConnected: boolean;
+    usingPollingFallback: boolean;
 }
 
 const AgentsContext = createContext<AgentsContextType | undefined>(undefined);
@@ -18,6 +20,7 @@ export function AgentsProvider({ children }: { children: ReactNode }) {
     const [agents, setAgents] = useState<Agent[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [wsEverConnected, setWsEverConnected] = useState(false);
     const { config } = useAppConfig();
     const { token, isAuthenticated } = useAuth();
 
@@ -41,7 +44,7 @@ export function AgentsProvider({ children }: { children: ReactNode }) {
                 return newData;
             });
             setError(null);
-        } catch (err) {
+        } catch {
             setError('Cannot connect to Hub (port 65432)');
         } finally {
             setLoading(false);
@@ -50,8 +53,8 @@ export function AgentsProvider({ children }: { children: ReactNode }) {
 
     // Handle real-time agent updates via WebSocket
     const handleAgentUpdate = useCallback((update: { type: string, payload: any }) => {
-        console.log('Agent update received:', update);
-        
+        log.debug('Agent update received:', update);
+
         setAgents(prev => {
             switch (update.type) {
                 case 'agent_connected':
@@ -61,15 +64,15 @@ export function AgentsProvider({ children }: { children: ReactNode }) {
                         return prev.map(a => a.id === update.payload.id ? { ...a, ...update.payload, status: 'online' } : a);
                     }
                     return [...prev, { ...update.payload, status: 'online' }];
-                    
+
                 case 'agent_disconnected':
                     // Mark agent as offline
-                    return prev.map(a => 
-                        a.id === update.payload.id || a.hostname === update.payload.hostname 
-                            ? { ...a, status: 'offline' } 
+                    return prev.map(a =>
+                        a.id === update.payload.id || a.hostname === update.payload.hostname
+                            ? { ...a, status: 'offline' }
                             : a
                     );
-                    
+
                 case 'agent_updated':
                     // Update agent info
                     return prev.map(a => a.id === update.payload.id ? { ...a, ...update.payload } : a);
@@ -95,6 +98,16 @@ export function AgentsProvider({ children }: { children: ReactNode }) {
     // Connect to WebSocket for real-time updates
     const { connected: wsConnected } = useWebSocketAgents(handleAgentUpdate);
 
+    // Track if WebSocket ever connected (to detect polling fallback)
+    useEffect(() => {
+        if (wsConnected) {
+            setWsEverConnected(true);
+        }
+    }, [wsConnected]);
+
+    // Determine if we're using polling fallback (WebSocket never connected)
+    const usingPollingFallback = !wsEverConnected && !wsConnected;
+
     useEffect(() => {
         if (isAuthenticated) {
             fetchAgents();
@@ -105,7 +118,7 @@ export function AgentsProvider({ children }: { children: ReactNode }) {
     }, [fetchAgents, config.uiRefreshRate, isAuthenticated]);
 
     return (
-        <AgentsContext.Provider value={{ agents, loading, error, refreshAgents: fetchAgents, wsConnected }}>
+        <AgentsContext.Provider value={{ agents, loading, error, refreshAgents: fetchAgents, wsConnected, usingPollingFallback }}>
             {children}
         </AgentsContext.Provider>
     );

@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 import { useAgentsContext } from '../contexts/AgentsContext';
 import { useAuth } from '../contexts/AuthContext';
+import { message } from 'antd';
+import { log } from '../utils/log';
 
 export function useAgents() {
     const { agents, loading, error, refreshAgents } = useAgentsContext();
@@ -13,7 +15,7 @@ export function useAgents() {
         try {
             const res = await fetch(`${apiBase}/api/agents/${id}/approve`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
@@ -24,7 +26,8 @@ export function useAgents() {
                 return true;
             }
         } catch (e) {
-            console.error('Failed to approve agent', e);
+            log.error('Failed to approve agent', e);
+            message.error('Failed to approve agent');
         }
         return false;
     };
@@ -32,7 +35,7 @@ export function useAgents() {
     const deleteAgent = async (id: string) => {
         if (!isAuthenticated || !token) return false;
         try {
-            const res = await fetch(`${apiBase}/api/agents/${id}`, { 
+            const res = await fetch(`${apiBase}/api/agents/${id}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -43,7 +46,8 @@ export function useAgents() {
                 return true;
             }
         } catch (e) {
-            console.error('Failed to delete agent', e);
+            log.error('Failed to delete agent', e);
+            message.error('Failed to delete agent');
         }
         return false;
     };
@@ -53,22 +57,23 @@ export function useAgents() {
         try {
             const res = await fetch(`${apiBase}/api/control`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     agent_id: agentId,
                     service,
                     action
                 })
             });
             if (res.ok) {
-                await refreshAgents(); // Refresh to get updated status
+                await refreshAgents();
                 return true;
             }
         } catch (e) {
-            console.error('Failed to control service', e);
+            log.error('Failed to control service', e);
+            message.error('Failed to control service');
         }
         return false;
     };
@@ -78,7 +83,7 @@ export function useAgents() {
         try {
             const res = await fetch(`${apiBase}/api/control`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
@@ -86,10 +91,10 @@ export function useAgents() {
             });
             if (res.ok) {
                 const data = await res.json();
-                return data.output; // The response from agent is {status, output, error}
+                return data.output;
             }
         } catch (e) {
-            console.error('Failed to get service config', e);
+            log.error('Failed to get service config', e);
         }
         return null;
     };
@@ -99,20 +104,21 @@ export function useAgents() {
         try {
             const res = await fetch(`${apiBase}/api/control`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ 
-                    agent_id: agentId, 
-                    service, 
+                body: JSON.stringify({
+                    agent_id: agentId,
+                    service,
                     action: 'service_update_config',
                     options: { content }
                 })
             });
             return res.ok;
         } catch (e) {
-            console.error('Failed to update service config', e);
+            log.error('Failed to update service config', e);
+            message.error('Failed to update service config');
         }
         return false;
     };
@@ -122,7 +128,7 @@ export function useAgents() {
         try {
             const res = await fetch(`${apiBase}/api/control`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
@@ -130,10 +136,10 @@ export function useAgents() {
             });
             if (res.ok) {
                 const data = await res.json();
-                return data.output; // raw output from systemctl
+                return data.output;
             }
         } catch (e) {
-            console.error('Failed to list systemd units', e);
+            log.error('Failed to list systemd units', e);
         }
         return null;
     };
@@ -143,13 +149,13 @@ export function useAgents() {
         try {
             const res = await fetch(`${apiBase}/api/control`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ 
-                    agent_id: agentId, 
-                    service: 'systemd', 
+                body: JSON.stringify({
+                    agent_id: agentId,
+                    service: 'systemd',
                     action: 'service_register',
                     options: { name, type, service_name: serviceName, user_scope: userScope }
                 })
@@ -159,7 +165,8 @@ export function useAgents() {
                 return true;
             }
         } catch (e) {
-            console.error('Failed to register service', e);
+            log.error('Failed to register service', e);
+            message.error('Failed to register service');
         }
         return false;
     };
@@ -169,13 +176,13 @@ export function useAgents() {
         try {
             const res = await fetch(`${apiBase}/api/control`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ 
-                    agent_id: agentId, 
-                    service: 'systemd', 
+                body: JSON.stringify({
+                    agent_id: agentId,
+                    service: 'systemd',
                     action: 'service_unregister',
                     options: { name }
                 })
@@ -185,7 +192,8 @@ export function useAgents() {
                 return true;
             }
         } catch (e) {
-            console.error('Failed to unregister service', e);
+            log.error('Failed to unregister service', e);
+            message.error('Failed to unregister service');
         }
         return false;
     };
@@ -195,7 +203,7 @@ export function useAgents() {
         try {
             const res = await fetch(`${apiBase}/api/control`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
@@ -210,7 +218,7 @@ export function useAgents() {
                 }
             }
         } catch (e) {
-            console.error('Failed to list sub-processes', e);
+            log.error('Failed to list sub-processes', e);
         }
         return null;
     }, [apiBase]);
@@ -220,20 +228,21 @@ export function useAgents() {
         try {
             const res = await fetch(`${apiBase}/api/control`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ 
-                    agent_id: agentId, 
-                    service, 
+                body: JSON.stringify({
+                    agent_id: agentId,
+                    service,
                     action: 'service_control_process',
                     options: { process_id: processId, process_action: processAction }
                 })
             });
             return res.ok;
         } catch (e) {
-            console.error('Failed to control sub-process', e);
+            log.error('Failed to control sub-process', e);
+            message.error('Failed to control sub-process');
         }
         return false;
     };
@@ -243,7 +252,7 @@ export function useAgents() {
         try {
             const res = await fetch(`${apiBase}/api/control`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
@@ -258,7 +267,7 @@ export function useAgents() {
                 }
             }
         } catch (e) {
-            console.error('Failed to list storage buckets', e);
+            log.error('Failed to list storage buckets', e);
         }
         return null;
     }, [apiBase, isAuthenticated, token]);
@@ -268,20 +277,21 @@ export function useAgents() {
         try {
             const res = await fetch(`${apiBase}/api/control`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ 
-                    agent_id: agentId, 
-                    service, 
+                body: JSON.stringify({
+                    agent_id: agentId,
+                    service,
                     action: 'storage_create_bucket',
                     options: { name }
                 })
             });
             return res.ok;
         } catch (e) {
-            console.error('Failed to create storage bucket', e);
+            log.error('Failed to create storage bucket', e);
+            message.error('Failed to create storage bucket');
         }
         return false;
     };
@@ -291,20 +301,21 @@ export function useAgents() {
         try {
             const res = await fetch(`${apiBase}/api/control`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ 
-                    agent_id: agentId, 
-                    service, 
+                body: JSON.stringify({
+                    agent_id: agentId,
+                    service,
                     action: 'storage_delete_bucket',
                     options: { name }
                 })
             });
             return res.ok;
         } catch (e) {
-            console.error('Failed to delete storage bucket', e);
+            log.error('Failed to delete storage bucket', e);
+            message.error('Failed to delete storage bucket');
         }
         return false;
     };
@@ -314,7 +325,7 @@ export function useAgents() {
         try {
             const res = await fetch(`${apiBase}/api/control`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
@@ -329,7 +340,7 @@ export function useAgents() {
                 }
             }
         } catch (e) {
-            console.error('Failed to list storage users', e);
+            log.error('Failed to list storage users', e);
         }
         return null;
     }, [apiBase, isAuthenticated, token]);
@@ -339,13 +350,13 @@ export function useAgents() {
         try {
             const res = await fetch(`${apiBase}/api/control`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ 
-                    agent_id: agentId, 
-                    service, 
+                body: JSON.stringify({
+                    agent_id: agentId,
+                    service,
                     action: 'storage_create_user',
                     options: { access_key: accessKey, secret_key: secretKey }
                 })
@@ -359,7 +370,8 @@ export function useAgents() {
                 }
             }
         } catch (e) {
-            console.error('Failed to create storage user', e);
+            log.error('Failed to create storage user', e);
+            message.error('Failed to create storage user');
         }
         return false;
     };
@@ -369,7 +381,7 @@ export function useAgents() {
         try {
             const res = await fetch(`${apiBase}/api/control`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
@@ -384,7 +396,7 @@ export function useAgents() {
                 }
             }
         } catch (e) {
-            console.error('Failed to get service settings', e);
+            log.error('Failed to get service settings', e);
         }
         return null;
     }, [apiBase, isAuthenticated, token]);
@@ -394,20 +406,21 @@ export function useAgents() {
         try {
             const res = await fetch(`${apiBase}/api/control`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ 
-                    agent_id: agentId, 
-                    service, 
+                body: JSON.stringify({
+                    agent_id: agentId,
+                    service,
                     action: 'service_update_settings',
                     options: settings
                 })
             });
             return res.ok;
         } catch (e) {
-            console.error('Failed to update service settings', e);
+            log.error('Failed to update service settings', e);
+            message.error('Failed to update service settings');
         }
         return false;
     };
@@ -417,7 +430,7 @@ export function useAgents() {
         try {
             const res = await fetch(`${apiBase}/api/control/import`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
@@ -427,7 +440,8 @@ export function useAgents() {
                 return await res.json();
             }
         } catch (e) {
-            console.error('Failed to import service resources', e);
+            log.error('Failed to import service resources', e);
+            message.error('Failed to import service resources');
         }
         return null;
     };

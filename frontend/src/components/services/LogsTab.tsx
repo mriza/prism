@@ -42,27 +42,31 @@ export function LogsTab({ agentId, serviceName }: LogsTabProps) {
     const [logLevel, setLogLevel] = useState<'all' | 'info' | 'warning' | 'error' | 'debug'>('all');
     const [searchText, setSearchText] = useState('');
     const [tailLines, setTailLines] = useState(100);
+    const [displayLogs, setDisplayLogs] = useState<LogEntry[]>([]);
     const textAreaRef = useRef<any>(null);
 
     // Use real WebSocket for log streaming
-    const { logs: apiLogs, connected, error } = useWebSocketLogs(agentId, serviceName, tailLines);
+    const { logs: apiLogs, connected, error, clearLogs } = useWebSocketLogs(agentId, serviceName, tailLines);
 
     // Convert API logs to display format
-    const logs: LogEntry[] = apiLogs.map(log => ({
-        timestamp: log.createdAt,
-        level: log.status === 'error' ? 'error' : log.status === 'warning' ? 'warning' : 'info',
-        message: log.message,
-        source: log.service
-    }));
+    useEffect(() => {
+        const converted = apiLogs.map(log => ({
+            timestamp: log.createdAt,
+            level: (log.status === 'error' ? 'error' : log.status === 'warning' ? 'warning' : 'info') as 'info' | 'warning' | 'error' | 'debug',
+            message: log.message,
+            source: log.service
+        }));
+        setDisplayLogs(converted);
+    }, [apiLogs]);
 
     // Auto-scroll to bottom
     useEffect(() => {
         if (autoScroll && !isPaused && textAreaRef.current) {
             textAreaRef.current.scrollTop = textAreaRef.current.scrollHeight;
         }
-    }, [logs, autoScroll, isPaused]);
+    }, [displayLogs, autoScroll, isPaused]);
 
-    const filteredLogs = logs.filter(log => {
+    const filteredLogs = displayLogs.filter(log => {
         const matchesLevel = logLevel === 'all' || log.level === logLevel;
         const matchesSearch = !searchText || log.message.toLowerCase().includes(searchText.toLowerCase());
         return matchesLevel && matchesSearch;
@@ -75,7 +79,7 @@ export function LogsTab({ agentId, serviceName }: LogsTabProps) {
     };
 
     const handleDownload = () => {
-        const content = logs.map(formatLogLine).join('\n');
+        const content = displayLogs.map(formatLogLine).join('\n');
         const blob = new Blob([content], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -86,7 +90,8 @@ export function LogsTab({ agentId, serviceName }: LogsTabProps) {
     };
 
     const handleClear = () => {
-        setLogs([]);
+        clearLogs();
+        setDisplayLogs([]);
     };
 
     return (
@@ -169,9 +174,9 @@ export function LogsTab({ agentId, serviceName }: LogsTabProps) {
                         style={{
                             height: 500,
                             fontFamily: 'monospace',
-                            fontSize: 12,
+                            fontSize: token.fontSizeSM,
                             backgroundColor: 'transparent',
-                            color: '#d4d4d4',
+                            color: token.colorTextQuaternary,
                             border: 'none',
                             resize: 'none'
                         }}
@@ -184,7 +189,7 @@ export function LogsTab({ agentId, serviceName }: LogsTabProps) {
                         <Space>
                             <Badge status={isPaused ? 'warning' : connected ? 'processing' : 'error'} text={isPaused ? 'Paused' : connected ? 'Live' : 'Disconnected'} />
                             <Text type="secondary">
-                                Showing {filteredLogs.length} of {logs.length} logs
+                                Showing {filteredLogs.length} of {displayLogs.length} logs
                             </Text>
                             {error && <Text type="danger">{error}</Text>}
                         </Space>

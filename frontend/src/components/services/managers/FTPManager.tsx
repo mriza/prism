@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { log } from '../../../utils/log';
 import {
     Button,
     Space,
@@ -73,7 +74,7 @@ export function FTPManager({ sendCommand }: FTPManagerProps) {
                 form.setFieldsValue(data);
             }
         } catch (err: any) {
-            console.error('Failed to load settings:', err);
+            log.error('Failed to load settings', err); message.error('Failed to load settings');
         } finally {
             setLoadingSettings(false);
         }

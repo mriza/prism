@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"strings"
 
 	"prism-agent/internal/core"
@@ -31,7 +30,7 @@ func (m *RabbitMQModule) GetFacts() (map[string]string, error) {
 	facts, _ := m.SystemdModule.GetFacts()
 
 	// Get Version
-	_, err := exec.Command("rabbitmqctl", "status").Output()
+	_, err := getExecutor().Command("rabbitmqctl", "status").Output()
 	if err == nil {
 		facts["type"] = "message-broker"
 	}
@@ -41,7 +40,7 @@ func (m *RabbitMQModule) GetFacts() (map[string]string, error) {
 // --- VHost Management ---
 
 func (m *RabbitMQModule) ListVHosts() ([]string, error) {
-	out, err := exec.Command("rabbitmqctl", "list_vhosts", "--quiet", "--no-table-headers").Output()
+	out, err := getExecutor().Command("rabbitmqctl", "list_vhosts", "--quiet", "--no-table-headers").Output()
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +53,7 @@ func (m *RabbitMQModule) CreateVHost(name string) error {
 	}
 	// add_vhost fails if exists, but that's often okay for us
 	log.Printf("Creating vhost: %s", name)
-	exec.Command("rabbitmqctl", "add_vhost", name).Run()
+	getExecutor().Command("rabbitmqctl", "add_vhost", name).Run()
 	return nil
 }
 
@@ -62,7 +61,7 @@ func (m *RabbitMQModule) DeleteVHost(name string) error {
 	if !isValidRMQIdentifier(name) {
 		return fmt.Errorf("invalid vhost name")
 	}
-	return exec.Command("rabbitmqctl", "delete_vhost", name).Run()
+	return getExecutor().Command("rabbitmqctl", "delete_vhost", name).Run()
 }
 
 // Helper for basic RabbitMQ identifier validation
@@ -72,7 +71,7 @@ func isValidRMQIdentifier(s string) bool {
 	}
 	for _, r := range s {
 		// allow alphanumeric, dashes, underscores, and forward slashes (for vhosts)
-		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '_' && r != '-' && r != '/' && r != '.' {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '_' && r != '-' && r != '/' && r != '.' && r != '*' && r != '#' {
 			return false
 		}
 	}
@@ -91,13 +90,13 @@ func (m *RabbitMQModule) CreateUser(name, password, role, target string) error {
 	}
 	
 	// 1. Create User (ignore error if already exists)
-	exec.Command("rabbitmqctl", "add_user", name, password).Run()
+	getExecutor().Command("rabbitmqctl", "add_user", name, password).Run()
 
 	// 2. Set Tags (role mappings)
 	if role == "" {
 		role = "management"
 	}
-	exec.Command("rabbitmqctl", "set_user_tags", name, role).Run()
+	getExecutor().Command("rabbitmqctl", "set_user_tags", name, role).Run()
 
 	// 3. Set Permissions for the vhost
 	vhost := "/"
@@ -105,7 +104,7 @@ func (m *RabbitMQModule) CreateUser(name, password, role, target string) error {
 		vhost = target
 	}
 	
-	return exec.Command("rabbitmqctl", "set_permissions", "-p", vhost, name, ".*", ".*", ".*").Run()
+	return getExecutor().Command("rabbitmqctl", "set_permissions", "-p", vhost, name, ".*", ".*", ".*").Run()
 }
 
 func (m *RabbitMQModule) UpdatePrivileges(name, role, target string) error {
@@ -114,20 +113,20 @@ func (m *RabbitMQModule) UpdatePrivileges(name, role, target string) error {
 	}
 
 	if role != "" {
-		exec.Command("rabbitmqctl", "set_user_tags", name, role).Run()
+		getExecutor().Command("rabbitmqctl", "set_user_tags", name, role).Run()
 	}
 
 	vhost := "/"
 	if target != "" && target != "*" {
 		vhost = target
 	}
-	return exec.Command("rabbitmqctl", "set_permissions", "-p", vhost, name, ".*", ".*", ".*").Run()
+	return getExecutor().Command("rabbitmqctl", "set_permissions", "-p", vhost, name, ".*", ".*", ".*").Run()
 }
 
 // --- List/Delete Methods ---
 
 func (m *RabbitMQModule) ListUsers() ([]core.RabbitUser, error) {
-	out, err := exec.Command("rabbitmqctl", "list_users", "-q").CombinedOutput()
+	out, err := getExecutor().Command("rabbitmqctl", "list_users", "-q").CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("rabbitmqctl error: %v output: %s", err, string(out))
 	}
@@ -151,14 +150,14 @@ func (m *RabbitMQModule) DeleteUser(name string) error {
 	if !isValidRMQIdentifier(name) {
 		return fmt.Errorf("invalid username")
 	}
-	return exec.Command("rabbitmqctl", "delete_user", name).Run()
+	return getExecutor().Command("rabbitmqctl", "delete_user", name).Run()
 }
 
 func (m *RabbitMQModule) SetPermissions(vhost, user, conf, write, read string) error {
 	if !isValidRMQIdentifier(vhost) || !isValidRMQIdentifier(user) {
 		return fmt.Errorf("invalid vhost or username")
 	}
-	return exec.Command("rabbitmqctl", "set_permissions", "-p", vhost, user, conf, write, read).Run()
+	return getExecutor().Command("rabbitmqctl", "set_permissions", "-p", vhost, user, conf, write, read).Run()
 }
 
 // --- Binding Management ---
@@ -167,7 +166,7 @@ func (m *RabbitMQModule) CreateBinding(vhost, sourceExchange, destinationQueue, 
 	if !isValidRMQIdentifier(vhost) || !isValidRMQIdentifier(sourceExchange) || !isValidRMQIdentifier(destinationQueue) || !isValidRMQIdentifier(routingKey) {
 		return fmt.Errorf("invalid identifier in binding parameters")
 	}
-	return exec.Command("rabbitmqctl", "bind_queue", destinationQueue, sourceExchange, routingKey, "-p", vhost).Run()
+	return getExecutor().Command("rabbitmqctl", "bind_queue", destinationQueue, sourceExchange, routingKey, "-p", vhost).Run()
 }
 
 func (m *RabbitMQModule) DeclareExchange(vhost, name, kind string) error {
@@ -175,7 +174,7 @@ func (m *RabbitMQModule) DeclareExchange(vhost, name, kind string) error {
 		return fmt.Errorf("invalid exchange parameters")
 	}
 	// rabbitmqadmin declare exchange name=my-exchange type=direct -V my-vhost
-	return exec.Command("rabbitmqadmin", "declare", "exchange", "name="+name, "type="+kind, "-V", vhost).Run()
+	return getExecutor().Command("rabbitmqadmin", "declare", "exchange", "name="+name, "type="+kind, "-V", vhost).Run()
 }
 
 func (m *RabbitMQModule) DeclareQueue(vhost, name string) error {
@@ -183,11 +182,11 @@ func (m *RabbitMQModule) DeclareQueue(vhost, name string) error {
 		return fmt.Errorf("invalid queue parameters")
 	}
 	// rabbitmqadmin declare queue name=my-queue -V my-vhost
-	return exec.Command("rabbitmqadmin", "declare", "queue", "name="+name, "-V", vhost).Run()
+	return getExecutor().Command("rabbitmqadmin", "declare", "queue", "name="+name, "-V", vhost).Run()
 }
 
 func (m *RabbitMQModule) ListBindings(vhost string) ([]string, error) {
-	out, err := exec.Command("rabbitmqctl", "list_bindings", "-p", vhost, "--quiet", "--no-table-headers").Output()
+	out, err := getExecutor().Command("rabbitmqctl", "list_bindings", "-p", vhost, "--quiet", "--no-table-headers").Output()
 	if err != nil {
 		return nil, err
 	}
@@ -317,11 +316,11 @@ func (m *RabbitMQModule) UpdateSettings(settings map[string]interface{}) error {
 // ListExchanges returns all exchanges in a vhost
 func (m *RabbitMQModule) ListExchanges(vhost string) ([]string, error) {
 	// Use rabbitmqadmin or rabbitmqctl to list exchanges
-	cmd := exec.Command("rabbitmqadmin", "-V", vhost, "list", "exchanges", "--format", "json")
+	cmd := getExecutor().Command("rabbitmqadmin", "-V", vhost, "list", "exchanges", "--format", "json")
 	output, err := cmd.Output()
 	if err != nil {
 		// Fallback to rabbitmqctl
-		cmd = exec.Command("rabbitmqctl", "-p", vhost, "list_exchanges")
+		cmd = getExecutor().Command("rabbitmqctl", "-p", vhost, "list_exchanges")
 		output, err = cmd.Output()
 		if err != nil {
 			return []string{}, nil // Return empty on error
@@ -346,11 +345,11 @@ func (m *RabbitMQModule) ListExchanges(vhost string) ([]string, error) {
 // ListQueues returns all queues in a vhost
 func (m *RabbitMQModule) ListQueues(vhost string) ([]string, error) {
 	// Use rabbitmqadmin or rabbitmqctl to list queues
-	cmd := exec.Command("rabbitmqadmin", "-V", vhost, "list", "queues", "--format", "json")
+	cmd := getExecutor().Command("rabbitmqadmin", "-V", vhost, "list", "queues", "--format", "json")
 	output, err := cmd.Output()
 	if err != nil {
 		// Fallback to rabbitmqctl
-		cmd = exec.Command("rabbitmqctl", "-p", vhost, "list_queues", "name")
+		cmd = getExecutor().Command("rabbitmqctl", "-p", vhost, "list_queues", "name")
 		output, err = cmd.Output()
 		if err != nil {
 			return []string{}, nil // Return empty on error

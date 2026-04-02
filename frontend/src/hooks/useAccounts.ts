@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+import { log } from '../utils/log';
+import { message } from 'antd';
 import type { ServiceAccount } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -57,7 +59,7 @@ export function useAccounts() {
                 setAccounts(data || []);
             }
         } catch (err) {
-            console.error('Failed to fetch accounts', err);
+            log.error('Failed to fetch accounts', err); message.error('Failed to fetch accounts');
         } finally {
             setLoading(false);
         }
@@ -88,7 +90,7 @@ export function useAccounts() {
                 setCrossReference(data || []);
             }
         } catch (err) {
-            console.error('Failed to fetch cross-reference', err);
+            log.error('Failed to fetch cross-reference', err); message.error('Failed to fetch cross-reference');
         }
     }, [token, apiBase]);
 
@@ -114,7 +116,7 @@ export function useAccounts() {
                 return newAccount;
             }
         } catch (err) {
-            console.error('Failed to create account', err);
+            log.error('Failed to create account', err); message.error('Failed to create account');
         }
         return null; // or throw
     }, [token, apiBase]);
@@ -136,7 +138,7 @@ export function useAccounts() {
                 return true;
             }
         } catch (err) {
-            console.error('Failed to update account', err);
+            log.error('Failed to update account', err); message.error('Failed to update account');
         }
         return false;
     }, [token, apiBase]);
@@ -154,7 +156,7 @@ export function useAccounts() {
                 setAccounts(prev => prev.filter(a => a.id !== id));
             }
         } catch (err) {
-            console.error('Failed to delete account', err);
+            log.error('Failed to delete account', err); message.error('Failed to delete account');
         }
     }, [token, apiBase]);
 
@@ -187,7 +189,7 @@ export function useAccounts() {
             });
             return res.ok;
         } catch (err) {
-            console.error('Failed to provision account', err);
+            log.error('Failed to provision account', err); message.error('Failed to provision account');
             return false;
         }
     }, [token, apiBase, accounts]);
@@ -209,7 +211,7 @@ export function useAccounts() {
                 return true;
             }
         } catch (err) {
-            console.error('Failed to bulk update project', err);
+            log.error('Failed to bulk update project', err); message.error('Failed to bulk update project');
         }
         return false;
     }, [token, apiBase, fetchAccounts, fetchCrossReference]);
@@ -231,7 +233,7 @@ export function useAccounts() {
                 return true;
             }
         } catch (err) {
-            console.error('Failed to bulk disable accounts', err);
+            log.error('Failed to bulk disable accounts', err); message.error('Failed to bulk disable accounts');
         }
         return false;
     }, [token, apiBase, fetchAccounts, fetchCrossReference]);

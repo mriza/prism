@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { 
-    Table, 
-    Tag, 
-    Typography, 
-    Space, 
-    Card, 
-    Button, 
-    theme, 
+import { log } from '../utils/log';
+import {
+    Table,
+    Tag,
+    Typography,
+    Space,
+    Card,
+    Button,
+    theme,
     Badge,
     Empty
 } from 'antd';
@@ -58,7 +59,7 @@ export function LogsPage() {
                 setLogs(data || []);
             }
         } catch (err) {
-            console.error("Failed to fetch logs", err);
+            log.error("Failed to fetch logs", err);
         } finally {
             setLoading(false);
         }
@@ -110,7 +111,7 @@ export function LogsPage() {
             render: (date: string) => (
                 <Space direction="vertical" size={0}>
                     <Text strong style={{ fontSize: token.fontSize }}>{dayjs(date).format('HH:mm:ss')}</Text>
-                    <Text type="secondary" style={{ fontSize: token.fontSizeSM }}>{dayjs(date).format('MMM DD, YYYY')}</Text>
+                    <Text type="secondary" style={{ fontSize: token.fontSize }}>{dayjs(date).format('MMM DD, YYYY')}</Text>
                 </Space>
             )
         },
@@ -122,7 +123,7 @@ export function LogsPage() {
             render: (name: string, record: LogEvent) => (
                 <Space>
                     <CloudServerOutlined style={{ opacity: 0.5 }} />
-                    <Text strong style={{ fontSize: token.fontSizeSM }}>{name || record.agentId.substring(0, 8)}</Text>
+                    <Text strong style={{ fontSize: token.fontSize }}>{name || record.agentId.substring(0, 8)}</Text>
                 </Space>
             )
         },
@@ -134,7 +135,7 @@ export function LogsPage() {
             render: (type: string) => (
                 <Space>
                     {getTypeIcon(type)}
-                    <Text style={{ fontSize: token.fontSizeSM, textTransform: 'capitalize' }}>
+                    <Text style={{ fontSize: token.fontSize, textTransform: 'capitalize' }}>
                         {type.replace(/_/g, ' ')}
                     </Text>
                 </Space>
@@ -145,7 +146,7 @@ export function LogsPage() {
             key: 'subject',
             width: 150,
             render: (_: any, record: LogEvent) => record.service ? (
-                <Tag color="blue" style={{ borderRadius: token.borderRadiusSM, fontWeight: 600 }}>
+                <Tag color="blue" style={{ borderRadius: token.borderRadiusSM, fontWeight: token.fontWeightStrong }}>
                     {record.service}
                 </Tag>
             ) : <Text type="secondary">-</Text>
@@ -156,7 +157,7 @@ export function LogsPage() {
             key: 'status',
             width: 120,
             render: (status: string) => status ? (
-                <Badge status={getStatusColor(status) as any} text={<Text strong style={{ textTransform: 'capitalize', fontSize: token.fontSizeSM }}>{status}</Text>} />
+                <Badge status={getStatusColor(status) as any} text={<Text strong style={{ textTransform: 'capitalize', fontSize: token.fontSize }}>{status}</Text>} />
             ) : null
         },
         {
