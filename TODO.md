@@ -130,6 +130,104 @@ Before implementing ANY new feature:
 
 ---
 
+### 🔍 Code Audit Tasks (v0.5.0)
+
+**Find and Eliminate Duplicate/Redundant Functions**
+
+**⚠️ IMPORTANT: Distinguish between:**
+1. **Actual Duplicates** ❌ - Same function implemented multiple times
+2. **Intentional Entry Points** ✅ - Multiple links/buttons to SAME function
+
+**What to Look For:**
+
+**❌ ACTUAL DUPLICATES (Remove/Consolidate):**
+- Same logic in multiple places (copy-paste)
+- Two functions doing exact same thing
+- Overlapping API endpoints
+- Duplicate utility functions
+
+**✅ INTENTIONAL ENTRY POINTS (Keep):**
+- Multiple buttons linking to same modal
+- Multiple menu items opening same page
+- Different routes rendering same component
+- Aliased function calls for backward compatibility
+
+**Example of INTENTIONAL (Keep):**
+```tsx
+// Multiple buttons opening same modal - OK!
+<Button onClick={openModal}>Open</Button>
+<Link to="/modal">Open Modal</Link>
+<MenuItem onClick={openModal}>Modal</MenuItem>
+// All trigger same openModal() - this is fine!
+```
+
+**Example of DUPLICATE (Remove):**
+```go
+// Two functions doing same thing - BAD!
+func GetUserByID(id string) { ... }
+func FetchUser(id string) { ... }  // Same logic, different name
+// Should consolidate into one function
+```
+
+**Audit Checklist:**
+
+- [ ] **Frontend Functions**
+  - [ ] Search for duplicate event handlers
+  - [ ] Find duplicate API calls
+  - [ ] Identify duplicate utility functions
+  - [ ] Check for duplicate form submissions
+
+- [ ] **Backend Functions**
+  - [ ] Search for duplicate database queries
+  - [ ] Find duplicate API handlers
+  - [ ] Identify duplicate business logic
+  - [ ] Check for duplicate validation
+
+- [ ] **Components**
+  - [ ] Find components with same purpose
+  - [ ] Identify duplicate modals
+  - [ ] Check for duplicate pages
+  - [ ] Look for duplicate widgets
+
+- [ ] **API Endpoints**
+  - [ ] Search for overlapping routes
+  - [ ] Find duplicate CRUD operations
+  - [ ] Identify redundant endpoints
+  - [ ] Check for duplicate middleware
+
+**Tools for Audit:**
+
+```bash
+# Find duplicate function names
+grep -rn "func " server/ | cut -d'(' -f1 | sort | uniq -d
+
+# Find similar function implementations
+# (manual code review needed)
+
+# Find duplicate API routes
+grep -rn "http.HandleFunc" server/ | awk '{print $2}' | sort | uniq -d
+
+# Find large functions (>50 lines) - likely candidates for refactoring
+awk '/^func /{func=$0; start=NR} /^}$/{if(NR-start>50) print func, "lines:", NR-start}' server/**/*.go
+```
+
+**Documentation:**
+
+For each duplicate found:
+1. Create bug report in BUG.md
+2. Document location of all duplicates
+3. Identify which one to keep as primary
+4. Plan migration path for consolidation
+5. Note any intentional entry points (don't remove!)
+
+**Priority:**
+- 🔴 Critical: Duplicate business logic (can cause data inconsistency)
+- 🟠 High: Duplicate API endpoints (confusing for consumers)
+- 🟡 Medium: Duplicate utility functions (maintenance overhead)
+- 🟢 Low: Duplicate UI components (cosmetic)
+
+---
+
 ### Long-term Goals
 
 **v0.5.0 - Code Quality & Consolidation:**
