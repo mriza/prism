@@ -8,7 +8,7 @@ set -e
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$SCRIPT_DIR"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"  # Go up one level to project root
 RELEASE_DIR="$ROOT_DIR/.release"
 REPO="mriza/prism"
 
