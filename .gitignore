@@ -165,19 +165,20 @@ pnpm-debug.log*
 # =========================
 # Testing & Coverage
 # =========================
-# Coverage reports
+# Coverage reports (keep test files, ignore coverage output)
 coverage/
 .nyc_output/
 *.lcov
 *.lcov.info
+coverage.txt
+go.coverage
 
-# Test artifacts
+# Test artifacts (frontend specific)
 frontend/src/test/
 tsc_errors.txt
 lint_output.txt
 
-# JUnit XML
-*.xml
+# Test results directories
 test-results/
 
 # =========================
@@ -209,12 +210,7 @@ site/
 # =========================
 # Go Specific
 # =========================
-# Test files (if you want to exclude them)
-# Uncomment if needed:
-# *_test.go
-# test_*.go
-
-# Go coverage
+# Go coverage output (keep test files!)
 coverage.txt
 go.coverage
 
