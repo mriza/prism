@@ -1,6 +1,6 @@
 # TODO — PRISM Development Roadmap
 
-> **Last Updated**: 2026-04-01 (v0.4.19 — 4 audit bugs fixed, resolutions up to 98%)
+> **Last Updated**: 2026-04-02 (v0.4.22 — BUG-044 fontWeight/fontSize fixes completed, DevOps automation added)
 >
 > **Purpose**: Development roadmap organized by priority and severity.
 >
@@ -992,6 +992,16 @@ const handleAdd = async (values: FormValues) => {
 
 ## Release Planning
 
+### ✅ v0.4.22 (2026-04-02) - BUG-044 Font Weight/Size Standardization 🎨
+- ✅ **BUG-044 FIXED** — Hardcoded fontWeight values (600/700/800/900) replaced with token.fontWeightStrong
+- ✅ **BUG-044 FIXED** — Hardcoded fontSize values (12/16/24) replaced with token.fontSize*
+- ✅ **36 total style fixes** across 20+ files (Sidebar, Pages, Modals, Service Managers)
+- ✅ **TypeScript errors fixed** — Corrected token variable references in ProfileModal, FirewallRulesModal
+- ✅ **Build Status**: Frontend ✅, Server ✅, Agent ✅
+- ✅ **Tests**: 82/82 frontend tests passing (100%)
+- ✅ **BUG-006, BUG-007, BUG-034**: Verified already implemented
+- 📊 **Bug Resolution Rate**: 100% (4/4 bugs in this sprint)
+
 ### ✅ v0.4.19 (Current) - Post-Audit Fixes 🛠️
 - ✅ 4 audit bugs fixed (BUG-040 to BUG-043)
 - ✅ Shadows `err` fixed in DB layer
@@ -1064,6 +1074,27 @@ const handleAdd = async (values: FormValues) => {
   - Increase base font sizes
   - Improve contrast ratios
   - Ensure accessibility compliance
+
+**DevOps & Automation**:
+- 🟡 **GitHub Release Script** — Create automated release script for mriza/prism repository
+  - [ ] Script to create new GitHub release with version tag (e.g., v0.5.0)
+  - [ ] Auto-generate release notes from git changelog
+  - [ ] Build and attach binaries (server, agent, frontend)
+  - [ ] Upload deployment artifacts to GitHub Releases
+  - [ ] Support for pre-release and draft modes
+  - [ ] Integration with GitHub API for release creation
+  - File: `create_github_release.sh` or `scripts/release.sh`
+
+- 🟡 **Deployment Download Script** — Create deployment script to download from GitHub Releases
+  - [ ] Download latest or specific version from https://github.com/mriza/prism
+  - [ ] Support version selection (latest, stable, specific tag)
+  - [ ] Extract and install binaries to target directories
+  - [ ] Configuration file support (deployment config, environment variables)
+  - [ ] Pre-deployment checks (disk space, dependencies, permissions)
+  - [ ] Backup existing installation before upgrade
+  - [ ] Rollback mechanism on failure
+  - [ ] Support for different deployment targets (server, agent, or both)
+  - File: `deploy.sh` or `scripts/deploy.sh`
 
 **Testing Infrastructure**:
 - ✅ **Frontend Hooks Testing** — Complete test coverage for core hooks
