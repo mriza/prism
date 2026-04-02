@@ -1,321 +1,81 @@
+# PRISM .gitignore
+# Simplified and organized
+
 # =========================
-# Build Artifacts
+# Build Output
 # =========================
-# Server binaries
-server/server
-server/server_bin
-server/prism-server
-server/main
-server/cmd/server/server
-
-# Agent binaries
-agent/agent_bin
-agent/prism-agent
-agent/handlers
-agent/cmd/agent/agent
-
-# Frontend build
-frontend/dist/
-frontend/build/
-
-# Release artifacts
-.release/
-*.tar.gz
-*.zip
-
-# Compiled objects
-*.o
-*.obj
+# Binaries
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
+*.o
 *.a
 *.lib
+
+# Build directories
+frontend/dist/
+frontend/build/
+.release/
 
 # =========================
 # Dependencies
 # =========================
-# Node.js
 node_modules/
-frontend/node_modules/
-
-# Go
 vendor/
-
-# Python
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
 
 # =========================
-# IDE & Editor
+# Environment & Secrets
 # =========================
-# JetBrains
-.idea/
-*.iml
-*.ipr
-*.iws
-
-# VS Code
-.vscode/
-*.code-workspace
-
-# Vim
-*.swp
-*.swo
-*~
-*.un~
-.sass-cache/
-
-# Emacs
-*~
-\#*\#
-/.emacs.desktop
-/.emacs.desktop.lock
-*.elc
-
-# Sublime Text
-*.sublime-project
-*.sublime-workspace
-
-# =========================
-# OS Files
-# =========================
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-._*
-
-# Windows
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-*.cab
-*.msi
-*.msix
-*.msm
-*.msp
-*.lnk
-
-# Linux
-*~
-.fuse_hidden*
-.Trash-*
-.nfs*
-
-# =========================
-# Environment & Config
-# =========================
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env.*.local
+.env*
 *.env
-
-# Config overrides
-config.local.js
-config.local.json
-settings.local.json
+*.pem
+*.key
+*.crt
 
 # =========================
 # Logs & Database
 # =========================
-# Logs
 *.log
 logs/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# Database
 *.db
 *.sqlite
 *.sqlite3
-*.db-shm
-*.db-wal
 
 # =========================
-# Testing & Coverage
+# IDE & OS
 # =========================
-# Coverage reports (keep test files, ignore coverage output)
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# =========================
+# AI Settings (Local Only)
+# =========================
+.qwen/settings.json
+.qwen/settings.local.json
+.claude/settings.local.json
+
+# =========================
+# Test Output (Keep Test Files)
+# =========================
 coverage/
-.nyc_output/
-*.lcov
-*.lcov.info
 coverage.txt
 go.coverage
-
-# Test artifacts (frontend specific)
-frontend/src/test/
 tsc_errors.txt
 lint_output.txt
 
-# Test results directories
-test-results/
-
 # =========================
-# Temporary Files
+# Temporary
 # =========================
 tmp/
 temp/
-.tmp/
-.tmp
-*.tmp
-*.bak
-*.swp
 .cache/
-
-# =========================
-# Claude & AI
-# =========================
-.claude/settings.local.json
-.qwen/settings.local.json
-.qwen/settings.json
-
-# =========================
-# Documentation Build
-# =========================
-server/docs/
-docs/_build/
-site/
-
-# =========================
-# Go Specific
-# =========================
-# Go coverage output (keep test files!)
-coverage.txt
-go.coverage
-
-# =========================
-# TypeScript/JavaScript
-# =========================
-*.tsbuildinfo
-next-env.d.ts
-
-# =========================
-# Deployment
-# =========================
-# Local deployment files
-/opt/prism/
-/var/www/prism/
-
-# Backup files
-*-backup/
-*.backup
-*.orig
-
-# =========================
-# Secrets & Credentials
-# =========================
-# Private keys
-*.pem
-*.key
-*.crt
-*.cer
-*.p12
-*.pfx
-
-# SSH
-*.ppk
-id_rsa
-id_rsa.pub
-id_ed25519
-id_ed25519.pub
-
-# Credentials
-credentials
-*.credentials
-secrets/
-.secrets/
-
-# =========================
-# Build Tools
-# =========================
-# Grunt
-.grunt
-
-# Gulp
-gulpfile.js
-
-# Webpack
-webpack-stats.json
-webpack.manifest.json
-
-# Parcel
-.parcel-cache/
-
-# Rollup
-.rollup.cache/
-
-# =========================
-# Framework Specific
-# =========================
-# Next.js
-.next/
-out/
-
-# Nuxt.js
-.nuxt/
-
-# Vue
-*.vue
-
-# Svelte
-.svelte-kit/
-
-# =========================
-# Package Manager
-# =========================
-# npm
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
-
-# Bower
-bower_components/
-
-# =========================
-# Misc
-# =========================
-# Analytics
-.stats
-*.stats
-
-# Debug
-.debug
-*.debug
-
-# Session files
-sess_*
-
-# Error files
-error_log
-errors.log
+*.bak
+*.tmp
