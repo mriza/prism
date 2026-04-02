@@ -159,7 +159,7 @@ build_agent() {
     log_success "Agent built: prism-agent-$VERSION-linux-amd64.tar.gz"
 }
 
-# Generate release notes
+# Generate release notes with proper categorization
 generate_release_notes() {
     log_info "Generating release notes..."
     
@@ -168,73 +168,202 @@ generate_release_notes() {
     last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
     
     local notes_file="$RELEASE_DIR/RELEASE_NOTES.md"
+    local temp_commits="/tmp/prism_commits_$$.txt"
     
-    # Create header
+    # Get commits
+    if [ -n "$last_tag" ]; then
+        git log --pretty=format:"%s (%h)" "$last_tag"..HEAD > "$temp_commits"
+    else
+        git log --pretty=format:"%s (%h)" -30 > "$temp_commits"
+    fi
+    
+    # Categorize commits
+    local feat_commits=$(grep -i "^feat:" "$temp_commits" 2>/dev/null || true)
+    local fix_commits=$(grep -i "^fix:" "$temp_commits" 2>/dev/null || true)
+    local docs_commits=$(grep -i "^docs:" "$temp_commits" 2>/dev/null || true)
+    local other_commits=$(grep -ivE "^(feat|fix|docs):" "$temp_commits" 2>/dev/null || true)
+    
+    # Create release notes
     cat > "$notes_file" << EOF
 # PRISM $VERSION
 
-## Release Date
-$(date '+%Y-%m-%d')
-
-## Changes
+## Release Information
+- **Release Date**: $(date '+%Y-%m-%d %H:%M')
+- **Previous Version**: ${last_tag:-"Initial Release"}
+- **Total Changes**: $(wc -l < "$temp_commits") commits
 
 EOF
+
+    # Add Features section
+    if [ -n "$feat_commits" ]; then
+        cat >> "$notes_file" << 'EOF'
+## 🚀 New Features
+
+EOF
+        echo "$feat_commits" | while read -r line; do
+            # Clean up the commit message
+            local msg=$(echo "$line" | sed 's/^[Ff]eat: //')
+            echo "- $msg" >> "$notes_file"
+        done
+        echo "" >> "$notes_file"
+    fi
     
-    # Add changelog
-    if [ -n "$last_tag" ]; then
-        log_info "Generating changelog from $last_tag to HEAD..."
-        git log --pretty=format:"- %s (%h)" "$last_tag"..HEAD >> "$notes_file"
-    else
-        log_info "No previous tag found, including recent commits..."
-        git log --pretty=format:"- %s (%h)" -20 >> "$notes_file"
+    # Add Bug Fixes section
+    if [ -n "$fix_commits" ]; then
+        cat >> "$notes_file" << 'EOF'
+## 🐛 Bug Fixes
+
+EOF
+        echo "$fix_commits" | while read -r line; do
+            local msg=$(echo "$line" | sed 's/^[Ff]ix: //')
+            echo "- $msg" >> "$notes_file"
+        done
+        echo "" >> "$notes_file"
+    fi
+    
+    # Add Documentation section
+    if [ -n "$docs_commits" ]; then
+        cat >> "$notes_file" << 'EOF'
+## 📚 Documentation
+
+EOF
+        echo "$docs_commits" | while read -r line; do
+            local msg=$(echo "$line" | sed 's/^[Dd]ocs: //')
+            echo "- $msg" >> "$notes_file"
+        done
+        echo "" >> "$notes_file"
+    fi
+    
+    # Add Other Changes section
+    if [ -n "$other_commits" ]; then
+        cat >> "$notes_file" << 'EOF'
+## 🔧 Other Changes
+
+EOF
+        echo "$other_commits" | while read -r line; do
+            echo "- $line" >> "$notes_file"
+        done
+        echo "" >> "$notes_file"
     fi
     
     # Add installation instructions
     cat >> "$notes_file" << EOF
+## 📦 Installation
 
-## Installation
+### Quick Deploy (Recommended)
 
-### Using Deploy Script (Recommended)
+Use the automated deployment script:
 
 \`\`\`bash
-# Download deploy script
+# Download and run deploy script
 curl -LO https://github.com/$REPO/raw/main/deploy.sh
 chmod +x deploy.sh
-
-# Deploy (will download from GitHub Releases)
 sudo ./deploy.sh
 \`\`\`
 
+This will:
+- Download $VERSION from GitHub Releases
+- Install to /opt/prism/[component]/
+- Create systemd services (runs as your user, not root)
+- Configure automatic startup
+
 ### Manual Installation
 
-#### Server
+#### 1. Server
 \`\`\`bash
+# Download
+curl -LO https://github.com/$REPO/releases/download/$VERSION/prism-server-$VERSION-linux-amd64.tar.gz
+
+# Extract and install
 tar -xzf prism-server-$VERSION-linux-amd64.tar.gz
+sudo mkdir -p /opt/prism/server
 sudo mv prism-server-$VERSION /opt/prism/server/prism-server
-chmod +x /opt/prism/server/prism-server
+sudo chmod +x /opt/prism/server/prism-server
+
+# Create systemd service (optional)
+sudo systemctl daemon-reload
+sudo systemctl enable prism-server
+sudo systemctl start prism-server
 \`\`\`
 
-#### Agent
+#### 2. Agent
 \`\`\`bash
+# Download
+curl -LO https://github.com/$REPO/releases/download/$VERSION/prism-agent-$VERSION-linux-amd64.tar.gz
+
+# Extract and install
 tar -xzf prism-agent-$VERSION-linux-amd64.tar.gz
+sudo mkdir -p /opt/prism/agent
 sudo mv prism-agent-$VERSION /opt/prism/agent/prism-agent
-chmod +x /opt/prism/agent/prism-agent
+sudo chmod +x /opt/prism/agent/prism-agent
+
+# Configure
+sudo mkdir -p /opt/prism/agent/config
+# Edit /opt/prism/agent/config/agent.yaml with your server URL
+
+# Create systemd service (optional)
+sudo systemctl daemon-reload
+sudo systemctl enable prism-agent
+sudo systemctl start prism-agent
 \`\`\`
 
-#### Frontend
+#### 3. Frontend
 \`\`\`bash
-tar -xzf prism-frontend-$VERSION.tar.gz -C /var/www/prism
+# Download
+curl -LO https://github.com/$REPO/releases/download/$VERSION/prism-frontend-$VERSION.tar.gz
+
+# Extract to web server directory
+sudo mkdir -p /var/www/prism
+sudo tar -xzf prism-frontend-$VERSION.tar.gz -C /var/www/prism
+sudo chown -R www-data:www-data /var/www/prism
 \`\`\`
 
-## Checksums
+Configure your web server (Nginx/Apache) to serve files from \`/var/www/prism\`.
 
+EOF
+
+    # Add checksums
+    cat >> "$notes_file" << EOF
+## 🔐 Checksums
+
+Verify downloaded files:
+
+\`\`\`
 EOF
     
     # Generate checksums
     cd "$RELEASE_DIR"
-    sha256sum *.tar.gz >> "$notes_file"
+    sha256sum *.tar.gz >> "$notes_file" 2>/dev/null || echo "No artifacts to checksum"
+    
+    echo "\`\`\`" >> "$notes_file"
+    
+    # Add links
+    cat >> "$notes_file" << EOF
+
+## 🔗 Links
+
+- [GitHub Release](https://github.com/$REPO/releases/tag/$VERSION)
+- [Deployment Guide](https://github.com/$REPO/blob/main/deploy.sh)
+- [Documentation](https://github.com/$REPO#readme)
+- [Bug Reports](https://github.com/$REPO/issues)
+
+---
+
+*Generated automatically by PRISM Release Script*
+EOF
+    
+    # Cleanup
+    rm -f "$temp_commits"
     
     log_success "Release notes generated: RELEASE_NOTES.md"
+    
+    # Show preview
+    echo ""
+    log_info "Release Notes Preview:"
+    echo "----------------------------------------"
+    head -30 "$notes_file"
+    echo "..."
+    echo "----------------------------------------"
 }
 
 # Create GitHub release (optional)
