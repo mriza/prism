@@ -1,28 +1,29 @@
 import { useState, useEffect, useCallback } from 'react';
-import { 
-    Modal, 
-    Table, 
-    Button, 
-    Space, 
-    Typography, 
-    theme, 
-    Form, 
-    Input, 
-    Select, 
-    Badge, 
+import {
+    Modal,
+    Table,
+    Button,
+    Space,
+    Typography,
+    theme,
+    Form,
+    Input,
+    Select,
+    Badge,
     Popconfirm,
     Divider,
     Alert,
     Row,
     Col
 } from 'antd';
-import { 
-    SafetyOutlined, 
-    PlusOutlined, 
-    DeleteOutlined, 
-    ReloadOutlined, 
+import {
+    SafetyOutlined,
+    PlusOutlined,
+    DeleteOutlined,
+    ReloadOutlined,
     WarningOutlined
 } from '@ant-design/icons';
+import { handleError } from '../../utils/log';
 
 const { Text } = Typography;
 
@@ -66,18 +67,20 @@ export function CrowdSecModal({ isOpen, onClose, agentId }: Props) {
     const fetchDecisions = useCallback(async () => {
         setLoading(true);
         setError('');
-        try {
-            const data = await controlAgent(agentId, 'crowdsec_list');
-            if (data.success) {
-                let parsed = typeof data.message === 'string' ? JSON.parse(data.message) : data.message;
-                if (!Array.isArray(parsed)) parsed = [];
-                setDecisions(parsed);
-            } else {
-                setError(data.message || 'Failed to fetch decisions');
-            }
-        } catch {
-            setError('Could not connect to agent');
-        }
+        await handleError(
+            async () => {
+                const data = await controlAgent(agentId, 'crowdsec_list');
+                if (data.success) {
+                    let parsed = typeof data.message === 'string' ? JSON.parse(data.message) : data.message;
+                    if (!Array.isArray(parsed)) parsed = [];
+                    setDecisions(parsed);
+                } else {
+                    throw new Error(data.message || 'Failed to fetch decisions');
+                }
+            },
+            'Could not connect to agent',
+            { showToast: false, onError: () => setError('Could not connect to agent') }
+        );
         setLoading(false);
     }, [agentId]);
 
@@ -90,30 +93,34 @@ export function CrowdSecModal({ isOpen, onClose, agentId }: Props) {
     const handleAdd = async (values: any) => {
         setActionLoading('add');
         setError('');
-        try {
-            await controlAgent(agentId, 'crowdsec_add', {
-                ip: values.ip,
-                duration: values.duration,
-                reason: values.reason || 'manual via PRISM',
-                type: values.type,
-            });
-            form.resetFields();
-            await fetchDecisions();
-        } catch (err: any) {
-            setError(err.message || 'Failed to add CrowdSec decision');
-        }
+        await handleError(
+            async () => {
+                await controlAgent(agentId, 'crowdsec_add', {
+                    ip: values.ip,
+                    duration: values.duration,
+                    reason: values.reason || 'manual via PRISM',
+                    type: values.type,
+                });
+                form.resetFields();
+                await fetchDecisions();
+            },
+            'Failed to add CrowdSec decision',
+            { showToast: false, onError: (err) => setError(err instanceof Error ? err.message : 'Failed to add CrowdSec decision') }
+        );
         setActionLoading('');
     };
 
     const handleDelete = async (id: number) => {
         setActionLoading(`del-${id}`);
         setError('');
-        try {
-            await controlAgent(agentId, 'crowdsec_delete', { id: String(id) });
-            await fetchDecisions();
-        } catch (err: any) {
-            setError(err.message || 'Failed to delete CrowdSec decision');
-        }
+        await handleError(
+            async () => {
+                await controlAgent(agentId, 'crowdsec_delete', { id: String(id) });
+                await fetchDecisions();
+            },
+            'Failed to delete CrowdSec decision',
+            { showToast: false, onError: (err) => setError(err instanceof Error ? err.message : 'Failed to delete CrowdSec decision') }
+        );
         setActionLoading('');
     };
 

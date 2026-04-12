@@ -21,6 +21,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { PageContainer } from '../components/PageContainer';
 import { usePermissions } from '../hooks/usePermissions';
+import { handleError } from '../utils/log';
 
 const { Text } = Typography;
 
@@ -176,31 +177,32 @@ export function RBACPage() {
                 <Form
                     form={form}
                     onFinish={async (values) => {
-                        try {
-                            if (editingPermission) {
-                                await updatePermission(editingPermission.id, {
-                                    name: values.name,
-                                    resourceType: values.resourceType,
-                                    action: values.action,
-                                    description: values.description || ''
-                                });
-                                message.success('Permission updated successfully');
-                            } else {
-                                await createPermission({
-                                    name: values.name,
-                                    resourceType: values.resourceType,
-                                    action: values.action,
-                                    description: values.description || ''
-                                });
-                                message.success('Permission created successfully');
-                            }
-                            setIsModalOpen(false);
-                            setEditingPermission(null);
-                            form.resetFields();
-                            fetchPermissions(resourceTypeFilter === 'all' ? undefined : resourceTypeFilter);
-                        } catch (err: any) {
-                            message.error(`Failed to ${editingPermission ? 'update' : 'create'} permission: ${err.message}`);
-                        }
+                        await handleError(
+                            async () => {
+                                if (editingPermission) {
+                                    await updatePermission(editingPermission.id, {
+                                        name: values.name,
+                                        resourceType: values.resourceType,
+                                        action: values.action,
+                                        description: values.description || ''
+                                    });
+                                    message.success('Permission updated successfully');
+                                } else {
+                                    await createPermission({
+                                        name: values.name,
+                                        resourceType: values.resourceType,
+                                        action: values.action,
+                                        description: values.description || ''
+                                    });
+                                    message.success('Permission created successfully');
+                                }
+                                setIsModalOpen(false);
+                                setEditingPermission(null);
+                                form.resetFields();
+                                fetchPermissions(resourceTypeFilter === 'all' ? undefined : resourceTypeFilter);
+                            },
+                            `Failed to ${editingPermission ? 'update' : 'create'} permission`
+                        );
                     }}
                     layout="vertical"
                     autoComplete="off"

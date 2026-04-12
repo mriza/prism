@@ -1,0 +1,32 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../base
+
+namePrefix: dev-
+
+patches:
+  - target:
+      kind: Deployment
+      name: prism-server
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target:
+      kind: Deployment
+      name: prism-frontend
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target:
+      kind: Secret
+      name: prism-server-secret
+    patch: |
+      - op: replace
+        path: /stringData
+        value:
+          jwt-secret: "dev-jwt-secret-change-me-in-production"
+          agent-token: "dev-agent-token-change-me"

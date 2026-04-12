@@ -13,7 +13,37 @@ type AgentSession struct {
 	Conn     *websocket.Conn
 	Services map[string]protocol.ServiceInfo
 	LastSeen time.Time
-	mu       sync.Mutex // Lock for writing to Conn
+	mu       sync.Mutex   // Lock for writing to Conn
+	sm       sync.RWMutex // Lock for Services map
+}
+
+func (s *AgentSession) UpdateService(name string, info protocol.ServiceInfo) {
+	s.sm.Lock()
+	defer s.sm.Unlock()
+	s.Services[name] = info
+}
+
+func (s *AgentSession) GetService(name string) (protocol.ServiceInfo, bool) {
+	s.sm.RLock()
+	defer s.sm.RUnlock()
+	svc, ok := s.Services[name]
+	return svc, ok
+}
+
+func (s *AgentSession) GetAllServices() []protocol.ServiceInfo {
+	s.sm.RLock()
+	defer s.sm.RUnlock()
+	var svcs []protocol.ServiceInfo
+	for _, svc := range s.Services {
+		svcs = append(svcs, svc)
+	}
+	return svcs
+}
+
+func (s *AgentSession) SetServices(services map[string]protocol.ServiceInfo) {
+	s.sm.Lock()
+	defer s.sm.Unlock()
+	s.Services = services
 }
 
 func (s *AgentSession) Send(msg interface{}) error {

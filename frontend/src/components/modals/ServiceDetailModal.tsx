@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { log } from '../../utils/log';
+import { handleError } from '../../utils/log';
 import type { ServiceLog, StorageUser } from '../../types';
 import {
     Modal,
@@ -273,22 +273,23 @@ export function ServiceDetailModal({
 
     const loadServiceLogs = async () => {
         setLoadingLogs(true);
-        try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/logs?agentId=${agentId}&service=${serviceName}`, {
-                headers: {
-                    'Authorization': `Bearer ${authToken}`
-                }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                setServiceLogs(data || []);
-            }
-        } catch (err) {
-            log.error("Failed to load service logs", err);
-            message.error("Failed to load service logs");
-        } finally {
-            setLoadingLogs(false);
+        const data = await handleError(
+            async () => {
+                const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/logs?agentId=${agentId}&service=${serviceName}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                if (!response.ok) throw new Error('Failed to load logs');
+                return await response.json();
+            },
+            'Failed to load service logs',
+            { showToast: false }
+        );
+        if (data) {
+            setServiceLogs(data);
         }
+        setLoadingLogs(false);
     };
 
     const loadProcesses = async () => {

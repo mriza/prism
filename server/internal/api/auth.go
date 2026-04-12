@@ -15,8 +15,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// JWTSecret is used to sign and verify JWT tokens. Should be set from config.
-var JWTSecret = []byte("PRISM_SUPER_SECRET_KEY_CHANGE_ME_IN_PROD")
+// JWTSecret is used to sign and verify JWT tokens. Must be set from config at startup.
+var JWTSecret []byte
 
 // Claims represents the JWT payload
 type Claims struct {
@@ -158,7 +158,7 @@ func AuthMiddleware(next http.HandlerFunc, allowedRoles ...string) http.HandlerF
 		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		
+
 		if r.Method == "OPTIONS" {
 			return
 		}

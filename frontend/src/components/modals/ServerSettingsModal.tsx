@@ -18,7 +18,7 @@ import {
 } from '@ant-design/icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAgents } from '../../hooks/useAgents';
-import { log } from '../../utils/log';
+import { handleError } from '../../utils/log';
 
 const { Text } = Typography;
 
@@ -53,27 +53,29 @@ export function ServerSettingsModal({ isOpen, onClose, agentId, agentName }: Ser
 
         setSwitchingFw(true);
         setError(null);
-        try {
-            const apiBase = import.meta.env.VITE_API_URL || '';
-            const res = await fetch(`${apiBase}/api/control`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${authToken}`
-                },
-                body: JSON.stringify({
-                    agent_id: agentId,
-                    service: engineName,
-                    action: 'firewall_set_active'
-                })
-            });
-            if (!res.ok) throw new Error('Failed to switch firewall engine');
-        } catch (err: any) {
-            log.error('Failed to switch firewall engine', err);
-            setError(err.message || 'Failed to set active firewall.');
-        } finally {
-            setSwitchingFw(false);
-        }
+        
+        await handleError(
+            async () => {
+                const apiBase = import.meta.env.VITE_API_URL || '';
+                const res = await fetch(`${apiBase}/api/control`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        agent_id: agentId,
+                        service: engineName,
+                        action: 'firewall_set_active'
+                    })
+                });
+                if (!res.ok) throw new Error('Failed to switch firewall engine');
+            },
+            'Failed to switch firewall engine',
+            { showToast: false, onError: (err) => setError(err instanceof Error ? err.message : 'Failed to set active firewall.') }
+        );
+        
+        setSwitchingFw(false);
     };
 
     return (

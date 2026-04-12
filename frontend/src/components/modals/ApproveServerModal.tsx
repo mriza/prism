@@ -1,16 +1,17 @@
 import { useState } from 'react';
-import { 
-    Modal, 
-    Form, 
-    Input, 
-    Space, 
-    Typography, 
-    theme, 
-    Button, 
-    Alert 
+import {
+    Modal,
+    Form,
+    Input,
+    Space,
+    Typography,
+    theme,
+    Button,
+    Alert
 } from 'antd';
 import { RocketOutlined } from '@ant-design/icons';
 import { useAgents } from '../../hooks/useAgents';
+import { handleError } from '../../utils/log';
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -33,18 +34,22 @@ export function ApproveServerModal({ isOpen, onClose, agentId, hostname }: Appro
         setIsSubmitting(true);
         setError(null);
 
-        try {
-            const success = await approveAgent(agentId, values.name.trim(), values.description?.trim());
-            if (success) {
-                onClose();
-            } else {
-                setError('Failed to approve server. Please try again.');
-            }
-        } catch (err: any) {
-            setError(err.message || 'An error occurred during approval');
-        } finally {
-            setIsSubmitting(false);
+        const success = await handleError(
+            async () => {
+                const result = await approveAgent(agentId, values.name.trim(), values.description?.trim());
+                if (!result) throw new Error('Approval failed');
+                return result;
+            },
+            'Failed to approve server',
+            { showToast: false }
+        );
+        
+        if (success) {
+            onClose();
+        } else {
+            setError('Failed to approve server. Please try again.');
         }
+        setIsSubmitting(false);
     };
 
     return (

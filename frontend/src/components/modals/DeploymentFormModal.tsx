@@ -117,7 +117,7 @@ export function DeploymentFormModal({ isOpen, onClose, onSave, initial, projectI
                 {/* Project & Server */}
                 <Row gutter={16}>
                     <Col span={12}>
-                        <Form.Item name="projectId" label={<Text strong style={{ fontSize: token.borderRadiusSM }}>Project</Text>} rules={[{ required: true }]}>
+                        <Form.Item name="projectId" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Project</Text>} rules={[{ required: true }]}>
                             <Select
                                 placeholder="Select Project"
                                 disabled={!!projectId}
@@ -126,7 +126,7 @@ export function DeploymentFormModal({ isOpen, onClose, onSave, initial, projectI
                         </Form.Item>
                     </Col>
                     <Col span={12}>
-                        <Form.Item name="serverId" label={<Text strong style={{ fontSize: token.borderRadiusSM }}>Target Server</Text>} rules={[{ required: true }]}>
+                        <Form.Item name="serverId" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Target Server</Text>} rules={[{ required: true }]}>
                             <Select
                                 placeholder="Select Server"
                                 options={onlineAgents.map(a => ({ value: a.id, label: a.name || a.hostname || a.id }))}
@@ -138,47 +138,47 @@ export function DeploymentFormModal({ isOpen, onClose, onSave, initial, projectI
                 {/* Name & Description */}
                 <Row gutter={16}>
                     <Col span={12}>
-                        <Form.Item name="name" label={<Text strong style={{ fontSize: token.borderRadiusSM }}>App Name</Text>} rules={[{ required: true }]}>
+                        <Form.Item name="name" label={<Text strong style={{ fontSize: token.fontSizeSM }}>App Name</Text>} rules={[{ required: true }]}>
                             <Input placeholder="e.g. my-api-service" />
                         </Form.Item>
                     </Col>
                     <Col span={12}>
-                        <Form.Item name="description" label={<Text strong style={{ fontSize: token.borderRadiusSM }}>Description</Text>}>
+                        <Form.Item name="description" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Description</Text>}>
                             <Input placeholder="Brief description" />
                         </Form.Item>
                     </Col>
                 </Row>
 
-                <Divider titlePlacement="left" style={{ fontSize: token.borderRadiusSM }}>Source</Divider>
+                <Divider titlePlacement="left" style={{ fontSize: token.fontSizeSM }}>Source</Divider>
 
                 <Row gutter={16}>
                     <Col span={16}>
-                        <Form.Item name="sourceUrl" label={<Text strong style={{ fontSize: token.borderRadiusSM }}>Git Repository URL</Text>} rules={[{ required: true }]} help="Releases will be downloaded from this repo">
+                        <Form.Item name="sourceUrl" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Git Repository URL</Text>} rules={[{ required: true }]} help="Releases will be downloaded from this repo">
                             <Input placeholder="https://github.com/user/repo" />
                         </Form.Item>
                     </Col>
                     <Col span={8}>
-                        <Form.Item name="sourceToken" label={<Text strong style={{ fontSize: token.borderRadiusSM }}>Access Token</Text>} help="Optional, for private repos">
+                        <Form.Item name="sourceToken" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Access Token</Text>} help="Optional, for private repos">
                             <Input.Password placeholder="ghp_..." />
                         </Form.Item>
                     </Col>
                 </Row>
 
-                <Divider titlePlacement="left" style={{ fontSize: token.borderRadiusSM }}>Runtime & Process</Divider>
+                <Divider titlePlacement="left" style={{ fontSize: token.fontSizeSM }}>Runtime & Process</Divider>
 
                 <Row gutter={16}>
                     <Col span={8}>
-                        <Form.Item name="runtime" label={<Text strong style={{ fontSize: token.borderRadiusSM }}>Runtime</Text>} rules={[{ required: true }]}>
+                        <Form.Item name="runtime" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Runtime</Text>} rules={[{ required: true }]}>
                             <Select options={RUNTIMES} />
                         </Form.Item>
                     </Col>
                     <Col span={8}>
-                        <Form.Item name="runtimeVersion" label={<Text strong style={{ fontSize: token.borderRadiusSM }}>Version</Text>} help="e.g. 18.x, 3.11">
+                        <Form.Item name="runtimeVersion" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Version</Text>} help="e.g. 18.x, 3.11">
                             <Input placeholder="18.x" />
                         </Form.Item>
                     </Col>
                     <Col span={8}>
-                        <Form.Item name="processManager" label={<Text strong style={{ fontSize: token.borderRadiusSM }}>Process Manager</Text>} rules={[{ required: true }]}>
+                        <Form.Item name="processManager" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Process Manager</Text>} rules={[{ required: true }]}>
                             <Select options={PROCESS_MANAGERS} />
                         </Form.Item>
                     </Col>
@@ -186,33 +186,33 @@ export function DeploymentFormModal({ isOpen, onClose, onSave, initial, projectI
 
                 <Row gutter={16}>
                     <Col span={24}>
-                        <Form.Item name="startCommand" label={<Text strong style={{ fontSize: token.borderRadiusSM }}>Start Command</Text>} rules={[{ required: true }]}>
+                        <Form.Item name="startCommand" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Start Command</Text>} rules={[{ required: true }]}>
                             <Input placeholder="e.g. npm start, python main.py, ./myapp" />
                         </Form.Item>
                     </Col>
                 </Row>
 
-                <Divider titlePlacement="left" style={{ fontSize: token.borderRadiusSM }}>Network & Proxy</Divider>
+                <Divider titlePlacement="left" style={{ fontSize: token.fontSizeSM }}>Network & Proxy</Divider>
 
                 <Row gutter={16}>
                     <Col span={8}>
-                        <Form.Item name="internalPort" label={<Text strong style={{ fontSize: token.borderRadiusSM }}>App Port</Text>}>
+                        <Form.Item name="internalPort" label={<Text strong style={{ fontSize: token.fontSizeSM }}>App Port</Text>}>
                             <InputNumber placeholder="3000" style={{ width: '100%' }} />
                         </Form.Item>
                     </Col>
                     <Col span={8}>
-                        <Form.Item name="proxyType" label={<Text strong style={{ fontSize: token.borderRadiusSM }}>Reverse Proxy</Text>}>
+                        <Form.Item name="proxyType" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Reverse Proxy</Text>}>
                             <Select options={PROXY_TYPES} />
                         </Form.Item>
                     </Col>
                     <Col span={8}>
-                        <Form.Item name="domainName" label={<Text strong style={{ fontSize: token.borderRadiusSM }}>Domain</Text>}>
+                        <Form.Item name="domainName" label={<Text strong style={{ fontSize: token.fontSizeSM }}>Domain</Text>}>
                             <Input placeholder="api.myapp.com" />
                         </Form.Item>
                     </Col>
                 </Row>
 
-                <Divider titlePlacement="left" style={{ fontSize: token.borderRadiusSM }}>Environment Variables</Divider>
+                <Divider titlePlacement="left" style={{ fontSize: token.fontSizeSM }}>Environment Variables</Divider>
 
                 {envFields.map((field, idx) => (
                     <Row gutter={8} key={idx} style={{ marginBottom: token.borderRadiusSM }}>

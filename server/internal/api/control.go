@@ -9,6 +9,7 @@ import (
 	"prism-server/internal/hub"
 	"prism-server/internal/models"
 	"prism-server/internal/protocol"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -16,10 +17,33 @@ import (
 
 var AgentHub *hub.Hub
 var HubToken string
+var AllowedOrigins []string
 
 var Upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		return true // Simplified for API/Integration testing
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return true // Allow requests without Origin header (same-origin, curl, etc.)
+		}
+		// Check against allowed origins
+		for _, allowed := range AllowedOrigins {
+			if allowed == "*" || allowed == origin {
+				return true
+			}
+			// Support wildcard subdomains (e.g., *.example.com)
+			if strings.HasPrefix(allowed, "*.") {
+				domain := allowed[2:]
+				if strings.HasSuffix(origin, domain) {
+					return true
+				}
+			}
+		}
+		// Default: allow localhost for development
+		if strings.HasPrefix(origin, "http://localhost") || strings.HasPrefix(origin, "http://127.0.0.1") {
+			return true
+		}
+		log.Printf("WebSocket origin rejected: %s", origin)
+		return false
 	},
 }
 
@@ -377,6 +401,7 @@ func HandleAgentConnection(w http.ResponseWriter, r *http.Request) {
 		LastSeen: time.Now(),
 	}
 
+	initialServices := make(map[string]protocol.ServiceInfo)
 	if servicesInterface, ok := payloadMap["services"].([]interface{}); ok {
 		for _, s := range servicesInterface {
 			if sMap, ok := s.(map[string]interface{}); ok {
@@ -391,7 +416,7 @@ func HandleAgentConnection(w http.ResponseWriter, r *http.Request) {
 						}
 					}
 				}
-				session.Services[name] = protocol.ServiceInfo{
+				initialServices[name] = protocol.ServiceInfo{
 					Name:    name,
 					Status:  status,
 					Metrics: metrics,
@@ -399,6 +424,7 @@ func HandleAgentConnection(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	session.SetServices(initialServices)
 
 	AgentHub.RegisterAgent(agentID, session)
 
@@ -430,7 +456,7 @@ func HandleAgentConnection(w http.ResponseWriter, r *http.Request) {
 		"id":       agentID,
 		"hostname": hostname,
 		"status":   "online",
-		"services": session.Services,
+		"services": session.GetAllServices(),
 		"lastSeen": time.Now().UTC().Format(time.RFC3339),
 	}, "agent_connected")
 
@@ -444,6 +470,35 @@ func HandleAgentConnection(w http.ResponseWriter, r *http.Request) {
 		if incoming.Type == protocol.MsgTypeKeepAlive {
 			if agent, ok := AgentHub.GetAgent(agentID); ok {
 				agent.LastSeen = time.Now()
+				
+				if payloadMap, ok := incoming.Payload.(map[string]interface{}); ok {
+					if servicesInterface, ok := payloadMap["services"].([]interface{}); ok {
+						for _, s := range servicesInterface {
+							if sMap, ok := s.(map[string]interface{}); ok {
+								name, _ := sMap["name"].(string)
+								if name == "" {
+									continue
+								}
+								status, _ := sMap["status"].(string)
+								var metrics map[string]float64
+								if m, ok := sMap["metrics"].(map[string]interface{}); ok {
+									metrics = make(map[string]float64)
+									for k, v := range m {
+										if val, ok := v.(float64); ok {
+											metrics[k] = val
+										}
+									}
+								}
+								// Overwrite the service entirely because metrics might have changed
+								agent.UpdateService(name, protocol.ServiceInfo{
+									Name:    name,
+									Status:  status,
+									Metrics: metrics,
+								})
+							}
+						}
+					}
+				}
 			}
 		}
 
@@ -463,7 +518,7 @@ func HandleAgentConnection(w http.ResponseWriter, r *http.Request) {
 		if incoming.Type == protocol.MsgTypeEvent {
 			if payloadMap, ok := incoming.Payload.(map[string]interface{}); ok {
 				event := models.Event{
-					AgentID:   agentID,
+					AgentID: agentID,
 					ProjectID: func() string {
 						if pid, ok := payloadMap["project_id"].(string); ok {
 							return pid
@@ -480,6 +535,22 @@ func HandleAgentConnection(w http.ResponseWriter, r *http.Request) {
 					BroadcastEvent(savedEvent)
 				} else {
 					log.Printf("Failed to save event from agent %s: %v", agentID, err)
+				}
+				
+				// Update in-memory session if this is a service status change
+				if event.Type == "service_status_change" && event.Service != "" {
+					if agent, ok := AgentHub.GetAgent(agentID); ok {
+						if svc, exists := agent.GetService(event.Service); exists {
+							svc.Status = event.Status
+							agent.UpdateService(event.Service, svc)
+						} else {
+							// New service discovered via event
+							agent.UpdateService(event.Service, protocol.ServiceInfo{
+								Name:   event.Service,
+								Status: event.Status,
+							})
+						}
+					}
 				}
 			}
 		}

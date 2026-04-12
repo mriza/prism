@@ -30,6 +30,16 @@ type AuthConfig struct {
 	JwtSecret string `toml:"jwt_secret"`
 }
 
+type CORSConfig struct {
+	AllowedOrigins []string `toml:"allowed_origins"`
+	AllowCredentials bool   `toml:"allow_credentials"`
+	MaxAge         int      `toml:"max_age"`
+}
+
+type FrontendConfig struct {
+	BaseURL string `toml:"base_url"`
+}
+
 type ServerConfig struct {
 	Host       string `toml:"host"`
 	Port       int    `toml:"port"`
@@ -37,6 +47,8 @@ type ServerConfig struct {
 	TLSEnabled bool   `toml:"tls_enabled"`
 	TLSCert    string `toml:"tls_cert"`
 	TLSKey     string `toml:"tls_key"`
+	CORS       CORSConfig `toml:"cors"`
+	Frontend   FrontendConfig `toml:"frontend"`
 }
 
 type DatabaseConfig struct {
@@ -85,6 +97,15 @@ func (c *Config) Validate(configPath string) error {
 	if c.Server.Host == "" {
 		c.Server.Host = "0.0.0.0"
 	}
+
+	// Set CORS defaults if not configured
+	if len(c.Server.CORS.AllowedOrigins) == 0 {
+		c.Server.CORS.AllowedOrigins = []string{"*"}
+	}
+	if c.Server.CORS.MaxAge <= 0 {
+		c.Server.CORS.MaxAge = 86400
+	}
+	c.Server.CORS.AllowCredentials = true
 
 	// Validate database path
 	if c.Database.Path == "" {

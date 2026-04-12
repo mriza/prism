@@ -1,0 +1,69 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prism-ingress
+  namespace: prism
+  labels:
+    app.kubernetes.io/name: prism-frontend
+    app.kubernetes.io/part-of: prism
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - prism.example.com
+        - api.prism.example.com
+      secretName: prism-tls
+  rules:
+    - host: prism.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prism-frontend
+                port:
+                  name: http
+    - host: api.prism.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: prism-server
+                port:
+                  name: http
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: prism-server
+                port:
+                  name: http
+          - path: /agent
+            pathType: Prefix
+            backend:
+              service:
+                name: prism-server
+                port:
+                  name: http
+          - path: /healthz
+            pathType: Exact
+            backend:
+              service:
+                name: prism-server
+                port:
+                  name: http
+          - path: /readyz
+            pathType: Exact
+            backend:
+              service:
+                name: prism-server
+                port:
+                  name: http

@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: prism
+commonLabels:
+  app.kubernetes.io/part-of: prism
+  app.kubernetes.io/managed-by: kustomize
+
+resources:
+  - namespace.yaml
+  - server-configmap.yaml
+  - server-secret.yaml
+  - server-deployment.yaml
+  - server-service.yaml
+  - frontend-deployment.yaml
+  - agent-daemonset.yaml
+  - ingress.yaml

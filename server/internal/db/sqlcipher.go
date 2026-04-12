@@ -1,11 +1,14 @@
 package db
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"log"
 	"os"
+
+	"golang.org/x/crypto/pbkdf2"
 )
 
 // SQLCipherConfig holds SQLCipher encryption configuration
@@ -28,16 +31,20 @@ func DefaultSQLCipherConfig() SQLCipherConfig {
 	}
 }
 
+// GenerateSecureSalt generates a cryptographically secure random salt
+func GenerateSecureSalt(length int) (string, error) {
+	salt := make([]byte, length)
+	_, err := rand.Read(salt)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate random salt: %w", err)
+	}
+	return hex.EncodeToString(salt), nil
+}
+
 // GenerateKeyFromPassword derives encryption key from password using PBKDF2
 func GenerateKeyFromPassword(password, salt string, iterations int) string {
-	// In production, use proper PBKDF2 implementation
-	// This is a simplified version using SHA-256
-	h := sha256.New()
-	h.Write([]byte(password + salt))
-	for i := 0; i < iterations/1000; i++ {
-		h.Write(h.Sum(nil))
-	}
-	return hex.EncodeToString(h.Sum(nil))
+	key := pbkdf2.Key([]byte(password), []byte(salt), iterations, 32, sha256.New)
+	return hex.EncodeToString(key)
 }
 
 // InitializeSQLCipher initializes SQLCipher encryption for the database
@@ -55,8 +62,12 @@ func InitializeSQLCipher(password string) error {
 
 	// Generate salt if not provided
 	if cipher.KKSSalt == "" {
-		// In production, use crypto/rand for secure random generation
-		cipher.KKSSalt = "prism-salt-" + hex.EncodeToString([]byte(password))[:16]
+		// Generate cryptographically secure random salt
+		salt, err := GenerateSecureSalt(16)
+		if err != nil {
+			return fmt.Errorf("failed to generate encryption salt: %w", err)
+		}
+		cipher.KKSSalt = salt
 	}
 
 	// Derive key from password

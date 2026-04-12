@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"prism-server/internal/hub"
 	"prism-server/internal/protocol"
@@ -55,6 +56,7 @@ func HandleGlobalBan(w http.ResponseWriter, r *http.Request) {
 
 	agents := AgentHub.GetAgents()
 	fireCount := 0
+	var errCount int
 	for _, agent := range agents {
 		cmdID := fmt.Sprintf("ban-%d", time.Now().UnixNano())
 		cmd := protocol.Message{
@@ -71,8 +73,16 @@ func HandleGlobalBan(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 		}
-		go agent.Send(cmd)
+		go func(agent *hub.AgentSession, cmd protocol.Message) {
+			if err := agent.Send(cmd); err != nil {
+				log.Printf("Failed to send ban command to agent %s: %v", agent.ID, err)
+			}
+		}(agent, cmd)
 		fireCount++
+	}
+
+	if errCount > 0 {
+		log.Printf("Security dispatch: %d succeeded, %d failed", fireCount, errCount)
 	}
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -125,7 +135,11 @@ func HandleGlobalUnban(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 		}
-		go agent.Send(cmd)
+		go func(agent *hub.AgentSession, cmd protocol.Message) {
+			if err := agent.Send(cmd); err != nil {
+				log.Printf("Failed to send unban command to agent %s: %v", agent.ID, err)
+			}
+		}(agent, cmd)
 		fireCount++
 	}
 

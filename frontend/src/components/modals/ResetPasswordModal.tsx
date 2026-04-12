@@ -10,6 +10,7 @@ import {
 } from 'antd';
 import { KeyOutlined } from '@ant-design/icons';
 import type { User } from '../../types';
+import { handleError } from '../../utils/log';
 
 const { Text } = Typography;
 
@@ -29,34 +30,35 @@ export function ResetPasswordModal({ isOpen, user, onClose, onSuccess }: Props) 
     const handleSave = async (values: any) => {
         setLoading(true);
         setError('');
+
+        await handleError(
+            async () => {
+                const apiBase = import.meta.env.VITE_API_URL || '';
+                const res = await fetch(`${apiBase}/api/users/${user?.id}/reset-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('prism_token')}`
+                    },
+                    body: JSON.stringify({
+                        newPassword: values.newPassword
+                    })
+                });
+
+                if (!res.ok) {
+                    const errorData = await res.text();
+                    throw new Error(errorData || 'Failed to reset password');
+                }
+
+                form.resetFields();
+                onSuccess();
+                onClose();
+            },
+            'Failed to reset password',
+            { showToast: false, onError: (err) => setError(err instanceof Error ? err.message : 'Failed to reset password') }
+        );
         
-        try {
-            const apiBase = import.meta.env.VITE_API_URL || '';
-            const res = await fetch(`${apiBase}/api/users/${user?.id}/reset-password`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify({
-                    newPassword: values.newPassword
-                })
-            });
-
-            if (!res.ok) {
-                const errorData = await res.text();
-                throw new Error(errorData || 'Failed to reset password');
-            }
-
-            form.resetFields();
-            onSuccess();
-            onClose();
-            
-        } catch (err: any) {
-            setError(err.message || 'Failed to reset password');
-        } finally {
-            setLoading(false);
-        }
+        setLoading(false);
     };
 
     return (

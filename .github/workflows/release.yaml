@@ -1,0 +1,111 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Build server binary
+        run: |
+          cd server
+          GOOS=linux GOARCH=amd64 go build -ldflags="-w -s -X main.Version=${{ steps.version.outputs.VERSION }}" -o ../dist/prism-server-linux-amd64 cmd/server/main.go
+          GOOS=linux GOARCH=arm64 go build -ldflags="-w -s -X main.Version=${{ steps.version.outputs.VERSION }}" -o ../dist/prism-server-linux-arm64 cmd/server/main.go
+          GOOS=darwin GOARCH=amd64 go build -ldflags="-w -s -X main.Version=${{ steps.version.outputs.VERSION }}" -o ../dist/prism-server-darwin-amd64 cmd/server/main.go
+          GOOS=darwin GOARCH=arm64 go build -ldflags="-w -s -X main.Version=${{ steps.version.outputs.VERSION }}" -o ../dist/prism-server-darwin-arm64 cmd/server/main.go
+
+      - name: Build agent binary
+        run: |
+          cd agent
+          GOOS=linux GOARCH=amd64 go build -ldflags="-w -s -X main.Version=${{ steps.version.outputs.VERSION }}" -o ../dist/prism-agent-linux-amd64 cmd/agent/*.go
+          GOOS=linux GOARCH=arm64 go build -ldflags="-w -s -X main.Version=${{ steps.version.outputs.VERSION }}" -o ../dist/prism-agent-linux-arm64 cmd/agent/*.go
+          GOOS=darwin GOARCH=amd64 go build -ldflags="-w -s -X main.Version=${{ steps.version.outputs.VERSION }}" -o ../dist/prism-agent-darwin-amd64 cmd/agent/*.go
+          GOOS=darwin GOARCH=arm64 go build -ldflags="-w -s -X main.Version=${{ steps.version.outputs.VERSION }}" -o ../dist/prism-agent-darwin-arm64 cmd/agent/*.go
+
+      - name: Build frontend
+        run: cd frontend && npm ci && npm run build
+
+      - name: Create checksums
+        run: |
+          cd dist
+          sha256sum * > sha256sums.txt
+
+      - name: Build Docker images
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/prism-server:${{ steps.version.outputs.VERSION }} -f Dockerfile.server .
+          docker build -t ghcr.io/${{ github.repository }}/prism-agent:${{ steps.version.outputs.VERSION }} -f Dockerfile.agent .
+          docker build -t ghcr.io/${{ github.repository }}/prism-frontend:${{ steps.version.outputs.VERSION }} -f frontend/Dockerfile ./frontend
+
+      - name: Push Docker images
+        run: |
+          docker push ghcr.io/${{ github.repository }}/prism-server:${{ steps.version.outputs.VERSION }}
+          docker push ghcr.io/${{ github.repository }}/prism-agent:${{ steps.version.outputs.VERSION }}
+          docker push ghcr.io/${{ github.repository }}/prism-frontend:${{ steps.version.outputs.VERSION }}
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          echo "NOTES<<EOF" >> $GITHUB_OUTPUT
+          git log $(git describe --tags --abbrev=0 HEAD^)..HEAD --pretty=format:"- %s" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/*
+          body: |
+            # PRISM ${{ steps.version.outputs.VERSION }}
+
+            ## Changes
+            ${{ steps.release_notes.outputs.NOTES }}
+
+            ## Docker Images
+            - `ghcr.io/${{ github.repository }}/prism-server:${{ steps.version.outputs.VERSION }}`
+            - `ghcr.io/${{ github.repository }}/prism-agent:${{ steps.version.outputs.VERSION }}`
+            - `ghcr.io/${{ github.repository }}/prism-frontend:${{ steps.version.outputs.VERSION }}`
+
+            ## Install
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/scripts/prism_install_agent.sh -o prism_install_agent.sh
+            chmod +x prism_install_agent.sh
+            sudo ./prism_install_agent.sh
+            ```
+          draft: false
+          prerelease: false

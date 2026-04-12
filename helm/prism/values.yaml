@@ -1,0 +1,110 @@
+# Default values for PRISM Helm chart
+# This is a YAML-formatted file.
+
+global:
+  imagePullPolicy: IfNotPresent
+  storageClass: standard
+
+server:
+  replicaCount: 1
+  image:
+    repository: prism-server
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 8080
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: standard
+  
+  config:
+    cors:
+      allowedOrigins:
+        - "*"
+      allowCredentials: true
+      maxAge: 86400
+    log:
+      level: info
+      format: json
+  
+  secrets:
+    # These should be overridden with actual values
+    jwtSecret: "change-me-in-production"
+    agentToken: "change-me-in-production"
+  
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
+    hosts:
+      - host: prism.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+      - host: api.prism.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: prism-tls
+        hosts:
+          - prism.example.com
+          - api.prism.example.com
+
+frontend:
+  replicaCount: 2
+  image:
+    repository: prism-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 80
+  
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: "500m"
+      memory: 256Mi
+
+agent:
+  image:
+    repository: prism-agent
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: "500m"
+      memory: 256Mi
+  
+  hostNetwork: true
+  hostPID: true
+
+# Monitoring
+monitoring:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    labels: {}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { handleError } from '../utils/log';
 import {
     Layout,
     Card,
@@ -45,30 +46,32 @@ export function LoginPage() {
         setError('');
         setLoading(true);
 
-        try {
-            const apiBase = import.meta.env.VITE_API_URL || '';
-            const res = await fetch(`${apiBase}/api/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(values)
-            });
+        await handleError(
+            async () => {
+                const apiBase = import.meta.env.VITE_API_URL || '';
+                const res = await fetch(`${apiBase}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(values)
+                });
 
-            if (!res.ok) {
-                const msg = await res.text();
-                throw new Error(msg || 'Invalid credentials');
-            }
+                if (!res.ok) {
+                    const msg = await res.text();
+                    throw new Error(msg || 'Invalid credentials');
+                }
 
-            const data = await res.json();
-            if (data.token) {
-                login(data.token);
-            } else {
-                throw new Error('No token received');
-            }
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to login');
-        } finally {
-            setLoading(false);
-        }
+                const data = await res.json();
+                if (data.token) {
+                    login(data.token);
+                } else {
+                    throw new Error('No token received');
+                }
+            },
+            'Failed to login',
+            { showToast: false, onError: (err) => setError(err instanceof Error ? err.message : 'Failed to login') }
+        );
+        
+        setLoading(false);
     };
 
     return (

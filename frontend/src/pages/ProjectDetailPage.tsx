@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useProjects } from '../hooks/useProjects';
 import { useAccounts } from '../hooks/useAccounts';
 import { useAuth } from '../contexts/AuthContext';
@@ -166,13 +166,9 @@ export function ProjectDetailPage() {
     };
 
     return (
-        <PageContainer 
+        <PageContainer
             title={project.name}
             description={project.description || "Project orchestration and asset management."}
-            breadcrumb={[
-                { title: <Link to="/projects">Projects</Link> },
-                { title: project.name }
-            ]}
             extra={
                 user?.role !== 'user' && (
                     <Space>

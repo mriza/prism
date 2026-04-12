@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { 
-    Button, 
-    Space, 
-    Typography, 
-    theme, 
-    Alert, 
-    Divider, 
-    Card, 
+import {
+    Button,
+    Space,
+    Typography,
+    theme,
+    Alert,
+    Divider,
+    Card,
     Table,
     Input,
     Row,
@@ -14,6 +14,7 @@ import {
     Tag,
     Popconfirm
 } from 'antd';
+import { handleError } from '../../../utils/log';
 import { 
     DatabaseOutlined, 
     PlusOutlined, 
@@ -60,7 +61,10 @@ export function DatabaseManager({ sendCommand }: DatabaseManagerProps) {
                 setUsers(typeof userRes.message === 'string' ? JSON.parse(userRes.message) : userRes.message);
             }
         } catch (err: any) {
-            setError(err.message || 'Failed to fetch database information');
+            handleError(() => { throw err; }, err.message || 'Failed to fetch data', { 
+                showToast: false,
+                onError: () => setError(err.message || 'Failed to fetch database information')
+            });
         } finally {
             setLoading(false);
         }

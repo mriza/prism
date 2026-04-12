@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { log } from '../../../utils/log';
+import { handleError } from '../../../utils/log';
 import {
     Button,
     Space,
@@ -58,7 +58,10 @@ export function FTPManager({ sendCommand }: FTPManagerProps) {
                 setUsers(Array.isArray(parsed) ? parsed : []);
             }
         } catch (err: any) {
-            setError(err.message || 'Failed to fetch FTP users');
+            handleError(() => { throw err; }, err.message || 'Failed to fetch data', { 
+                showToast: false,
+                onError: () => setError(err.message || 'Failed to fetch data')
+            });
         } finally {
             setLoading(false);
         }
@@ -74,7 +77,7 @@ export function FTPManager({ sendCommand }: FTPManagerProps) {
                 form.setFieldsValue(data);
             }
         } catch (err: any) {
-            log.error('Failed to load settings', err); message.error('Failed to load settings');
+            handleError(() => { throw err; }, 'Failed to load settings', { showToast: true });
         } finally {
             setLoadingSettings(false);
         }

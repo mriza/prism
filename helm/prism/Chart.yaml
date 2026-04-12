@@ -1,0 +1,18 @@
+apiVersion: v2
+name: prism
+description: PRISM Infrastructure Management Platform
+type: application
+version: 0.5.2
+appVersion: "v0.5.2"
+keywords:
+  - infrastructure
+  - management
+  - monitoring
+  - agent
+home: https://github.com/prism/prism
+sources:
+  - https://github.com/prism/prism
+maintainers:
+  - name: PRISM Development Team
+    email: admin@example.com
+icon: https://github.com/prism/prism/raw/main/frontend/public/vite.svg

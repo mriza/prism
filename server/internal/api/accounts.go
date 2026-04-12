@@ -31,7 +31,10 @@ func sendInternalControlCommand(serverID, service, action string, options map[st
 		"action":   action,
 		"options":  options,
 	}
-	b, _ := json.Marshal(payload)
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal control payload: %w", err)
+	}
 	req, err := http.NewRequest("POST", ControlURL, bytes.NewReader(b))
 	if err != nil {
 		return err
@@ -334,6 +337,67 @@ func HandleAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func HandleAccountCrossReference(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	filters := db.ServiceAccountFilters{
+		ProjectID: r.URL.Query().Get("projectId"),
+		ServerID:  r.URL.Query().Get("serverId"),
+		Category:  r.URL.Query().Get("category"),
+		Search:    r.URL.Query().Get("search"),
+	}
+	results, err := db.GetAccountsCrossReference(filters)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if results == nil {
+		results = []map[string]interface{}{}
+	}
+	json.NewEncoder(w).Encode(results)
+}
+
+func HandleAccountsBulkProject(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var payload struct {
+		AccountIDs []string `json:"accountIds"`
+		ProjectID  string   `json:"projectId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid input", http.StatusBadRequest)
+		return
+	}
+	if err := db.BulkUpdateAccountsProject(payload.AccountIDs, payload.ProjectID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func HandleAccountsBulkDisable(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var payload struct {
+		AccountIDs []string `json:"accountIds"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid input", http.StatusBadRequest)
+		return
+	}
+	if err := db.BulkDisableAccounts(payload.AccountIDs); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
 func HandleAccountDetail(w http.ResponseWriter, r *http.Request) {
 	if handleCORS(w, r) {
 		return
@@ -342,6 +406,20 @@ func HandleAccountDetail(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/api/accounts/")
 	if id == "" {
 		http.Error(w, "Account ID missing", http.StatusBadRequest)
+		return
+	}
+
+	// Intercept sub-routes
+	if id == "cross-reference" {
+		HandleAccountCrossReference(w, r)
+		return
+	}
+	if id == "bulk-project" {
+		HandleAccountsBulkProject(w, r)
+		return
+	}
+	if id == "bulk-disable" {
+		HandleAccountsBulkDisable(w, r)
 		return
 	}
 

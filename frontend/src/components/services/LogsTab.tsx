@@ -161,9 +161,9 @@ export function LogsTab({ agentId, serviceName }: LogsTabProps) {
                 {/* Log viewer */}
                 <Card
                     style={{
-                        borderRadius: 12,
+                        borderRadius: token.borderRadiusLG,
                         border: `1px solid ${token.colorBorderSecondary}`,
-                        backgroundColor: '#1e1e1e'
+                        backgroundColor: token.colorBgElevated
                     }}
                     styles={{ body: { padding: 0 } }}
                 >

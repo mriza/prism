@@ -86,7 +86,7 @@ describe('usePermissions', () => {
             const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
             await waitFor(() => expect(result.current.permissions.length).toBe(1));
 
-            let success = false;
+            let success: boolean | undefined = false;
             await act(async () => {
                 success = await result.current.updatePermission('p1', { name: 'New' });
             });
@@ -106,7 +106,7 @@ describe('usePermissions', () => {
             const { result } = renderHook(() => usePermissions(), { wrapper: createWrapper() });
             await waitFor(() => expect(result.current.permissions.length).toBe(1));
 
-            let success = false;
+            let success: boolean | undefined = false;
             await act(async () => {
                 success = await result.current.deletePermission('p1');
             });

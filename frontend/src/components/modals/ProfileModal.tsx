@@ -22,6 +22,7 @@ import {
     LockOutlined
 } from '@ant-design/icons';
 import { useAuth } from '../../contexts/AuthContext';
+import { handleError } from '../../utils/log';
 import { ChangePasswordModal } from './ChangePasswordModal';
 
 const { Text } = Typography;
@@ -50,23 +51,26 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     const fetchProfile = async () => {
         setLoading(true);
         setError(null);
-        try {
-            const apiBase = import.meta.env.VITE_API_URL || '';
-            const res = await fetch(`${apiBase}/api/users/me`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!res.ok) throw new Error('Failed to fetch profile');
-            const data = await res.json();
+        const data = await handleError(
+            async () => {
+                const apiBase = import.meta.env.VITE_API_URL || '';
+                const res = await fetch(`${apiBase}/api/users/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Failed to fetch profile');
+                return await res.json();
+            },
+            'Failed to fetch profile',
+            { showToast: false }
+        );
+        if (data) {
             form.setFieldsValue({
                 fullName: data.fullName || '',
                 email: data.email || '',
                 phone: data.phone || '',
             });
-        } catch (err: any) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
         }
+        setLoading(false);
     };
 
     const handleSave = async (values: any) => {
@@ -78,31 +82,36 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         setSaving(true);
         setError(null);
         setSuccess(false);
-        try {
-            const apiBase = import.meta.env.VITE_API_URL || '';
-            const res = await fetch(`${apiBase}/api/users/me`, {
-                method: 'PUT',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    fullName: values.fullName,
-                    email: values.email,
-                    phone: values.phone,
-                    password: values.password || undefined
-                })
-            });
-            if (!res.ok) throw new Error('Failed to update profile');
-            
+        
+        const success = await handleError(
+            async () => {
+                const apiBase = import.meta.env.VITE_API_URL || '';
+                const res = await fetch(`${apiBase}/api/users/me`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        fullName: values.fullName,
+                        email: values.email,
+                        phone: values.phone,
+                        password: values.password || undefined
+                    })
+                });
+                if (!res.ok) throw new Error('Failed to update profile');
+                return true;
+            },
+            'Failed to update profile',
+            { showToast: false }
+        );
+        
+        if (success) {
             setSuccess(true);
             form.setFieldsValue({ password: '', confirmPassword: '' });
             setTimeout(() => setSuccess(false), 3000);
-        } catch (err: any) {
-            setError(err.message);
-        } finally {
-            setSaving(false);
         }
+        setSaving(false);
     };
 
     return (

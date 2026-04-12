@@ -18,7 +18,7 @@ import {
     Statistic,
     Select
 } from 'antd';
-import { log } from '../../../utils/log';
+import { handleError } from '../../../utils/log';
 import {
     DatabaseOutlined,
     PlusOutlined,
@@ -98,7 +98,10 @@ export function CacheManager({ sendCommand }: CacheManagerProps) {
                 setMetrics(typeof metricsRes.message === 'string' ? JSON.parse(metricsRes.message) : metricsRes.message);
             }
         } catch (err: any) {
-            setError(err.message || 'Failed to fetch cache data');
+            handleError(() => { throw err; }, err.message || 'Failed to fetch data', { 
+                showToast: false,
+                onError: () => setError(err.message || 'Failed to fetch data')
+            });
         } finally {
             setLoading(false);
         }
@@ -114,7 +117,7 @@ export function CacheManager({ sendCommand }: CacheManagerProps) {
                 form.setFieldsValue(settingsData);
             }
         } catch (err: any) {
-            log.error('Failed to load settings', err); message.error('Failed to load settings');
+            handleError(() => { throw err; }, 'Failed to load settings', { showToast: true });
         } finally {
             setLoadingSettings(false);
         }

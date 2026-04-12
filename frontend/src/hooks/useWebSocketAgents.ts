@@ -33,7 +33,7 @@ export function useWebSocketAgents(
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}/ws/agents?token=${token}`;
 
-      log.debug('Connecting to WebSocket:', wsUrl);
+      log.debug('Connecting to WebSocket (agents channel)');
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
@@ -76,7 +76,7 @@ export function useWebSocketAgents(
             });
           }
         } catch (err) {
-          log.error('Failed to parse WebSocket message:', err);
+          // Silent fail for parse errors - not user-facing operations
         }
       };
 

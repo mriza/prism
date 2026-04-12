@@ -13,7 +13,7 @@ import {
     Alert,
     Popconfirm
 } from 'antd';
-import { log } from '../../utils/log';
+import { handleError } from '../../utils/log';
 import { 
     DeleteOutlined, 
     PlusOutlined, 
@@ -91,8 +91,10 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
                 setRules([]);
             }
         } catch (err: any) {
-            log.error('Failed to communicate with agent', err);
-            setError(err.message || 'Failed to communicate with agent');
+            handleError(() => { throw err; }, 'Failed to communicate with agent', {
+                showToast: false,
+                onError: () => setError(err.message || 'Failed to communicate with agent')
+            });
         } finally {
             setLoading(false);
         }
@@ -131,8 +133,10 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
             form.resetFields();
             await fetchRules();
         } catch (err: any) {
-            log.error('Failed to add rule', err);
-            setError(err.message || 'Failed to add rule');
+            handleError(() => { throw err; }, 'Failed to add rule', {
+                showToast: false,
+                onError: () => setError(err.message || 'Failed to add rule')
+            });
         } finally {
             setSubmitting(false);
         }
@@ -168,9 +172,13 @@ export function FirewallRulesModal({ isOpen, onClose, agentId, agentName, active
 
             await fetchRules();
         } catch (err: any) {
-            log.error('Failed to delete rule', err);
-            setError(err.message || 'Failed to delete rule');
-            setLoading(false);
+            handleError(() => { throw err; }, 'Failed to delete rule', {
+                showToast: false,
+                onError: () => {
+                    setError(err.message || 'Failed to delete rule');
+                    setLoading(false);
+                }
+            });
         }
     };
 

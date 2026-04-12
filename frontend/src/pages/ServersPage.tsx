@@ -24,11 +24,13 @@ import {
     DeleteOutlined,
     ExclamationCircleOutlined,
     DashboardOutlined,
-    MoreOutlined
+    MoreOutlined,
+    PlusOutlined
 } from '@ant-design/icons';
 import { FirewallModal } from '../components/modals/FirewallModal';
 import { CrowdSecModal } from '../components/modals/CrowdSecModal';
 import { ApproveServerModal } from '../components/modals/ApproveServerModal';
+import { AddServerModal } from '../components/modals/AddServerModal';
 import { ServiceDetailModal } from '../components/modals/ServiceDetailModal';
 import { ServerSettingsModal } from '../components/modals/ServerSettingsModal';
 import { SERVICE_TYPE_LABELS } from '../types';
@@ -79,6 +81,7 @@ export function ServersPage() {
         metrics?: Record<string, number>;
     } | null>(null);
     const [serverSettingsAgent, setServerSettingsAgent] = useState<{id: string, name: string} | null>(null);
+    const [addServerModalOpen, setAddServerModalOpen] = useState(false);
     const { user } = useAuth();
 
     const pendingAgents = agents.filter(a => a.status === 'pending');
@@ -99,6 +102,17 @@ export function ServersPage() {
         <PageContainer
             title="Servers"
             description="Centrally manage your distributed fleet of PRISM agents and infrastructure."
+            extra={
+                user?.role === 'admin' && (
+                    <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={() => setAddServerModalOpen(true)}
+                    >
+                        Add New Server
+                    </Button>
+                )
+            }
         >
             <Space direction="vertical" size="large" className="prism-full-width">
                 {usingPollingFallback && (
@@ -341,6 +355,12 @@ export function ServersPage() {
                     onClose={() => setServerSettingsAgent(null)}
                     agentId={serverSettingsAgent.id}
                     agentName={serverSettingsAgent.name}
+                />
+            )}
+            {addServerModalOpen && (
+                <AddServerModal
+                    isOpen={true}
+                    onClose={() => setAddServerModalOpen(false)}
                 />
             )}
         </PageContainer>

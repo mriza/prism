@@ -1,0 +1,125 @@
+name: Performance Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run daily at midnight
+    - cron: '0 0 * * *'
+
+jobs:
+  k6-api-load-test:
+    name: API Load Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build server
+        run: cd server && go build -o prism-server cmd/server/main.go
+
+      - name: Start server
+        run: |
+          cd server
+          # Create minimal config
+          mkdir -p data
+          ./prism-server &
+          sleep 5
+          # Verify server is running
+          curl -f http://localhost:65432/health || echo "Server might need auth, continuing..."
+
+      - name: Run k6 API Load Test
+        uses: grafana/k6-action@v0.3.0
+        with:
+          filename: tests/performance/api-load.js
+          flags: --out json=results/api-load.json
+        env:
+          BASE_URL: http://localhost:65432
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-load-results
+          path: results/
+        if: always()
+
+  k6-database-load-test:
+    name: Database Load Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build server
+        run: cd server && go build -o prism-server cmd/server/main.go
+
+      - name: Start server
+        run: |
+          cd server
+          mkdir -p data
+          ./prism-server &
+          sleep 5
+
+      - name: Run k6 Database Load Test
+        uses: grafana/k6-action@v0.3.0
+        with:
+          filename: tests/performance/database-load.js
+          flags: --out json=results/database-load.json
+        env:
+          BASE_URL: http://localhost:65432
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-load-results
+          path: results/
+        if: always()
+
+  frontend-bundle-size:
+    name: Frontend Bundle Size Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: cd frontend && npm ci
+
+      - name: Build frontend
+        run: cd frontend && npm run build
+
+      - name: Check bundle sizes
+        run: |
+          cd frontend/dist
+          echo "=== Bundle Sizes ==="
+          find . -name "*.js" -exec du -h {} \; | sort -hr
+          
+          # Check if main bundle is under 500KB
+          MAIN_BUNDLE=$(du -k assets/index-*.js | awk '{print $1}')
+          if [ "$MAIN_BUNDLE" -gt 500 ]; then
+            echo "::warning::Main bundle is ${MAIN_BUNDLE}KB, exceeds 500KB threshold"
+          else
+            echo "Main bundle size: ${MAIN_BUNDLE}KB ✓"
+          fi
+
+      - name: Upload build stats
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-stats
+          path: frontend/dist/

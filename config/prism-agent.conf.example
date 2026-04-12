@@ -1,0 +1,91 @@
+# Agent Environment Variables
+# Copy this file to prism-agent.conf and update values for your deployment
+
+# ============================================
+# Hub Configuration
+# ============================================
+
+# Hub WebSocket URL (required)
+# Scenario 1: Local development
+hub.url=ws://localhost:65432/agent/connect
+
+# Scenario 2: Same server, different port
+# hub.url=ws://localhost:8080/agent/connect
+
+# Scenario 3: Remote server/VM
+# hub.url=ws://192.168.1.100:8080/agent/connect
+
+# Scenario 4: Production with domain
+# hub.url=wss://hub.prism.example.com/agent/connect
+
+# Hub authentication token (shared secret with server)
+# Must match server's auth.token
+hub.token=
+
+# ============================================
+# Agent Configuration
+# ============================================
+
+# Agent ID (auto-generated if empty)
+# Leave empty for auto-generation
+agent.id=
+
+# Agent hostname (auto-detected if empty)
+# agent.hostname=
+
+# Enrollment key for registration (one-time use)
+# Leave empty if already registered
+agent.enrollment_key=
+
+# ============================================
+# Service Discovery Configuration
+# ============================================
+
+# Enable service discovery
+discovery.enabled=true
+
+# Discovery interval (in seconds)
+discovery.interval=60
+
+# Services to manage (comma-separated, empty for auto-discovery)
+# services=mysql,postgresql,nginx,redis,rabbitmq
+
+# ============================================
+# Logging Configuration
+# ============================================
+
+# Log level (debug, info, warn, error)
+log.level=info
+
+# Log file path (empty for stdout only)
+# log.file=/var/log/prism-agent.log
+
+# Log format (json, text)
+log.format=json
+
+# ============================================
+# Deployment Scenario Examples
+# ============================================
+
+# SCENARIO 1: Local Development
+# hub.url=ws://localhost:65432/agent/connect
+# hub.token=dev-token-change-me
+# log.level=debug
+
+# SCENARIO 2: Single Server Deployment
+# hub.url=ws://localhost:8080/agent/connect
+# hub.token=<copy-from-server-config>
+# log.level=info
+
+# SCENARIO 3: VM Deployment
+# hub.url=ws://192.168.122.230:8080/agent/connect
+# hub.token=<copy-from-server-config>
+# log.level=info
+# log.file=/var/log/prism-agent.log
+
+# SCENARIO 4: Production (Remote Hub)
+# hub.url=wss://hub.prism.example.com/agent/connect
+# hub.token=<copy-from-server-config>
+# log.level=warn
+# log.file=/var/log/prism-agent.log
+# log.format=json

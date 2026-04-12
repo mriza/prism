@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAgents } from '../hooks/useAgents';
-import { log } from '../utils/log';
+import { handleError } from '../utils/log';
 import { useAccounts } from '../hooks/useAccounts';
 import { useProjects } from '../hooks/useProjects';
 import { Link } from 'react-router-dom';
@@ -83,27 +83,29 @@ export function ProcessesPage() {
             );
 
             for (const pm of processManagers) {
-                try {
-                    const subs = await listSubProcesses(agent.id, pm.name);
-                    if (subs) {
-                        subs.forEach((sub: any) => {
-                            const account = accounts.find(a => a.name === sub.name && a.agentId === agent.id);
-                            const project = account ? projects.find(p => p.id === account.projectId) : null;
+                await handleError(
+                    async () => {
+                        const subs = await listSubProcesses(agent.id, pm.name);
+                        if (subs) {
+                            subs.forEach((sub: any) => {
+                                const account = accounts.find(a => a.name === sub.name && a.agentId === agent.id);
+                                const project = account ? projects.find(p => p.id === account.projectId) : null;
 
-                            procs.push({
-                                ...sub,
-                                agentId: agent.id,
-                                agentName: agent.name || agent.hostname,
-                                manager: pm.name,
-                                projectId: project?.id,
-                                projectName: project?.name,
-                                projectColor: project?.color
+                                procs.push({
+                                    ...sub,
+                                    agentId: agent.id,
+                                    agentName: agent.name || agent.hostname,
+                                    manager: pm.name,
+                                    projectId: project?.id,
+                                    projectName: project?.name,
+                                    projectColor: project?.color
+                                });
                             });
-                        });
-                    }
-                } catch (err) {
-                    log.error(`Failed to fetch processes for ${pm.name} on ${agent.id}`, err);
-                }
+                        }
+                    },
+                    `Failed to fetch processes from ${pm.name} on ${agent.name || agent.hostname}`,
+                    { showToast: false }
+                );
             }
         }
 

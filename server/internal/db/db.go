@@ -2,9 +2,11 @@ package db
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"fmt"
 	"log"
+	"math/big"
 	"os"
 	"path/filepath"
 	"prism-server/internal/models"
@@ -22,6 +24,22 @@ var (
 	PubSub      *valkeycache.PubSubClient
 	CacheTTL    = 5 * time.Minute
 )
+
+// GenerateSecurePassword generates a cryptographically secure random password
+func GenerateSecurePassword(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+"
+	password := make([]byte, length)
+	for i := range password {
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			// Fallback to simple generation if crypto/rand fails
+			password[i] = charset[i%len(charset)]
+		} else {
+			password[i] = charset[n.Int64()]
+		}
+	}
+	return string(password)
+}
 
 // CacheConfig holds Valkey cache configuration
 type CacheConfig struct {
@@ -323,7 +341,6 @@ func createTables() error {
 		action TEXT NOT NULL,
 		created_at TEXT NOT NULL
 	);`
-
 
 	deploymentsTable := `
 	CREATE TABLE IF NOT EXISTS deployments (
@@ -916,7 +933,9 @@ func EnsureDefaultAdmin() {
 		return // users already exist
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+	// Generate a secure random password for first boot
+	randomPassword := GenerateSecurePassword(16)
+	hash, err := bcrypt.GenerateFromPassword([]byte(randomPassword), bcrypt.DefaultCost)
 	if err != nil {
 		log.Printf("Failed to hash default admin password: %v", err)
 		return
@@ -930,13 +949,19 @@ func EnsureDefaultAdmin() {
 	if _, err := CreateUser(admin); err != nil {
 		log.Printf("Failed to seed default admin user: %v", err)
 	} else {
-		log.Println("Seeded default 'admin' user with password 'admin123'")
+		log.Println("=========================================================")
+		log.Println("FIRST BOOT: Created default admin user")
+		log.Printf("FIRST BOOT: Username: admin")
+		log.Printf("FIRST BOOT: Password: %s", randomPassword)
+		log.Println("FIRST BOOT: CHANGE THIS PASSWORD IMMEDIATELY!")
+		log.Println("=========================================================")
 	}
 }
 
-// EmergencyResetAdmin force-updates the administrator password to 'admin123'
+// EmergencyResetAdmin force-resets the administrator password and logs the new password
 func EmergencyResetAdmin() {
-	hash, err := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+	randomPassword := GenerateSecurePassword(16)
+	hash, err := bcrypt.GenerateFromPassword([]byte(randomPassword), bcrypt.DefaultCost)
 	if err != nil {
 		log.Printf("Failed to hash emergency admin password: %v", err)
 		return
@@ -961,10 +986,12 @@ func EmergencyResetAdmin() {
 		if _, err := CreateUser(admin); err != nil {
 			log.Printf("Emergency reset failed to create admin user: %v", err)
 		} else {
-			log.Println("Emergency reset: Created missing 'admin' user with password 'admin123'")
+			log.Println("Emergency reset: Created missing 'admin' user with random password")
+			log.Printf("Emergency reset: New password: %s", randomPassword)
 		}
 	} else {
-		log.Println("Emergency reset: Successfully reset 'admin' password to 'admin123'")
+		log.Println("Emergency reset: Successfully reset 'admin' password")
+		log.Printf("Emergency reset: New password: %s", randomPassword)
 	}
 }
 

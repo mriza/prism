@@ -14,9 +14,11 @@ import (
 	"prism-server/internal/config"
 	"prism-server/internal/db"
 	"prism-server/internal/hub"
+	"prism-server/internal/metrics"
 	"prism-server/internal/middleware"
 	"prism-server/internal/models"
 	"prism-server/internal/security"
+	"prism-server/internal/webhook"
 	"prism-server/internal/ws"
 	"strconv"
 	"strings"
@@ -32,6 +34,7 @@ var wsHub *ws.Hub
 var agentHub *hub.Hub
 var serverConfig *config.Config             // Global config for token access
 var globalCA *security.CertificateAuthority // Global Certificate Authority for signing agent certificates
+var metricsCollector *metrics.MetricsCollector
 
 // Log streaming for real-time WebSocket updates
 type LogSubscriber struct {
@@ -75,7 +78,7 @@ func startAgentCleanupLoop() {
 	for range ticker.C {
 		now := time.Now()
 		var disconnectedAgents []string
-		
+
 		agents := agentHub.GetAgents()
 		for id, agent := range agents {
 			if now.Sub(agent.LastSeen) > 90*time.Second {
@@ -84,7 +87,7 @@ func startAgentCleanupLoop() {
 				disconnectedAgents = append(disconnectedAgents, id)
 			}
 		}
-		
+
 		// Remove disconnected agents from hub
 		for _, id := range disconnectedAgents {
 			agentHub.UnregisterAgent(id)
@@ -112,8 +115,15 @@ func main() {
 		Level: slog.LevelInfo,
 	}))
 
+	// Initialize metrics collector
+	metricsCollector = metrics.NewMetricsCollector()
+
 	// Start cleanup loop for stale agents
 	go startAgentCleanupLoop()
+
+	// Start webhook delivery worker
+	webhookWorker := webhook.NewDeliveryWorker(5, 30*time.Second)
+	go webhookWorker.Start(context.Background())
 
 	// Load configuration
 	cfg, err := config.Load("prism-server.conf")
@@ -125,10 +135,23 @@ func main() {
 	// Store config globally for token access
 	serverConfig = cfg
 	api.SetHubToken(cfg.Auth.Token)
+	if cfg != nil && len(cfg.Server.CORS.AllowedOrigins) > 0 {
+		api.AllowedOrigins = cfg.Server.CORS.AllowedOrigins
+	}
 
 	// Validate configuration and generate secure secrets if needed
 	if err := cfg.Validate("prism-server.conf"); err != nil {
 		logger.Error("Configuration validation failed", "error", err)
+		os.Exit(1)
+	}
+
+	// Set JWT secret from config - refuse to start if not configured
+	if cfg.Auth.JwtSecret != "" {
+		api.JWTSecret = []byte(cfg.Auth.JwtSecret)
+	}
+	if len(api.JWTSecret) == 0 {
+		logger.Error("FATAL: JWT secret is not configured. Server refuses to start.")
+		logger.Error("Set auth.jwt_secret in prism-server.conf or PRISM_JWT_SECRET env var")
 		os.Exit(1)
 	}
 
@@ -147,6 +170,44 @@ func main() {
 	if err := db.InitDB(dbPath); err != nil {
 		logger.Error("Failed to initialize database", "error", err)
 		os.Exit(1)
+	}
+
+	// Initialize webhook tables
+	if err := db.InitWebhooksTable(); err != nil {
+		logger.Error("Failed to initialize webhooks table", "error", err)
+	} else {
+		logger.Info("Webhooks table initialized")
+	}
+	if err := db.InitWebhookDeliveriesTable(); err != nil {
+		logger.Error("Failed to initialize webhook deliveries table", "error", err)
+	} else {
+		logger.Info("Webhook deliveries table initialized")
+	}
+
+	// Initialize RBAC tables
+	if err := db.InitRolesTable(); err != nil {
+		logger.Error("Failed to initialize roles table", "error", err)
+	} else {
+		logger.Info("Roles table initialized")
+	}
+	if err := db.InitUserRolesTable(); err != nil {
+		logger.Error("Failed to initialize user_roles table", "error", err)
+	} else {
+		logger.Info("User-role mappings initialized")
+	}
+
+	// Initialize configuration drift detection tables
+	if err := db.InitConfigDriftTables(); err != nil {
+		logger.Error("Failed to initialize config drift tables", "error", err)
+	} else {
+		logger.Info("Configuration drift detection tables initialized")
+	}
+
+	// Initialize audit log retention policies
+	if err := db.InitAuditRetentionTable(); err != nil {
+		logger.Error("Failed to initialize audit retention table", "error", err)
+	} else {
+		logger.Info("Audit log retention policies initialized")
 	}
 
 	// Initialize SQLCipher encryption if password is provided
@@ -306,9 +367,29 @@ func main() {
 	// REST API for Logs
 	http.HandleFunc("/api/logs", api.AuthMiddleware(api.HandleLogs, "admin", "manager", "user"))
 
+	// REST API for Webhooks
+	http.HandleFunc("/api/webhooks", api.AuthMiddleware(api.HandleWebhooks, "admin"))
+	http.HandleFunc("/api/webhooks/", api.AuthMiddleware(api.HandleWebhooks, "admin"))
+	http.HandleFunc("/api/webhooks/test", api.AuthMiddleware(api.HandleWebhookTest, "admin"))
+
+	// REST API for Roles (Advanced RBAC)
+	http.HandleFunc("/api/roles", api.AuthMiddleware(api.HandleRoles, "admin"))
+	http.HandleFunc("/api/roles/", api.AuthMiddleware(api.HandleRoles, "admin"))
+
+	// REST API for Configuration Drift Detection
+	http.HandleFunc("/api/config-drift", api.AuthMiddleware(api.HandleConfigDrift, "admin", "manager"))
+	http.HandleFunc("/api/config-drift/", api.AuthMiddleware(api.HandleConfigDrift, "admin", "manager"))
+	http.HandleFunc("/api/agent-config", api.AuthMiddleware(api.HandleAgentConfig, "admin", "manager"))
+
 	// Health check endpoints
 	http.HandleFunc("/health", handleHealth)
 	http.HandleFunc("/ready", handleReady)
+	// Kubernetes standard endpoints (aliases)
+	http.HandleFunc("/healthz", handleHealth)
+	http.HandleFunc("/readyz", handleReady)
+
+	// Prometheus metrics endpoint
+	http.Handle("/metrics", metricsCollector)
 
 	// Serve Frontend (Static Files) with SPA fallback - Fixed path traversal vulnerability
 	fs := http.FileServer(http.Dir("./dist"))
@@ -368,9 +449,11 @@ func main() {
 				return
 			}
 			// All other endpoints - use middleware
-			middleware.LoggingMiddleware(
-				middleware.RequestIDMiddleware(
-					http.DefaultServeMux,
+			middleware.MetricsMiddleware(metricsCollector)(
+				middleware.LoggingMiddleware(
+					middleware.RequestIDMiddleware(
+						http.DefaultServeMux,
+					),
 				),
 			).ServeHTTP(w, r)
 		}),

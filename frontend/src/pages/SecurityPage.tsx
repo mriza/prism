@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAgents } from '../hooks/useAgents';
-import { log } from '../utils/log';
+import { handleError } from '../utils/log';
 import { useAuth } from '../contexts/AuthContext';
 import { 
     Button, 
@@ -71,20 +71,22 @@ export function SecurityPage() {
 
     const fetchDecisions = useCallback(async () => {
         setLoadingDecisions(true);
-        try {
-            const apiBase = import.meta.env.VITE_API_URL || '';
-            const res = await fetch(`${apiBase}/api/security/decisions`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setDecisions(data || []);
-            }
-        } catch (err) {
-            log.error("Failed to fetch decisions", err);
-        } finally {
-            setLoadingDecisions(false);
+        const data = await handleError(
+            async () => {
+                const apiBase = import.meta.env.VITE_API_URL || '';
+                const res = await fetch(`${apiBase}/api/security/decisions`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Failed to fetch decisions');
+                return await res.json();
+            },
+            'Failed to fetch decisions',
+            { showToast: false }
+        );
+        if (data) {
+            setDecisions(data);
         }
+        setLoadingDecisions(false);
     }, [token]);
 
     useEffect(() => {
@@ -98,24 +100,25 @@ export function SecurityPage() {
     const handleGlobalUnban = async (ip: string) => {
         if (!confirm(`Are you sure you want to globally unban ${ip}?`)) return;
         setUnbanningIp(ip);
-        try {
-            const apiBase = import.meta.env.VITE_API_URL || '';
-            const res = await fetch(`${apiBase}/api/security/unban`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ ip })
-            });
-            if (res.ok) {
-                setDecisions(prev => prev.filter(d => d.value !== ip));
-            }
-        } catch (err) {
-            log.error("Failed to unban", err);
-        } finally {
-            setUnbanningIp(null);
-        }
+        await handleError(
+            async () => {
+                const apiBase = import.meta.env.VITE_API_URL || '';
+                const res = await fetch(`${apiBase}/api/security/unban`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ ip })
+                });
+                if (res.ok) {
+                    setDecisions(prev => prev.filter(d => d.value !== ip));
+                }
+            },
+            'Failed to unban IP',
+            { showToast: false }
+        );
+        setUnbanningIp(null);
     };
 
     const handleGlobalBan = async () => {
@@ -123,27 +126,28 @@ export function SecurityPage() {
         if (!confirm(`Are you sure you want to globally ban ${banIp} on ALL servers?`)) return;
 
         setBanning(true);
-        try {
-            const apiBase = import.meta.env.VITE_API_URL || '';
-            const res = await fetch(`${apiBase}/api/security/ban`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ ip: banIp, duration: banDuration, reason: banReason || 'Global ban from dashboard' })
-            });
-            
-            if (!res.ok) throw new Error('Failed to issue global ban');
-            
-            setBanIp('');
-            setBanReason('');
-            fetchDecisions();
-        } catch (err: any) {
-            log.error('Failed to issue global ban', err);
-        } finally {
-            setBanning(false);
-        }
+        await handleError(
+            async () => {
+                const apiBase = import.meta.env.VITE_API_URL || '';
+                const res = await fetch(`${apiBase}/api/security/ban`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ ip: banIp, duration: banDuration, reason: banReason || 'Global ban from dashboard' })
+                });
+
+                if (!res.ok) throw new Error('Failed to issue global ban');
+
+                setBanIp('');
+                setBanReason('');
+                fetchDecisions();
+            },
+            'Failed to issue global ban',
+            { showToast: false }
+        );
+        setBanning(false);
     };
 
     const decisionColumns = [

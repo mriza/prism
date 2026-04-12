@@ -1,12 +1,14 @@
 package sqlite
 
 import (
+	"crypto/rand"
 	"database/sql"
 	"encoding/json"
-	"path/filepath"
-	"os"
 	"fmt"
 	"log"
+	"math/big"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/google/uuid"
@@ -247,7 +249,9 @@ func (db *Database) EnsureDefaultAdmin() error {
 		return nil // Users already exist
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+	// Generate secure random password
+	randomPassword := generateSecurePassword(16)
+	hash, err := bcrypt.GenerateFromPassword([]byte(randomPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
@@ -265,8 +269,28 @@ func (db *Database) EnsureDefaultAdmin() error {
 		return fmt.Errorf("failed to create admin user: %w", err)
 	}
 
-	log.Println("Created default admin user (username: admin, password: admin123)")
+	log.Println("=========================================================")
+	log.Println("FIRST BOOT: Created default admin user")
+	log.Printf("FIRST BOOT: Username: admin")
+	log.Printf("FIRST BOOT: Password: %s", randomPassword)
+	log.Println("FIRST BOOT: CHANGE THIS PASSWORD IMMEDIATELY!")
+	log.Println("=========================================================")
 	return nil
+}
+
+// generateSecurePassword generates a cryptographically secure random password
+func generateSecurePassword(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+"
+	password := make([]byte, length)
+	for i := range password {
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			password[i] = charset[i%len(charset)]
+		} else {
+			password[i] = charset[n.Int64()]
+		}
+	}
+	return string(password)
 }
 
 // EnsureDefaultSettings creates default settings if none exist
@@ -604,7 +628,7 @@ func (db *Database) CreateServiceAccount(account ServiceAccount) error {
 			configJSON = string(b)
 		}
 	}
-	
+
 	_, err := db.conn.Exec(
 		`INSERT INTO service_accounts (
 			id, project_id, agent_id, type, name, host, port, database_name,
@@ -649,7 +673,7 @@ func (db *Database) CreateServiceAccount(account ServiceAccount) error {
 func (db *Database) GetServiceAccounts(projectID string) ([]ServiceAccount, error) {
 	var rows *sql.Rows
 	var err error
-	
+
 	if projectID != "" {
 		rows, err = db.conn.Query(
 			`SELECT id, project_id, agent_id, type, name, host, port, database_name,
@@ -670,7 +694,7 @@ func (db *Database) GetServiceAccounts(projectID string) ([]ServiceAccount, erro
 			FROM service_accounts ORDER BY created_at DESC`,
 		)
 	}
-	
+
 	if err != nil {
 		return nil, err
 	}

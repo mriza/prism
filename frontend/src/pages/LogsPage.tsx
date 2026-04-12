@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { log } from '../utils/log';
+import { handleError } from '../utils/log';
 import {
     Table,
     Tag,
@@ -47,22 +47,24 @@ export function LogsPage() {
 
     const fetchLogs = useCallback(async () => {
         setLoading(true);
-        try {
-            const apiBase = import.meta.env.VITE_API_URL || '';
-            const res = await fetch(`${apiBase}/api/logs?limit=100`, {
-                headers: {
-                    'Authorization': `Bearer ${authToken}`
-                }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setLogs(data || []);
-            }
-        } catch (err) {
-            log.error("Failed to fetch logs", err);
-        } finally {
-            setLoading(false);
+        const data = await handleError(
+            async () => {
+                const apiBase = import.meta.env.VITE_API_URL || '';
+                const res = await fetch(`${apiBase}/api/logs?limit=100`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                if (!res.ok) throw new Error('Failed to fetch logs');
+                return await res.json();
+            },
+            'Failed to fetch logs',
+            { showToast: false }
+        );
+        if (data) {
+            setLogs(data);
         }
+        setLoading(false);
     }, [authToken]);
 
     useEffect(() => {

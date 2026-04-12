@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -36,27 +36,41 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 	return n, err
 }
 
-// LoggingMiddleware logs all HTTP requests
+// LoggingMiddleware logs all HTTP requests with structured JSON logging
 func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		
+
 		// Wrap response writer
 		wrapped := newResponseWriter(w)
-		
+
 		// Call next handler
 		next.ServeHTTP(wrapped, r)
-		
-		// Log request
-		log.Printf(
-			"[%s] %s %s %d %d %v %s",
-			r.Method,
-			r.URL.Path,
-			r.RemoteAddr,
-			wrapped.status,
-			wrapped.size,
-			time.Since(start),
-			r.UserAgent(),
+
+		// Log request with structured JSON
+		duration := time.Since(start)
+
+		// Determine log level based on status code
+		level := slog.LevelInfo
+		if wrapped.status >= 500 {
+			level = slog.LevelError
+		} else if wrapped.status >= 400 {
+			level = slog.LevelWarn
+		}
+
+		slog.LogAttrs(
+			r.Context(),
+			level,
+			"HTTP Request",
+			slog.String("method", r.Method),
+			slog.String("path", r.URL.Path),
+			slog.String("remote_addr", r.RemoteAddr),
+			slog.Int("status", wrapped.status),
+			slog.Int("size", wrapped.size),
+			slog.Duration("duration", duration),
+			slog.Duration("duration_ms", duration),
+			slog.String("user_agent", r.UserAgent()),
+			slog.String("request_id", r.Header.Get("X-Request-ID")),
 		)
 	})
 }
@@ -69,16 +83,16 @@ func RequestIDMiddleware(next http.Handler) http.Handler {
 		if requestID == "" {
 			requestID = generateRequestID()
 		}
-		
+
 		// Add to response header
 		w.Header().Set("X-Request-ID", requestID)
-		
+
 		// Add to context (could use context.WithValue)
 		next.ServeHTTP(w, r)
 	})
 }
 
-// generateRequestID generates a simple request ID
+// generateRequestID generates a unique request ID
 func generateRequestID() string {
 	return time.Now().Format("20060102150405.000000")
 }

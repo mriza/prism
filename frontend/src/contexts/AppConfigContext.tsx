@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { log } from '../utils/log';
+import { handleError } from '../utils/log';
 import { useAuth } from './AuthContext';
 
 interface AppConfig {
@@ -39,34 +39,35 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
     const refreshConfig = useCallback(async () => {
         if (!isAuthenticated || !token) return;
 
-        try {
-            const res = await fetch(`${apiBase}/api/settings`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                // Map array of {key, value} to our config object
-                const newConfig: Partial<AppConfig> = {};
-                if (Array.isArray(data)) {
-                    data.forEach((item: { key: string, value: string }) => {
-                        if (item.key === 'heartbeatInterval' || item.key === 'pollingInterval') {
-                            newConfig.heartbeatInterval = parseInt(item.value);
-                        }
-                        if (item.key === 'uiRefreshRate') {
-                            newConfig.uiRefreshRate = parseInt(item.value);
-                        }
-                    });
+        await handleError(
+            async () => {
+                const res = await fetch(`${apiBase}/api/settings`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const newConfig: Partial<AppConfig> = {};
+                    if (Array.isArray(data)) {
+                        data.forEach((item: { key: string, value: string }) => {
+                            if (item.key === 'heartbeatInterval' || item.key === 'pollingInterval') {
+                                newConfig.heartbeatInterval = parseInt(item.value);
+                            }
+                            if (item.key === 'uiRefreshRate') {
+                                newConfig.uiRefreshRate = parseInt(item.value);
+                            }
+                        });
+                    }
+
+                    if (Object.keys(newConfig).length > 0) {
+                        const finalConfig = { ...config, ...newConfig };
+                        setConfig(finalConfig);
+                        localStorage.setItem('prism_app_config', JSON.stringify(finalConfig));
+                    }
                 }
-                
-                if (Object.keys(newConfig).length > 0) {
-                    const finalConfig = { ...config, ...newConfig };
-                    setConfig(finalConfig);
-                    localStorage.setItem('prism_app_config', JSON.stringify(finalConfig));
-                }
-            }
-        } catch (err) {
-            log.error('Failed to fetch settings from Hub', err);
-        }
+            },
+            'Failed to fetch settings from Hub',
+            { showToast: false }
+        );
     }, [apiBase, token, isAuthenticated, config]);
 
     useEffect(() => {
@@ -81,27 +82,28 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('prism_app_config', JSON.stringify(updated));
 
         if (isAuthenticated && token) {
-            try {
-                // Map our config to the backend's expected map[string]string
-                const payload: Record<string, string> = {};
-                if (newConfig.heartbeatInterval) {
-                    payload.heartbeatInterval = newConfig.heartbeatInterval.toString();
-                }
-                if (newConfig.uiRefreshRate) {
-                    payload.uiRefreshRate = newConfig.uiRefreshRate.toString();
-                }
-
-                await fetch(`${apiBase}/api/settings`, {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify(payload)
-                });
-            } catch (err) {
-                log.error('Failed to sync settings to Hub', err);
+            const payload: Record<string, string> = {};
+            if (newConfig.heartbeatInterval) {
+                payload.heartbeatInterval = newConfig.heartbeatInterval.toString();
             }
+            if (newConfig.uiRefreshRate) {
+                payload.uiRefreshRate = newConfig.uiRefreshRate.toString();
+            }
+
+            await handleError(
+                async () => {
+                    await fetch(`${apiBase}/api/settings`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                },
+                'Failed to sync settings to Hub',
+                { showToast: false }
+            );
         }
     };
 

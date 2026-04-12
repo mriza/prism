@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { log } from '../utils/log';
-import { message } from 'antd';
+import { handleError } from '../utils/log';
 import { useAuth } from '../contexts/AuthContext';
 
 export interface Deployment {
@@ -39,26 +38,28 @@ export function useDeployments() {
         search?: string;
     }) => {
         if (!token) return;
-        try {
-            const params = new URLSearchParams();
-            if (filters?.projectId) params.append('projectId', filters.projectId);
-            if (filters?.serverId) params.append('serverId', filters.serverId);
-            if (filters?.status) params.append('status', filters.status);
-            if (filters?.search) params.append('search', filters.search);
+        setLoading(true);
+        const data = await handleError(
+            async () => {
+                const params = new URLSearchParams();
+                if (filters?.projectId) params.append('projectId', filters.projectId);
+                if (filters?.serverId) params.append('serverId', filters.serverId);
+                if (filters?.status) params.append('status', filters.status);
+                if (filters?.search) params.append('search', filters.search);
 
-            const url = `${apiBase}/api/deployments${params.toString() ? '?' + params.toString() : ''}`;
-            const res = await fetch(url, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setDeployments(data || []);
-            }
-        } catch (err) {
-            log.error('Failed to fetch deployments', err); message.error('Failed to fetch deployments');
-        } finally {
-            setLoading(false);
+                const url = `${apiBase}/api/deployments${params.toString() ? '?' + params.toString() : ''}`;
+                const res = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Failed to fetch');
+                return await res.json();
+            },
+            'Failed to fetch deployments'
+        );
+        if (data) {
+            setDeployments(data);
         }
+        setLoading(false);
     }, [token, apiBase]);
 
     useEffect(() => {
@@ -67,61 +68,61 @@ export function useDeployments() {
 
     const createDeployment = useCallback(async (data: Omit<Deployment, 'id' | 'createdAt' | 'updatedAt'>) => {
         if (!token) return null;
-        try {
-            const res = await fetch(`${apiBase}/api/deployments`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(data)
-            });
-            if (res.ok) {
+        const result = await handleError(
+            async () => {
+                const res = await fetch(`${apiBase}/api/deployments`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(data)
+                });
+                if (!res.ok) throw new Error('Failed to create');
                 const newDeploy = await res.json();
                 setDeployments(prev => [newDeploy, ...prev]);
                 return newDeploy;
-            }
-        } catch (err) {
-            log.error('Failed to create deployment', err); message.error('Failed to create deployment');
-        }
-        return null;
+            },
+            'Failed to create deployment'
+        );
+        return result || null;
     }, [token, apiBase]);
 
     const updateDeployment = useCallback(async (id: string, data: Partial<Deployment>) => {
         if (!token) return false;
-        try {
-            const res = await fetch(`${apiBase}/api/deployments/${id}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(data)
-            });
-            if (res.ok) {
+        const success = await handleError(
+            async () => {
+                const res = await fetch(`${apiBase}/api/deployments/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(data)
+                });
+                if (!res.ok) throw new Error('Failed to update');
                 const updated = await res.json();
                 setDeployments(prev => prev.map(d => d.id === id ? { ...d, ...updated } : d));
                 return true;
-            }
-        } catch (err) {
-            log.error('Failed to update deployment', err); message.error('Failed to update deployment');
-        }
-        return false;
+            },
+            'Failed to update deployment'
+        );
+        return success || false;
     }, [token, apiBase]);
 
     const deleteDeployment = useCallback(async (id: string) => {
         if (!token) return;
-        try {
-            const res = await fetch(`${apiBase}/api/deployments/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
+        await handleError(
+            async () => {
+                const res = await fetch(`${apiBase}/api/deployments/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Failed to delete');
                 setDeployments(prev => prev.filter(d => d.id !== id));
-            }
-        } catch (err) {
-            log.error('Failed to delete deployment', err); message.error('Failed to delete deployment');
-        }
+            },
+            'Failed to delete deployment'
+        );
     }, [token, apiBase]);
 
     const deploymentsByProject = useCallback((projectId: string) =>
@@ -129,20 +130,21 @@ export function useDeployments() {
 
     const triggerDeploy = useCallback(async (id: string) => {
         if (!token) return false;
-        try {
-            const res = await fetch(`${apiBase}/api/deployments/${id}/deploy`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
+        const success = await handleError(
+            async () => {
+                const res = await fetch(`${apiBase}/api/deployments/${id}/deploy`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Failed to deploy');
                 const updated = await res.json();
                 setDeployments(prev => prev.map(d => d.id === id ? { ...d, ...updated } : d));
                 return true;
-            }
-        } catch (err) {
-            log.error('Failed to trigger deployment', err); message.error('Failed to trigger deployment');
-        }
-        return false;
+            },
+            'Failed to trigger deployment',
+            { showToast: false }
+        );
+        return success || false;
     }, [token, apiBase]);
 
     return {

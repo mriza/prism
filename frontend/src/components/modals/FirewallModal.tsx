@@ -1,31 +1,32 @@
 import { useState, useEffect, useCallback } from 'react';
-import { 
-    Modal, 
-    Table, 
-    Button, 
-    Space, 
-    Typography, 
-    theme, 
-    Form, 
-    Input, 
-    Select, 
-    Badge, 
+import {
+    Modal,
+    Table,
+    Button,
+    Space,
+    Typography,
+    theme,
+    Form,
+    Input,
+    Select,
+    Badge,
     Popconfirm,
-    Divider, 
-    Alert, 
+    Divider,
+    Alert,
     Dropdown,
     Row,
     Col
 } from 'antd';
-import { 
-    SafetyCertificateOutlined, 
-    PlusOutlined, 
-    DeleteOutlined, 
-    ReloadOutlined, 
-    SafetyOutlined, 
-    StopOutlined, 
+import {
+    SafetyCertificateOutlined,
+    PlusOutlined,
+    DeleteOutlined,
+    ReloadOutlined,
+    SafetyOutlined,
+    StopOutlined,
     DownOutlined
 } from '@ant-design/icons';
+import { handleError } from '../../utils/log';
 
 const { Text } = Typography;
 
@@ -64,17 +65,19 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
     const fetchRules = useCallback(async () => {
         setLoading(true);
         setError('');
-        try {
-            const data = await controlAgent(agentId, 'ufw_list');
-            if (data.success) {
-                const parsed = typeof data.message === 'string' ? JSON.parse(data.message) : data.message;
-                setRules(parsed || []);
-            } else {
-                setError(data.message || 'Failed to fetch rules');
-            }
-        } catch {
-            setError('Could not connect to agent');
-        }
+        await handleError(
+            async () => {
+                const data = await controlAgent(agentId, 'firewall_list');
+                if (data.success) {
+                    const parsed = typeof data.message === 'string' ? JSON.parse(data.message) : data.message;
+                    setRules(parsed || []);
+                } else {
+                    throw new Error(data.message || 'Failed to fetch rules');
+                }
+            },
+            'Could not connect to agent',
+            { showToast: false, onError: () => setError('Could not connect to agent') }
+        );
         setLoading(false);
     }, [agentId]);
 
@@ -90,41 +93,47 @@ export function FirewallModal({ isOpen, onClose, agentId }: Props) {
     const handleAdd = async (values: any) => {
         setActionLoading('add');
         setError('');
-        try {
-            await controlAgent(agentId, 'ufw_add', {
-                port: parseFloat(values.port),
-                protocol: values.protocol,
-                action: values.action,
-            });
-            form.resetFields();
-            await fetchRules();
-        } catch (err: any) {
-            setError(err.message || 'Failed to add firewall rule');
-        }
+        await handleError(
+            async () => {
+                await controlAgent(agentId, 'firewall_add', {
+                    port: parseFloat(values.port),
+                    protocol: values.protocol,
+                    action: values.action,
+                });
+                form.resetFields();
+                await fetchRules();
+            },
+            'Failed to add firewall rule',
+            { showToast: false, onError: (err) => setError(err instanceof Error ? err.message : 'Failed to add firewall rule') }
+        );
         setActionLoading('');
     };
 
     const handleDelete = async (ruleId: string) => {
         setActionLoading(`del-${ruleId}`);
         setError('');
-        try {
-            await controlAgent(agentId, 'ufw_delete', { rule_id: ruleId });
-            await fetchRules();
-        } catch (err: any) {
-            setError(err.message || 'Failed to delete firewall rule');
-        }
+        await handleError(
+            async () => {
+                await controlAgent(agentId, 'firewall_delete', { rule_id: ruleId });
+                await fetchRules();
+            },
+            'Failed to delete firewall rule',
+            { showToast: false, onError: (err) => setError(err instanceof Error ? err.message : 'Failed to delete firewall rule') }
+        );
         setActionLoading('');
     };
 
     const handleDefaultPolicy = async (policy: string) => {
         setActionLoading(`default-${policy}`);
         setError('');
-        try {
-            await controlAgent(agentId, 'ufw_default', { policy, direction: 'incoming' });
-            await fetchRules();
-        } catch (err: any) {
-            setError(err.message || 'Failed to set default policy');
-        }
+        await handleError(
+            async () => {
+                await controlAgent(agentId, 'firewall_default', { policy, direction: 'incoming' });
+                await fetchRules();
+            },
+            'Failed to set default policy',
+            { showToast: false, onError: (err) => setError(err instanceof Error ? err.message : 'Failed to set default policy') }
+        );
         setActionLoading('');
     };
 

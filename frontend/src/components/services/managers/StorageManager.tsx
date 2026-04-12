@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { log } from '../../../utils/log';
+import { handleError } from '../../../utils/log';
 import {
     Button,
     Space,
@@ -84,7 +84,10 @@ export function StorageManager({ sendCommand }: StorageManagerProps) {
                 } catch { /* ignore */ }
             }
         } catch (err: any) {
-            setError(err.message || 'Failed to fetch storage data');
+            handleError(() => { throw err; }, err.message || 'Failed to fetch storage data', {
+                showToast: false,
+                onError: () => setError(err.message || 'Failed to fetch storage data')
+            });
         } finally {
             setLoading(false);
         }
@@ -100,7 +103,9 @@ export function StorageManager({ sendCommand }: StorageManagerProps) {
                 form.setFieldsValue(data);
             }
         } catch (err: any) {
-            log.error('Failed to load settings', err); message.error('Failed to load settings');
+            handleError(() => { throw err; }, 'Failed to load settings', {
+                showToast: true
+            });
         } finally {
             setLoadingSettings(false);
         }

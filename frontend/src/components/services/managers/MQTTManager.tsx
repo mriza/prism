@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { log } from '../../../utils/log';
+import { handleError } from '../../../utils/log';
 import {
     Button,
     Space,
@@ -57,7 +57,10 @@ export function MQTTManager({ sendCommand }: MQTTManagerProps) {
                 setUsers(typeof userRes.message === 'string' ? JSON.parse(userRes.message) : userRes.message);
             }
         } catch (err: any) {
-            setError(err.message || 'Failed to fetch MQTT data');
+            handleError(() => { throw err; }, err.message || 'Failed to fetch data', { 
+                showToast: false,
+                onError: () => setError(err.message || 'Failed to fetch data')
+            });
         } finally {
             setLoading(false);
         }
@@ -73,7 +76,7 @@ export function MQTTManager({ sendCommand }: MQTTManagerProps) {
                 form.setFieldsValue(settingsData);
             }
         } catch (err: any) {
-            log.error('Failed to load settings', err); message.error('Failed to load settings');
+            handleError(() => { throw err; }, 'Failed to load settings', { showToast: true });
         } finally {
             setLoadingSettings(false);
         }

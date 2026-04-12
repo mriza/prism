@@ -1,0 +1,14 @@
+{
+  "name": "prism-e2e-puppeteer",
+  "version": "1.0.0",
+  "description": "E2E tests for PRISM using Puppeteer (VM-based)",
+  "type": "module",
+  "scripts": {
+    "test": "node tests/auth.test.js",
+    "test:all": "node run-all.js",
+    "test:vm": "BASE_URL=http://192.168.122.230:8080 node run-all.js"
+  },
+  "dependencies": {
+    "puppeteer": "^21.0.0"
+  }
+}

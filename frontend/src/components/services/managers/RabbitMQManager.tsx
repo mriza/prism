@@ -17,7 +17,7 @@ import {
     Form,
     message
 } from 'antd';
-import { log } from '../../../utils/log';
+import { handleError } from '../../../utils/log';
 import {
     PlusOutlined,
     DeleteOutlined,
@@ -111,7 +111,10 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                 setUsers(typeof userRes.message === 'string' ? JSON.parse(userRes.message) : userRes.message);
             }
         } catch (err: any) {
-            setError(err.message || 'Failed to fetch RabbitMQ data');
+            handleError(() => { throw err; }, err.message || 'Failed to fetch data', { 
+                showToast: false,
+                onError: () => setError(err.message || 'Failed to fetch data')
+            });
         } finally {
             setLoading(false);
         }
@@ -127,8 +130,7 @@ export function RabbitMQManager({ sendCommand }: RabbitMQManagerProps) {
                 form.setFieldsValue(settingsData);
             }
         } catch (err: any) {
-            log.error('Failed to load settings', err);
-            message.error('Failed to load settings');
+            handleError(() => { throw err; }, 'Failed to load settings', { showToast: true });
         } finally {
             setLoadingSettings(false);
         }

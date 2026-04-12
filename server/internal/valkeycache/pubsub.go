@@ -72,9 +72,16 @@ func (p *PubSubClient) PublishCommandEvent(ctx context.Context, commandID string
 // Subscribe subscribes to one or more channels and calls handler for each message
 func (p *PubSubClient) Subscribe(ctx context.Context, handler func(channel string, event *Event), channels ...string) error {
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("PubSub subscriber goroutine panicked: %v", r)
+			}
+		}()
+
 		for {
 			select {
 			case <-ctx.Done():
+				log.Printf("PubSub subscription cancelled for channels: %v", channels)
 				return
 			default:
 				// Use valkey-go's blocking subscribe

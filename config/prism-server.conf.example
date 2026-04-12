@@ -1,0 +1,171 @@
+# Server Environment Variables
+# Copy this file to prism-server.conf and update values for your deployment
+
+# ============================================
+# Server Configuration
+# ============================================
+
+# Server host (bind address)
+# Use 0.0.0.0 for production, 127.0.0.1 for local-only
+server.host=0.0.0.0
+
+# Server port
+# Default: 65432 (change for production)
+server.port=65432
+
+# ============================================
+# Database Configuration
+# ============================================
+
+# Database file path (relative to server binary or absolute)
+database.path=prism.db
+
+# Database encryption key (required for production)
+# Generate with: openssl rand -hex 32
+database.encryption_key=
+
+# ============================================
+# Authentication Configuration
+# ============================================
+
+# JWT Secret (required for production)
+# Generate with: openssl rand -hex 32
+auth.jwt_secret=
+
+# Token for agent authentication (shared secret)
+# Generate with: openssl rand -hex 32
+auth.token=
+
+# Token expiry duration (in hours)
+auth.token_expiry=24
+
+# ============================================
+# CORS Configuration
+# ============================================
+
+# Allowed origins (comma-separated)
+# Scenario 1: Same origin (empty or *)
+cors.allowed_origins=*
+
+# Scenario 2: Specific domains
+# cors.allowed_origins=https://prism.example.com,https://admin.prism.example.com
+
+# Scenario 3: Development
+# cors.allowed_origins=http://localhost:3000,http://localhost:5173,http://localhost:8080
+
+# Scenario 4: Wildcard subdomains
+# cors.allowed_origins=https://*.prism.example.com
+
+# Allow credentials (cookies, authorization headers)
+cors.allow_credentials=true
+
+# Max age for preflight cache (in seconds)
+cors.max_age=86400
+
+# ============================================
+# Frontend URL Configuration
+# ============================================
+
+# Frontend base URL (for redirects and CORS)
+# Scenario 1: Same origin (leave empty)
+# frontend.base_url=
+
+# Scenario 2: Different port
+# frontend.base_url=http://localhost:5173
+
+# Scenario 3: Different domain
+# frontend.base_url=https://prism.example.com
+
+# Scenario 4: Production with CDN
+# frontend.base_url=https://cdn.prism.example.com
+
+# ============================================
+# Agent WebSocket Configuration
+# ============================================
+
+# Agent connection endpoint
+# Scenario 1: Default (auto-detected)
+# agent.ws_path=/agent/connect
+
+# Scenario 2: Custom path
+# agent.ws_path=/api/v1/agent/connect
+
+# Allowed agent origins (for CORS)
+# Leave empty for token-based auth only
+# agent.allowed_origins=
+
+# ============================================
+# Logging Configuration
+# ============================================
+
+# Log level (debug, info, warn, error)
+log.level=info
+
+# Log file path (empty for stdout only)
+# log.file=/var/log/prism-server.log
+
+# Log format (json, text)
+log.format=json
+
+# ============================================
+# Valkey/Redis Configuration (optional)
+# ============================================
+
+# Valkey connection string
+# valkey.addr=localhost:6379
+
+# Valkey password (if required)
+# valkey.password=
+
+# Valkey database number
+# valkey.db=0
+
+# ============================================
+# Rate Limiting Configuration
+# ============================================
+
+# Enable rate limiting
+rate_limit.enabled=true
+
+# Requests per minute per IP
+rate_limit.requests_per_minute=60
+
+# Burst size (max requests in short burst)
+rate_limit.burst_size=10
+
+# ============================================
+# Deployment Scenario Examples
+# ============================================
+
+# SCENARIO 1: Local Development (localhost:port)
+# server.host=127.0.0.1
+# server.port=65432
+# cors.allowed_origins=http://localhost:3000,http://localhost:5173
+# auth.jwt_secret=dev-secret-change-me
+# auth.token=dev-agent-token-change-me
+
+# SCENARIO 2: Single Server (same domain, different ports)
+# server.host=0.0.0.0
+# server.port=8080
+# cors.allowed_origins=https://prism.example.com
+# frontend.base_url=https://prism.example.com
+# auth.jwt_secret=<generate-with-openssl>
+# auth.token=<generate-with-openssl>
+
+# SCENARIO 3: VM Deployment
+# server.host=0.0.0.0
+# server.port=8080
+# cors.allowed_origins=http://192.168.122.1:3000,http://192.168.122.230:80
+# frontend.base_url=http://192.168.122.1:3000
+# auth.jwt_secret=<generate-with-openssl>
+# auth.token=<generate-with-openssl>
+
+# SCENARIO 4: Production (separate FE/BE domains)
+# server.host=0.0.0.0
+# server.port=8080
+# cors.allowed_origins=https://prism.example.com
+# frontend.base_url=https://prism.example.com
+# auth.jwt_secret=<generate-with-openssl>
+# auth.token=<generate-with-openssl>
+# log.format=json
+# log.file=/var/log/prism-server.log

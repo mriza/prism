@@ -29,6 +29,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useManagementCredentials, type ManagementCredential } from '../../hooks/useManagementCredentials';
+import { handleError } from '../../utils/log';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -145,7 +146,10 @@ export function ManagementCredentialsTab(props: ManagementCredentialsTabProps) {
             setIsModalOpen(false);
             form.resetFields();
         } catch (error: any) {
-            message.error(error.message || 'An error occurred');
+            handleError(() => { throw error; }, error.message || 'An error occurred', { 
+                showToast: false,
+                onError: () => message.error(error.message || 'An error occurred')
+            });
         } finally {
             setSubmitting(false);
         }

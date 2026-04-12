@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { log } from '../../../utils/log';
+import { handleError } from '../../../utils/log';
 import {
     Button,
     Space,
@@ -65,7 +65,10 @@ export function WebServerManager({ sendCommand, serviceName }: WebServerManagerP
                 setError(data?.error || 'Failed to list sites');
             }
         } catch (err: any) {
-            setError(err.message || 'Connection failed');
+            handleError(() => { throw err; }, err.message || 'Connection failed', { 
+                showToast: false,
+                onError: () => setError(err.message || 'Connection failed')
+            });
         } finally {
             setLoading(false);
         }
@@ -81,7 +84,11 @@ export function WebServerManager({ sendCommand, serviceName }: WebServerManagerP
                 form.setFieldsValue(data);
             }
         } catch (err: any) {
-            log.error('Failed to load settings', err); message.error('Failed to load settings');
+            handleError(() => { throw err; }, 'Failed to load settings', { 
+                showToast: true,
+                onError: () => {} // message.error already called
+            });
+            message.error('Failed to load settings');
         } finally {
             setLoadingSettings(false);
         }
@@ -124,7 +131,10 @@ export function WebServerManager({ sendCommand, serviceName }: WebServerManagerP
                 setError(data?.error || 'Failed to create proxy');
             }
         } catch (err: any) {
-            setError(err.message || 'Command failed');
+            handleError(() => { throw err; }, err.message || 'Command failed', { 
+                showToast: false,
+                onError: () => setError(err.message || 'Command failed')
+            });
         } finally {
             setActionLoading(null);
         }
@@ -140,7 +150,10 @@ export function WebServerManager({ sendCommand, serviceName }: WebServerManagerP
                 setError(data?.error || 'Failed to delete site');
             }
         } catch (err: any) {
-            setError(err.message || 'Command failed');
+            handleError(() => { throw err; }, err.message || 'Command failed', { 
+                showToast: false,
+                onError: () => setError(err.message || 'Command failed')
+            });
         } finally {
             setActionLoading(null);
         }

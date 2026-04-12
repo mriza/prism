@@ -19,6 +19,7 @@ import {
     ReloadOutlined
 } from '@ant-design/icons';
 import { useAgents } from '../../hooks/useAgents';
+import { handleError } from '../../utils/log';
 
 const { Text } = Typography;
 
@@ -72,7 +73,10 @@ export function ProcessDiscoveryModal({ isOpen, onClose, agentId, agentName }: P
                     }
                 })
                 .catch(() => {
-                    setError('Failed to discover processes. The agent may be offline or unreachable.');
+                    handleError(() => { throw new Error('Failed to discover processes'); }, 'Failed to discover processes. The agent may be offline or unreachable.', {
+                        showToast: false,
+                        onError: () => setError('Failed to discover processes. The agent may be offline or unreachable.')
+                    });
                 })
                 .finally(() => {
                     setLoading(false);
@@ -101,7 +105,10 @@ export function ProcessDiscoveryModal({ isOpen, onClose, agentId, agentName }: P
                 }
             })
             .catch(() => {
-                setError('Failed to discover processes. Please try again.');
+                handleError(() => { throw new Error('Failed to discover processes'); }, 'Failed to discover processes. Please try again.', {
+                    showToast: false,
+                    onError: () => setError('Failed to discover processes. Please try again.')
+                });
             })
             .finally(() => {
                 setLoading(false);

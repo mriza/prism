@@ -15,6 +15,7 @@ import {
     SettingOutlined
 } from '@ant-design/icons';
 import { useAuth } from '../../contexts/AuthContext';
+import { handleError } from '../../utils/log';
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -68,7 +69,7 @@ export function ConfigurationTab({ agentId, serviceName }: ConfigurationTabProps
             if (msg.includes('does not support configuration')) {
                 setUnsupported(true);
             } else {
-                setError(msg);
+                handleError(() => { throw err; }, msg, { showToast: false });
             }
         } finally {
             setLoading(false);
@@ -88,7 +89,10 @@ export function ConfigurationTab({ agentId, serviceName }: ConfigurationTabProps
             setConfigContent(editedContent);
             setSuccessMsg('Configuration saved. Restart the service to apply changes.');
         } catch (err: any) {
-            setError(String(err.message || err));
+            handleError(() => { throw err; }, String(err.message || err), { 
+                showToast: false,
+                onError: () => setError(String(err.message || err))
+            });
         } finally {
             setSaving(false);
         }

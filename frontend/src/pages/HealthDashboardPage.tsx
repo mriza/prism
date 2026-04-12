@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { log } from '../utils/log';
+import { handleError } from '../utils/log';
 import { theme } from 'antd';
 import {
     Card,
@@ -53,18 +53,21 @@ export function HealthDashboardPage() {
 
     const fetchHealth = async () => {
         setLoading(true);
-        try {
-            const res = await fetch(`${apiBase}/health/full`);
-            if (res.ok) {
+        const data = await handleError(
+            async () => {
+                const res = await fetch(`${apiBase}/health/full`);
+                if (!res.ok) throw new Error('Health check failed');
                 const data = await res.json();
-                setHealth(data);
                 setLastChecked(new Date());
-            }
-        } catch (err) {
-            log.error('Failed to fetch health status', err);
-        } finally {
-            setLoading(false);
+                return data;
+            },
+            'Failed to fetch health status',
+            { showToast: false }
+        );
+        if (data) {
+            setHealth(data);
         }
+        setLoading(false);
     };
 
     useEffect(() => {
@@ -156,7 +159,7 @@ export function HealthDashboardPage() {
                                 <Statistic
                                     title="Database"
                                     value={health?.checks?.database?.status === 'healthy' ? 100 : 0}
-                                    valueStyle={{ color: health?.checks?.database?.status === 'healthy' ? '#52c41a' : '#ff4d4f' }}
+                                    valueStyle={{ color: health?.checks?.database?.status === 'healthy' ? token.colorSuccess : token.colorError }}
                                     prefix={<DatabaseOutlined />}
                                     suffix="%"
                                 />
@@ -179,9 +182,9 @@ export function HealthDashboardPage() {
                                 <Statistic
                                     title="Cache (Valkey)"
                                     value={health?.checks?.cache?.status === 'healthy' ? 100 : health?.checks?.cache?.status === 'disabled' ? 50 : 0}
-                                    valueStyle={{ 
-                                        color: health?.checks?.cache?.status === 'healthy' ? '#52c41a' : 
-                                               health?.checks?.cache?.status === 'disabled' ? '#faad14' : '#ff4d4f' 
+                                    valueStyle={{
+                                        color: health?.checks?.cache?.status === 'healthy' ? token.colorSuccess :
+                                               health?.checks?.cache?.status === 'disabled' ? token.colorWarning : token.colorError
                                     }}
                                     prefix={<ThunderboltOutlined />}
                                     suffix="%"
@@ -227,7 +230,7 @@ export function HealthDashboardPage() {
                                 <Statistic
                                     title="Memory"
                                     value={health?.checks?.memory?.status === 'healthy' ? 100 : 0}
-                                    valueStyle={{ color: health?.checks?.memory?.status === 'healthy' ? '#52c41a' : '#ff4d4f' }}
+                                    valueStyle={{ color: health?.checks?.memory?.status === 'healthy' ? token.colorSuccess : token.colorError }}
                                     prefix={<SafetyOutlined />}
                                     suffix="%"
                                 />
@@ -265,7 +268,7 @@ export function HealthDashboardPage() {
                                 <Statistic
                                     title="Startup Status"
                                     value={health?.checks?.startup?.status === 'healthy' ? 'Complete' : 'In Progress'}
-                                    valueStyle={{ color: health?.checks?.startup?.status === 'healthy' ? '#52c41a' : '#faad14' }}
+                                    valueStyle={{ color: health?.checks?.startup?.status === 'healthy' ? token.colorSuccess : token.colorWarning }}
                                 />
                                 <Divider />
                                 <Space direction="vertical" style={{ width: '100%' }}>

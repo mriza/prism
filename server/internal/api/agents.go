@@ -8,6 +8,7 @@ import (
 	"prism-server/internal/db"
 	"prism-server/internal/models"
 	"prism-server/internal/protocol"
+	"prism-server/internal/webhook"
 	"prism-server/internal/ws"
 	"time"
 )
@@ -61,9 +62,7 @@ func HandleListAgents(w http.ResponseWriter, r *http.Request) {
 			if status == "approved" {
 				status = "online"
 			}
-			for _, svcInfo := range session.Services {
-				svcInfos = append(svcInfos, svcInfo)
-			}
+			svcInfos = session.GetAllServices()
 		} else {
 			if status == "approved" {
 				status = "offline"
@@ -198,7 +197,6 @@ func HandleAgentAction(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "Method or action not allowed", http.StatusMethodNotAllowed)
 }
 
-
 func BroadcastAgentUpdate(agent map[string]interface{}, updateType string) {
 	if WSHub == nil {
 		return
@@ -218,6 +216,15 @@ func BroadcastAgentUpdate(agent map[string]interface{}, updateType string) {
 	}
 
 	WSHub.BroadcastToChannel("agents", data)
+
+	// Queue webhook event
+	webhook.QueueEvent(webhook.WebhookEvent{
+		ID:        updateType + "-" + time.Now().UTC().Format(time.RFC3339Nano),
+		Type:      "agent." + updateType,
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		Source:    "prism-server",
+		Data:      agent,
+	})
 }
 
 func BroadcastEvent(event models.Event) {
@@ -239,4 +246,18 @@ func BroadcastEvent(event models.Event) {
 	}
 
 	WSHub.BroadcastToChannel("events", data)
+
+	// Queue webhook event
+	webhook.QueueEvent(webhook.WebhookEvent{
+		ID:        event.ID,
+		Type:      "event." + event.Type,
+		Timestamp: event.CreatedAt,
+		Source:    "prism-server",
+		Data: map[string]interface{}{
+			"agentId": event.AgentID,
+			"service": event.Service,
+			"status":  event.Status,
+			"message": event.Message,
+		},
+	})
 }

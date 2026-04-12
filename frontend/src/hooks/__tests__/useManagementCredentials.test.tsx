@@ -76,7 +76,7 @@ describe('useManagementCredentials', () => {
             // Set initial state via fetch
             await act(async () => { await result.current.fetchCredentials('s1'); });
 
-            let success = false;
+            let success: boolean | undefined = false;
             await act(async () => {
                 success = await result.current.updateCredential('c1', { usernameMasked: 'new' } as any);
             });
@@ -96,7 +96,7 @@ describe('useManagementCredentials', () => {
             const { result } = renderHook(() => useManagementCredentials(), { wrapper: createWrapper() });
             await act(async () => { await result.current.fetchCredentials('s1'); });
 
-            let success = false;
+            let success: boolean | undefined = false;
             await act(async () => {
                 success = await result.current.deleteCredential('c1');
             });
@@ -118,7 +118,7 @@ describe('useManagementCredentials', () => {
             const { result } = renderHook(() => useManagementCredentials(), { wrapper: createWrapper() });
             await act(async () => { await result.current.fetchCredentials('s1'); });
 
-            let success = false;
+            let success: boolean | undefined = false;
             await act(async () => {
                 success = await result.current.verifyCredential('c1', 'a1', 'mysql');
             });

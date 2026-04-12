@@ -7,6 +7,7 @@ import {
     EnvironmentOutlined
 } from '@ant-design/icons';
 import { Sidebar } from './Sidebar';
+import { ThemeToggle } from '../components/ThemeToggle';
 import { useAgents } from '../hooks/useAgents';
 
 const { Header, Content } = Layout;
@@ -69,6 +70,9 @@ export function AppLayout() {
                                 <Badge status="success" text={`${agents.length} Agent${agents.length !== 1 ? 's' : ''} Online`} />
                             )}
                         </div>
+                        
+                        {/* Theme toggle */}
+                        <ThemeToggle />
                     </Space>
                 </Header>
 

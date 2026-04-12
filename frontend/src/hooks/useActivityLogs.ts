@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { log } from '../utils/log';
+import { handleError, log } from '../utils/log';
 import type { Event } from '../types';
 
 interface UseActivityLogsReturn {
@@ -33,7 +33,7 @@ export function useActivityLogs(
             // Note: We use the same generic WS hub for general updates
             const wsUrl = `${protocol}//${window.location.host}/api/ws?token=${token}`;
 
-            log.debug('Connecting to activity WebSocket:', wsUrl);
+            log.debug('Connecting to activity WebSocket (events channel)');
             const ws = new WebSocket(wsUrl);
             wsRef.current = ws;
 
@@ -96,21 +96,23 @@ export function useActivityLogs(
     // Initial fetch of historic logs
     useEffect(() => {
         const fetchHistory = async () => {
-            try {
-                let url = `/api/logs?limit=${limit}`;
-                if (agentId) url += `&agentId=${encodeURIComponent(agentId)}`;
-                if (service) url += `&service=${encodeURIComponent(service)}`;
-                
-                const resp = await fetch(url, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (resp.ok) {
-                    const data = await resp.json();
-                    setEvents(data || []);
-                }
-            } catch (err) {
-                log.error('Failed to fetch activity history:', err);
-            }
+            let url = `/api/logs?limit=${limit}`;
+            if (agentId) url += `&agentId=${encodeURIComponent(agentId)}`;
+            if (service) url += `&service=${encodeURIComponent(service)}`;
+
+            await handleError(
+                async () => {
+                    const resp = await fetch(url, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        setEvents(data || []);
+                    }
+                },
+                'Failed to fetch activity history',
+                { showToast: false }
+            );
         };
 
         if (token) {

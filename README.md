@@ -1,16 +1,43 @@
 # PRISM — Infrastructure Management Platform
 
-> **Current Version**: v0.4.24 (2026-04-02)
-> **Status**: Beta - Production Ready
+> **Current Version**: v0.7.0 (2026-04-12)
+> **Status**: Beta - Enterprise Ready with Advanced Features
 
 PRISM is a full-stack infrastructure management platform for provisioning, monitoring, and deploying applications across multiple servers — all from a single dashboard.
 
 **⚠️ Note**: This software is in active development. APIs and features may change frequently.
 
+## Documentation
+
+All documentation has been consolidated into the `docs/` folder for easy access:
+
+| Document | Description |
+|----------|-------------|
+| [BUGS.md](./docs/BUGS.md) | Active bug registry (8 active, 65 fixed) |
+| [TODO.md](./docs/TODO.md) | Development roadmap (v0.6.0 planned) |
+| [IMPLEMENTED.md](./docs/IMPLEMENTED.md) | Implemented features catalog |
+| [CHANGELOG.md](./docs/CHANGELOG.md) | Complete version history |
+| [VERSION.md](./docs/VERSION.md) | Versioning guidelines |
+| [DEVELOPER_GUIDE.md](./docs/DEVELOPER_GUIDE.md) | Development setup guide |
+| [ANSIBLE_INTEGRATION.md](./docs/ANSIBLE_INTEGRATION.md) | Ansible automation & service deployment |
+| [VM_INFO.md](./docs/VM_INFO.md) | Test VM information (QEMU/KVM) |
+| [k8s/](./k8s/) | Kubernetes deployment manifests |
+| [helm/](./helm/) | Helm chart for PRISM |
+| [grafana/](./grafana/) | Grafana dashboard JSON |
+| [KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md) | Known issues and workarounds |
+| [v0.5.0_RELEASE.md](./docs/v0.5.0_RELEASE.md) | Latest release notes |
+
 ## Features
 
 ### 🗄️ Service Management
-Manage **21 service types** across your fleet: databases (MySQL, PostgreSQL, MongoDB, Valkey), message brokers (RabbitMQ, Mosquitto), object storage (MinIO, Garage), web servers (Caddy, Nginx), file transfer (vsftpd, SFTPGo), process managers (PM2, Systemd, Supervisor), and security (UFW, iptables, nftables, firewalld, CrowdSec).
+Manage **23 service types** across your fleet: databases (MySQL, PostgreSQL, MongoDB, Valkey), message brokers (RabbitMQ, Mosquitto), object storage (MinIO, Garage, RustFS), web servers (Caddy, Nginx), file transfer (vsftpd, SFTPGo), process managers (PM2, Systemd, Supervisor), security (UFW, iptables, nftables, firewalld, CrowdSec), and **automation (Ansible)**.
+
+### ⚡ Ansible-Powered Service Deployment
+**Fresh server? No problem.** PRISM Agent + Ansible enables zero-touch server provisioning:
+- **Automatic service installation** — Deploy databases, brokers, storage on fresh servers via Ansible playbooks
+- **Account provisioning** — Create users, databases, buckets automatically through Ansible roles
+- **Configuration management** — Ensure consistent configuration across all managed servers
+- **Idempotent deployments** — Safe to run multiple times, only applies necessary changes
 
 ### 🔑 Account Provisioning
 Create service accounts (DB users, S3 keys, FTP users, MQTT credentials, reverse proxies) through a **single dynamic form** — the Hub automatically provisions resources on the target server via the Agent.
@@ -29,34 +56,35 @@ Provision **static websites** (with optional PHP-FPM) or **reverse proxies** dir
 
 ## Current Status
 
-### ✅ Recent Releases (v0.4.22 - v0.4.24)
+### ✅ Latest Release (v0.7.0 - 2026-04-12)
 
-**v0.4.24** (2026-04-02) - DevOps Automation:
-- ✅ Service Activity Logs tab
-- ✅ GitHub Release Script
-- ✅ Deployment Script (production-ready)
-- ✅ VM Test Deployment configuration
+**v0.7.0** - Enterprise Features:
+- ✅ Webhook System (event notifications via HTTP)
+- ✅ Advanced RBAC (custom roles & permissions)
+- ✅ Configuration Drift Detection
+- ✅ Audit Log Retention Policies
+- ✅ Frontend Theme System (light/dark mode)
 
-**v0.4.23** (2026-04-02) - Error Handling & Type Safety:
-- ✅ Console.log removal (100% clean)
-- ✅ Loose any[] typing fixed
-- ✅ Error handling verified across all hooks
-
-**v0.4.22** (2026-04-02) - Font Standardization:
-- ✅ 36 fontWeight/fontSize fixes
-- ✅ All hardcoded styles removed
+**v0.5.0** - Code Quality, Testing & Infrastructure:
+- ✅ Agent Registration Workflow (UI + installer script)
+- ✅ Container Support (Docker + docker-compose)
+- ✅ Monitoring (health checks, JSON logging)
+- ✅ Performance benchmarks (k6)
+- ✅ Error handling migration (100+ catch blocks)
+- ✅ 82 unit tests passing
 
 ### ✅ Implemented (All Versions)
 
 **Core Features**:
 - ✅ Valkey provisioning (all 3 subtypes: cache, broker, nosql)
 - ✅ Add Database to existing accounts
-- ✅ Service management (21 service types)
+- ✅ Service management (23 service types + Ansible automation)
 - ✅ Account provisioning (DB, S3, FTP, MQTT, proxies)
 - ✅ Application deployments (Git releases)
 - ✅ Real-time monitoring (WebSocket-powered)
 - ✅ Security & RBAC (admin/manager/user)
 - ✅ Reverse proxy integration (Caddy/Nginx)
+- ✅ **Ansible-powered service deployment** (fresh server support)
 
 **Recent Fixes**:
 - ✅ PM2 proxy error handling
@@ -80,22 +108,23 @@ Provision **static websites** (with optional PHP-FPM) or **reverse proxies** dir
 - ~~Widespread hardcoded styles (BUG-012)~~ ✅ FIXED v0.4.22
 - ~~Pending agent notification badge (BUG-006)~~ ✅ FIXED v0.4.17
 
-**For detailed status**: See [BUG.md](./BUG.md), [TODO.md](./TODO.md)
+**For detailed status**: See [BUGS.md](./BUGS.md), [TODO.md](./TODO.md)
 
 ## Architecture
 
 ```
-┌──────────────┐         WebSocket          ┌──────────────┐
+┌──────────────┐         WebSocket          ┌───────────────┐
 │   Frontend   │◄──────────────────────────►│  Hub (Server) │
 │ React + Vite │         REST API           │  Go + SQLite  │
 │  Ant Design  │◄──────────────────────────►│  + Valkey     │
-└──────────────┘                            └──────┬───────┘
+└──────────────┘                            └──────┬────────┘
                                                    │ WebSocket
-                                            ┌──────▼───────┐
+                                            ┌──────▼────────┐
                                             │    Agent      │  × N servers
                                             │  Go modules   │
-                                            │  21 services  │
-                                            └──────────────┘
+                                            │  23 services  │
+                                            │  + Ansible    │
+                                            └───────────────┘
 ```
 
 | Component | Tech Stack |
@@ -172,22 +201,35 @@ prism/
 │       ├── contexts/          # Auth, Agents, AppConfig
 │       └── layouts/           # AppLayout + Sidebar
 ├── docs/                      # Documentation
-│   └── VM_REQUIREMENTS.md     # VM configuration guide
+│   ├── BUGS.md                 # Active bug registry
+│   ├── TODO.md                # Development roadmap
+│   ├── IMPLEMENTED.md         # Implemented features
+│   ├── CHANGELOG.md           # Version history
+│   ├── VERSION.md             # Versioning guidelines
+│   ├── DEVELOPER_GUIDE.md     # Development setup
+│   ├── KNOWN_ISSUES.md        # Known issues
+│   └── v0.5.0_RELEASE.md      # Latest release notes
 ├── scripts/                   # Automation scripts
 │   ├── deploy.sh              # Deployment automation
 │   ├── create_release.sh      # Release creation
-│   ├── run_tests.sh           # Test runner
-│   └── vm_test_deploy.sh      # VM test deployment (QEMU/KVM)
-├── TODO.md                    # Development roadmap
-└── IMPLEMENTED.md             # Complete feature registry
+│   ├── prism_install_agent.sh # Agent installer (NEW)
+│   └── performance/           # k6 performance tests
+│       └── run-all.sh         # Test runner
+├── Dockerfile.server          # Server container (NEW)
+├── Dockerfile.agent           # Agent container (NEW)
+├── docker-compose.yml         # Local dev setup (NEW)
+└── frontend/
+    └── Dockerfile             # Frontend container (NEW)
 ```
 
-## Documentation
+## Quick Links
 
 | Document | Purpose |
 |---|---|
-| [IMPLEMENTED.md](./IMPLEMENTED.md) | Complete registry of all implemented features with file locations |
-| [TODO.md](./TODO.md) | Development roadmap and pending features |
+| [docs/IMPLEMENTED.md](./docs/IMPLEMENTED.md) | Complete registry of all features |
+| [docs/TODO.md](./docs/TODO.md) | Development roadmap |
+| [docs/BUGS.md](./docs/BUGS.md) | Bug tracker |
+| [docs/CHANGELOG.md](./docs/CHANGELOG.md) | Version history |
 
 ## License
 

@@ -88,7 +88,7 @@ export function useWebSocketLogs(
                         return;
                     }
                 } catch (err) {
-                    log.error('Failed to parse WebSocket log message:', err);
+                    // Silent fail for parse errors - not user-facing operations
                 }
             };
 

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { log } from '../utils/log';
-import { message } from 'antd';
+import { handleError } from '../utils/log';
 import type { ServiceAccount } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -38,31 +37,33 @@ export function useAccounts() {
         search?: string;
     }) => {
         if (!token) return;
-        try {
-            const params = new URLSearchParams();
-            if (filters?.projectId) params.append('projectId', filters.projectId);
-            if (filters?.serverId) params.append('serverId', filters.serverId);
-            if (filters?.serviceId) params.append('serviceId', filters.serviceId);
-            if (filters?.category) params.append('category', filters.category);
-            if (filters?.type) params.append('type', filters.type);
-            if (filters?.status) params.append('status', filters.status);
-            if (filters?.search) params.append('search', filters.search);
+        setLoading(true);
+        const data = await handleError(
+            async () => {
+                const params = new URLSearchParams();
+                if (filters?.projectId) params.append('projectId', filters.projectId);
+                if (filters?.serverId) params.append('serverId', filters.serverId);
+                if (filters?.serviceId) params.append('serviceId', filters.serviceId);
+                if (filters?.category) params.append('category', filters.category);
+                if (filters?.type) params.append('type', filters.type);
+                if (filters?.status) params.append('status', filters.status);
+                if (filters?.search) params.append('search', filters.search);
 
-            const url = `${apiBase}/api/accounts${params.toString() ? '?' + params.toString() : ''}`;
-            const res = await fetch(url, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setAccounts(data || []);
-            }
-        } catch (err) {
-            log.error('Failed to fetch accounts', err); message.error('Failed to fetch accounts');
-        } finally {
-            setLoading(false);
+                const url = `${apiBase}/api/accounts${params.toString() ? '?' + params.toString() : ''}`;
+                const res = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                if (!res.ok) throw new Error('Failed to fetch');
+                return await res.json();
+            },
+            'Failed to fetch accounts'
+        );
+        if (data) {
+            setAccounts(data);
         }
+        setLoading(false);
     }, [token, apiBase]);
 
     const fetchCrossReference = useCallback(async (filters?: {
@@ -72,25 +73,27 @@ export function useAccounts() {
         search?: string;
     }) => {
         if (!token) return;
-        try {
-            const params = new URLSearchParams();
-            if (filters?.projectId) params.append('projectId', filters.projectId);
-            if (filters?.serverId) params.append('serverId', filters.serverId);
-            if (filters?.category) params.append('category', filters.category);
-            if (filters?.search) params.append('search', filters.search);
+        const data = await handleError(
+            async () => {
+                const params = new URLSearchParams();
+                if (filters?.projectId) params.append('projectId', filters.projectId);
+                if (filters?.serverId) params.append('serverId', filters.serverId);
+                if (filters?.category) params.append('category', filters.category);
+                if (filters?.search) params.append('search', filters.search);
 
-            const url = `${apiBase}/api/accounts/cross-reference${params.toString() ? '?' + params.toString() : ''}`;
-            const res = await fetch(url, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setCrossReference(data || []);
-            }
-        } catch (err) {
-            log.error('Failed to fetch cross-reference', err); message.error('Failed to fetch cross-reference');
+                const url = `${apiBase}/api/accounts/cross-reference${params.toString() ? '?' + params.toString() : ''}`;
+                const res = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                if (!res.ok) throw new Error('Failed to fetch');
+                return await res.json();
+            },
+            'Failed to fetch cross-reference'
+        );
+        if (data) {
+            setCrossReference(data);
         }
     }, [token, apiBase]);
 
@@ -101,63 +104,63 @@ export function useAccounts() {
 
     const createAccount = useCallback(async (data: Omit<ServiceAccount, 'id' | 'createdAt'>) => {
         if (!token) return null;
-        try {
-            const res = await fetch(`${apiBase}/api/accounts`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(data)
-            });
-            if (res.ok) {
+        const result = await handleError(
+            async () => {
+                const res = await fetch(`${apiBase}/api/accounts`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(data)
+                });
+                if (!res.ok) throw new Error('Failed to create');
                 const newAccount = await res.json();
                 setAccounts(prev => [newAccount, ...prev]);
                 return newAccount;
-            }
-        } catch (err) {
-            log.error('Failed to create account', err); message.error('Failed to create account');
-        }
-        return null; // or throw
+            },
+            'Failed to create account'
+        );
+        return result || null;
     }, [token, apiBase]);
 
     const updateAccount = useCallback(async (id: string, data: Partial<Omit<ServiceAccount, 'id' | 'createdAt'>>) => {
         if (!token) return false;
-        try {
-            const res = await fetch(`${apiBase}/api/accounts/${id}`, {
-                method: 'PUT',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(data)
-            });
-            if (res.ok) {
+        const success = await handleError(
+            async () => {
+                const res = await fetch(`${apiBase}/api/accounts/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(data)
+                });
+                if (!res.ok) throw new Error('Failed to update');
                 const updatedAccount = await res.json();
                 setAccounts(prev => prev.map(a => a.id === id ? { ...a, ...updatedAccount } : a));
                 return true;
-            }
-        } catch (err) {
-            log.error('Failed to update account', err); message.error('Failed to update account');
-        }
-        return false;
+            },
+            'Failed to update account'
+        );
+        return success || false;
     }, [token, apiBase]);
 
     const deleteAccount = useCallback(async (id: string) => {
         if (!token) return;
-        try {
-            const res = await fetch(`${apiBase}/api/accounts/${id}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            if (res.ok) {
+        await handleError(
+            async () => {
+                const res = await fetch(`${apiBase}/api/accounts/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                if (!res.ok) throw new Error('Failed to delete');
                 setAccounts(prev => prev.filter(a => a.id !== id));
-            }
-        } catch (err) {
-            log.error('Failed to delete account', err); message.error('Failed to delete account');
-        }
+            },
+            'Failed to delete account'
+        );
     }, [token, apiBase]);
 
     const deleteAccountsByProject = useCallback(async (projectId: string) => {
@@ -171,71 +174,72 @@ export function useAccounts() {
 
     const provisionAccount = useCallback(async (agentId: string, action: string, options: Record<string, unknown>) => {
         if (!token) return false;
-        try {
-            const service = action.startsWith('db_') ? (accounts.find(a => a.agentId === agentId)?.type || 'mongodb') : 'unknown';
+        const service = action.startsWith('db_') ? (accounts.find(a => a.agentId === agentId)?.type || 'mongodb') : 'unknown';
 
-            const res = await fetch(`${apiBase}/api/control`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    agent_id: agentId,
-                    service: service,
-                    action,
-                    options
-                })
-            });
-            return res.ok;
-        } catch (err) {
-            log.error('Failed to provision account', err); message.error('Failed to provision account');
-            return false;
-        }
+        const res = await fetch(`${apiBase}/api/control`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                agent_id: agentId,
+                service: service,
+                action,
+                options
+            })
+        });
+        const success = await handleError(
+            async () => res.ok,
+            'Failed to provision account'
+        );
+        return success || false;
     }, [token, apiBase, accounts]);
 
     const bulkUpdateProject = useCallback(async (accountIds: string[], projectId: string | null) => {
         if (!token) return false;
-        try {
-            const res = await fetch(`${apiBase}/api/accounts/bulk-project`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ accountIds, projectId })
-            });
-            if (res.ok) {
+        const success = await handleError(
+            async () => {
+                const res = await fetch(`${apiBase}/api/accounts/bulk-project`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ accountIds, projectId })
+                });
+                if (!res.ok) throw new Error('Failed to update');
                 fetchAccounts();
                 fetchCrossReference();
                 return true;
-            }
-        } catch (err) {
-            log.error('Failed to bulk update project', err); message.error('Failed to bulk update project');
-        }
-        return false;
+            },
+            'Failed to bulk update project',
+            { showToast: false }
+        );
+        return success || false;
     }, [token, apiBase, fetchAccounts, fetchCrossReference]);
 
     const bulkDisable = useCallback(async (accountIds: string[]) => {
         if (!token) return false;
-        try {
-            const res = await fetch(`${apiBase}/api/accounts/bulk-disable`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ accountIds })
-            });
-            if (res.ok) {
+        const success = await handleError(
+            async () => {
+                const res = await fetch(`${apiBase}/api/accounts/bulk-disable`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ accountIds })
+                });
+                if (!res.ok) throw new Error('Failed to disable');
                 fetchAccounts();
                 fetchCrossReference();
                 return true;
-            }
-        } catch (err) {
-            log.error('Failed to bulk disable accounts', err); message.error('Failed to bulk disable accounts');
-        }
-        return false;
+            },
+            'Failed to bulk disable accounts',
+            { showToast: false }
+        );
+        return success || false;
     }, [token, apiBase, fetchAccounts, fetchCrossReference]);
 
     const accountsByProject = useCallback((projectId: string) =>

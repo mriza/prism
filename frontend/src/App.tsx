@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ConfigProvider, theme } from 'antd';
 import { useAuth } from './contexts/AuthContext';
+import { useTheme } from './contexts/ThemeContext';
 import { AppLayout } from './layouts/AppLayout';
-import { AuthProvider } from './contexts/AuthContext';
+import { NewLayout } from './layouts/NewLayout';
 import { AgentsProvider } from './contexts/AgentsContext';
 import { AppConfigProvider } from './contexts/AppConfigContext';
 import { DashboardPage } from './pages/DashboardPage';
@@ -17,6 +18,9 @@ import { SecurityPage } from './pages/SecurityPage';
 import { LoginPage } from './pages/LoginPage';
 import { UsersPage } from './pages/UsersPage';
 import { LogsPage } from './pages/LogsPage';
+import { WebhooksPage } from './pages/WebhooksPage';
+import { RolesPage } from './pages/RolesPage';
+import { ConfigDriftPage } from './pages/ConfigDriftPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -31,55 +35,80 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function ThemeSync() {
   const { token } = theme.useToken();
+
+  // Memoize specific token values to prevent unnecessary re-runs
+  const cssVars = useMemo(() => ({
+    primary: token.colorPrimary,
+    borderRadius: token.borderRadius,
+    borderRadiusLG: token.borderRadiusLG,
+    borderRadiusSM: token.borderRadiusSM,
+    colorBorder: token.colorBorder,
+    colorBorderSecondary: token.colorBorderSecondary,
+    colorFillAlter: token.colorFillAlter,
+    colorBgLayout: token.colorBgLayout,
+    fontSizeSM: token.fontSizeSM,
+    fontSize: token.fontSize,
+    colorSuccess: token.colorSuccess,
+    colorError: token.colorError,
+    colorWarning: token.colorWarning,
+    colorInfo: token.colorInfo,
+    marginLG: token.marginLG,
+    paddingLG: token.paddingLG,
+  }), [
+    token.colorPrimary,
+    token.borderRadius,
+    token.borderRadiusLG,
+    token.borderRadiusSM,
+    token.colorBorder,
+    token.colorBorderSecondary,
+    token.colorFillAlter,
+    token.colorBgLayout,
+    token.fontSizeSM,
+    token.fontSize,
+    token.colorSuccess,
+    token.colorError,
+    token.colorWarning,
+    token.colorInfo,
+    token.marginLG,
+    token.paddingLG,
+  ]);
+
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty('--prism-primary-color', token.colorPrimary);
-    root.style.setProperty('--prism-border-radius', `${token.borderRadius}px`);
-    root.style.setProperty('--prism-border-radius-lg', `${token.borderRadiusLG}px`);
-    root.style.setProperty('--prism-border-radius-sm', `${token.borderRadiusSM}px`);
-    root.style.setProperty('--prism-color-border', token.colorBorder);
-    root.style.setProperty('--prism-color-border-secondary', token.colorBorderSecondary);
-    root.style.setProperty('--prism-color-fill-alter', token.colorFillAlter);
-    root.style.setProperty('--prism-color-bg-layout', token.colorBgLayout);
-    root.style.setProperty('--prism-font-size-sm', `${token.fontSizeSM}px`);
-    root.style.setProperty('--prism-font-size', `${token.fontSize}px`);
-    root.style.setProperty('--prism-color-success', token.colorSuccess);
-    root.style.setProperty('--prism-color-error', token.colorError);
-    root.style.setProperty('--prism-color-warning', token.colorWarning);
-    root.style.setProperty('--prism-color-info', token.colorInfo);
-    root.style.setProperty('--prism-margin-lg', `${token.marginLG}px`);
-    root.style.setProperty('--prism-padding-lg', `${token.paddingLG}px`);
-  }, [token]);
+    root.style.setProperty('--prism-primary-color', cssVars.primary);
+    root.style.setProperty('--prism-border-radius', `${cssVars.borderRadius}px`);
+    root.style.setProperty('--prism-border-radius-lg', `${cssVars.borderRadiusLG}px`);
+    root.style.setProperty('--prism-border-radius-sm', `${cssVars.borderRadiusSM}px`);
+    root.style.setProperty('--prism-color-border', cssVars.colorBorder);
+    root.style.setProperty('--prism-color-border-secondary', cssVars.colorBorderSecondary);
+    root.style.setProperty('--prism-color-fill-alter', cssVars.colorFillAlter);
+    root.style.setProperty('--prism-color-bg-layout', cssVars.colorBgLayout);
+    root.style.setProperty('--prism-font-size-sm', `${cssVars.fontSizeSM}px`);
+    root.style.setProperty('--prism-font-size', `${cssVars.fontSize}px`);
+    root.style.setProperty('--prism-color-success', cssVars.colorSuccess);
+    root.style.setProperty('--prism-color-error', cssVars.colorError);
+    root.style.setProperty('--prism-color-warning', cssVars.colorWarning);
+    root.style.setProperty('--prism-color-info', cssVars.colorInfo);
+    root.style.setProperty('--prism-margin-lg', `${cssVars.marginLG}px`);
+    root.style.setProperty('--prism-padding-lg', `${cssVars.paddingLG}px`);
+  }, [cssVars]);
+
   return null;
 }
 
-function AppContent() {
+function ThemedApp() {
+  const { themeConfig } = useTheme();
+
   return (
-    <ConfigProvider
-      theme={{
-        algorithm: theme.defaultAlgorithm,
-        token: {
-          colorPrimary: '#1677ff',
-          borderRadius: 8,
-          fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-        },
-        components: {
-          Layout: {
-            headerBg: 'transparent',
-            headerPadding: '0 24px',
-          },
-          Menu: {
-            itemBg: 'transparent',
-          }
-        }
-      }}
-    >
+    <ConfigProvider theme={themeConfig}>
       <ThemeSync />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        
+        {/* New Layout Route */}
         <Route element={
           <ProtectedRoute>
-            <AppLayout />
+            <NewLayout />
           </ProtectedRoute>
         }>
           <Route index element={<DashboardPage />} />
@@ -87,14 +116,27 @@ function AppContent() {
           <Route path="projects/:id" element={<ProjectDetailPage />} />
           <Route path="accounts" element={<AccountsPage />} />
           <Route path="applications" element={<ApplicationsPage />} />
-          <Route path="deployments" element={<Navigate to="/applications" replace />} />
-          <Route path="processes" element={<Navigate to="/applications" replace />} />
           <Route path="servers" element={<ServersPage />} />
           <Route path="security" element={<SecurityPage />} />
           <Route path="logs" element={<LogsPage />} />
           <Route path="users" element={<UsersPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="webhooks" element={<WebhooksPage />} />
+          <Route path="roles" element={<RolesPage />} />
+          <Route path="config-drift" element={<ConfigDriftPage />} />
         </Route>
+
+        {/* Legacy Layout Route (for backward compatibility) */}
+        <Route path="/legacy" element={
+          <ProtectedRoute>
+            <AppLayout />
+          </ProtectedRoute>
+        }>
+          <Route path="dashboard" element={<DashboardPage />} />
+        </Route>
+
+        {/* Redirect unknown routes to home */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </ConfigProvider>
   );
@@ -102,13 +144,11 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppConfigProvider>
-        <AgentsProvider>
-          <AppContent />
-        </AgentsProvider>
-      </AppConfigProvider>
-    </AuthProvider>
+    <AppConfigProvider>
+      <AgentsProvider>
+        <ThemedApp />
+      </AgentsProvider>
+    </AppConfigProvider>
   );
 }
 
