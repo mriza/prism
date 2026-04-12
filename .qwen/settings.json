@@ -92,7 +92,11 @@
       "Bash(proxy_http_version *)",
       "Bash(setup)",
       "Bash(ngx)",
-      "Bash(toml)"
+      "Bash(toml)",
+      "Bash(git tag *)",
+      "Bash(gh *)",
+      "Bash(tar *)",
+      "Bash(sha256sum *)"
     ]
   },
   "$version": 3
